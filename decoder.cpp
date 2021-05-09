@@ -61,33 +61,9 @@ int main()
 	size_t in_size;
 	uint8_t* in_bytes = read_file("book1", &in_size);
 
-	if(in_size < 7){
-		printf("not a hoh file!\n");
-		return 1;
-	}
-	if(
-		in_bytes[0] !== 72
-		|| in_bytes[1] !== 79
-		|| in_bytes[2] !== 72
-	){
-		printf("not a hoh file!\n");
-		return 1;
-	}
-	size_t fileIndex = 3;
-	uint32_t width =    readVarint(in_bytes + fileIndex++) + 1;
-	uint32_t heigth =   readVarint(in_bytes + fileIndex++) + 1;//incorrect varint
-	uint8_t background= in_bytes[fileIndex++];
-	uint8_t csp =       in_bytes[fileIndex++];
-	uint8_t tileWidth = 1;
-	uint8_t tileHeight = 1;
-	if(width > 128 || height > 128){
-		uint8_t tileDimensions = in_bytes[fileIndex++];
-		uint32_t* offsets = new uint32_t[tileWidth * tileHeight - 1];
-		//split code here
-	}
-	else{
-		saveFile("book2",decodeTile(in_bytes + fileIndex,in_size - fileIndex));
-	}
+	uint8_t* fileIndex = in_bytes;
+	uint32_t width =    readVarint(fileIndex) + 1;
+	uint32_t heigth =   readVarint(fileIndex) + 1;
 	
 	delete[] in_bytes;
 	return 0;

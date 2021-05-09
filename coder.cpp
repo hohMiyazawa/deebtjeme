@@ -6,6 +6,9 @@
 #include <string.h>
 #include <assert.h>
 
+#include <cmath>
+#include <math.h>
+
 #include "rans_byte.h"
 #include "file_io.hpp"
 
@@ -94,6 +97,87 @@ void SymbolStats::normalize_freqs(uint32_t target_total)
     }
 }
 
+uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
+	if(a > b){
+		if(b > c){
+			return b;
+		}
+		else if(c > a){
+			return a;
+		}
+		else{
+			return c;
+		}
+	}
+	else{
+		if(b < c){
+			return b;
+		}
+		else if(c > a){
+			return c;
+		}
+		else{
+			return a;
+		}
+	}
+}
+
+uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
+	uint8_t* filtered = new uint8_t[width * height];
+	size_t counter = 0;
+
+	filtered[0] = in_bytes[0];//TL prediction
+	for(size_t i=1;i<width;i++){
+		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
+	}
+	for(size_t y=1;y<height;y++){
+		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+		for(size_t i=1;i<width;i++){
+			uint8_t L = in_bytes[y * width + i - 1];
+			uint8_t TL = in_bytes[(y-1) * width + i - 1];
+			uint8_t T = in_bytes[(y-1) * width + i];
+			filtered[(y * width) + i] = (
+				in_bytes[y * width + i] - median3(
+					L,
+					T,
+					L + T - TL
+				)
+			);
+		}
+	}
+	return filtered;
+}
+
+			/*if(y == 100 && i == 110){
+				printf("filtered %d\n",filtered[y * width + i]);
+				printf("value %d\n",in_bytes[i]);
+				printf("L %d\n",in_bytes[(y) * width + i - 1]);
+				printf("T %d\n",in_bytes[(y-1) * width + i]);
+				printf("TL %d\n",in_bytes[(y-1) * width + i - 1]);
+				printf("median %d\n",median3(
+					in_bytes[(y) * width + i - 1],
+					in_bytes[(y-1) * width + i],
+					in_bytes[(y) * width + i - 1] + in_bytes[(y-1) * width + i] - in_bytes[(y-1) * width + i - 1]
+				));
+			}*/
+
+double estimateEntropy(uint8_t* in_bytes, size_t size){
+	uint8_t frequencies[size];
+	for(size_t i=0;i<256;i++){
+		frequencies[i] = 0;
+	}
+	for(size_t i=0;i<size;i++){
+		frequencies[in_bytes[i]]++;
+	}
+	double sum = 0;
+	for(size_t i=0;i<256;i++){
+		if(frequencies[i]){
+			sum += -std::log2((double)frequencies[i]/(double)size) * (double)frequencies[i];
+		}
+	}
+	return sum;
+}
+
 const uint32_t prob_bits = 16;
 const uint32_t prob_scale = 1 << prob_bits;
 
@@ -140,7 +224,6 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 	for(size_t i=0;i<*streamSize;i++){
 		out[i] = ptr[i];
 	}
-//	delete[] out_buf;
 	return out;
 }
 
@@ -162,33 +245,40 @@ void print_usage(){
 	printf("./coder infile.grey width height outfile.hoh\n");
 }
 
-void writeVarint(uint32_t value,uint8_t* outPointer){
-
-	*outPointer = (uint8_t)value;
+void writeVarint(uint32_t value,uint8_t*& outPointer){
+	if(value < 128){
+		*(outPointer++) = (uint8_t)value;
+	}
+	else{
+		*(outPointer++) = 128 + (uint8_t)(value >> 7);
+		*(outPointer++) = (uint8_t)(value % 128);
+	}
 }
 
-void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t* outPointer){
+uint8_t* smallPaletteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t symbolCount,uint8_t* size){
+	uint8_t* buffer = new uint8_t[width * height + 100];
+	buffer[0] = 0;//don't bother with features yet
+	if(symbolCount == 2){
+		for(size_t i=0;i*8 < width*height - 7;i++){
+			buffer[i] = (in_bytes[i*8] << 7) + (in_bytes[i*8 + 1] << 6) + (in_bytes[i*8 + 2] << 5) + (in_bytes[i*8 + 3] << 4) + (in_bytes[i*8 + 4] << 3) + (in_bytes[i*8 + 5] << 2) + (in_bytes[i*8 + 6] << 1) + (in_bytes[i*8 + 7]);
+		}
+		//handle waff
+	}
+	else{
+	}
+	return buffer;
+}
+
+void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
 	*(outPointer++) = 0;//use flat entropy table
-	RansEncSymbol esyms[256];
 
-	for (int i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], i*256, 256, 16);
+	for(size_t index=0;index < width*height;index++){
+		*(outPointer++) = in_bytes[index];
 	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;--index;){
-		entropy.encodeSymbol(esyms,in_bytes[index]);
-	}
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	printf("streamsize %d\n",(int)streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
 }
 
-void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t* outPointer){
+void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
 	*(outPointer++) = 8;//use 8bit entropy table
 
@@ -216,6 +306,42 @@ void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_b
 	delete[] buffer;
 }
 
+void ffv1Coder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
+
+	//use ffv1 predictor
+	*(outPointer++) = 0b10000000;
+
+	*(outPointer++) = 16;//use 8bit entropy table
+
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+	
+
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes, width*height);
+
+	stats.normalize_freqs(1 << 16);
+
+	RansEncSymbol esyms[256];
+
+	for (int i=0; i < 256; i++) {
+		*(outPointer++) = (stats.freqs[i]) >> 8;
+		*(outPointer++) = (stats.freqs[i]) % 256;
+		RansEncSymbolInit(&esyms[i], stats.cum_freqs[i], stats.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+	}
+	delete[] filtered_bytes;
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	//printf("streamsize %d\n",(int)streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+	delete[] buffer;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 3){
 		printf("not enough arguments\n");
@@ -225,32 +351,32 @@ int main(int argc, char *argv[]){
 
 	uint32_t width = atoi(argv[2]);
 	uint32_t height = atoi(argv[3]);
-	if(width == 0 || height == 0){
+
+	size_t in_size;
+	uint8_t* in_bytes = read_file(argv[1], &in_size);
+	if(
+		width == 0 || height == 0
+		|| (width*height) != in_size
+	){
 		printf("invalid width or height\n");
 		print_usage();
 		return 2;
 	}
 
-	size_t in_size;
-	uint8_t* in_bytes = read_file(argv[1], &in_size);
 	printf("read %d bytes\n",(int)in_size);
-	printf("width*height %d\n",(int)(width*height));
+	printf("width x height %d x %d\n",(int)(width),(int)(height));
 
 	uint8_t* out_buf = new uint8_t[32<<20];
 	uint8_t* outPointer = out_buf;
-	*(outPointer++) = 72;
-	*(outPointer++) = 79;
-	*(outPointer++) = 72;
 	writeVarint((uint32_t)(width - 1), outPointer);
 	writeVarint((uint32_t)(height - 1),outPointer);
-	*(outPointer++) = 0;
-	*(outPointer++) = 0b01000000;
-	if(width > 128 || height > 128){
-		*(outPointer++) = 0;//no tiles yet
-	}
 	//simpleCoder(in_bytes,width,height,out_buf,outPointer);
-	staticCoder(in_bytes,width,height,out_buf,outPointer);
+	//staticCoder(in_bytes,width,height,out_buf,outPointer);
+	ffv1Coder(in_bytes,width,height,out_buf,outPointer);
 	delete[] in_bytes;
+
+	printf("file size %d\n",(int)(outPointer - out_buf));
+
 
 	write_file(argv[4],out_buf,outPointer - out_buf);
 	delete[] out_buf;
