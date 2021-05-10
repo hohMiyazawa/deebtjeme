@@ -11,91 +11,10 @@
 
 #include "rans_byte.h"
 #include "file_io.hpp"
+#include "symbolstats.hpp"
 
 void print_usage(){
 	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-1\n");
-}
-
-struct SymbolStats
-{
-    uint32_t freqs[256];
-    uint32_t cum_freqs[257];
-
-    void count_freqs(uint8_t const* in, size_t nbytes);
-    void calc_cum_freqs();
-    void normalize_freqs(uint32_t target_total);
-};
-
-void SymbolStats::count_freqs(uint8_t const* in, size_t nbytes)
-{
-    for (int i=0; i < 256; i++)
-        freqs[i] = 0;
-
-    for (size_t i=0; i < nbytes; i++)
-        freqs[in[i]]++;
-}
-
-void SymbolStats::calc_cum_freqs()
-{
-    cum_freqs[0] = 0;
-    for (int i=0; i < 256; i++)
-        cum_freqs[i+1] = cum_freqs[i] + freqs[i];
-}
-
-void SymbolStats::normalize_freqs(uint32_t target_total)
-{
-    assert(target_total >= 256);
-    
-    calc_cum_freqs();
-    uint32_t cur_total = cum_freqs[256];
-    
-    // resample distribution based on cumulative freqs
-    for (int i = 1; i <= 256; i++)
-        cum_freqs[i] = ((uint64_t)target_total * cum_freqs[i])/cur_total;
-
-    // if we nuked any non-0 frequency symbol to 0, we need to steal
-    // the range to make the frequency nonzero from elsewhere.
-    //
-    // this is not at all optimal, i'm just doing the first thing that comes to mind.
-    for (int i=0; i < 256; i++) {
-        if (freqs[i] && cum_freqs[i+1] == cum_freqs[i]) {
-            // symbol i was set to zero freq
-
-            // find best symbol to steal frequency from (try to steal from low-freq ones)
-            uint32_t best_freq = ~0u;
-            int best_steal = -1;
-            for (int j=0; j < 256; j++) {
-                uint32_t freq = cum_freqs[j+1] - cum_freqs[j];
-                if (freq > 1 && freq < best_freq) {
-                    best_freq = freq;
-                    best_steal = j;
-                }
-            }
-            assert(best_steal != -1);
-
-            // and steal from it!
-            if (best_steal < i) {
-                for (int j = best_steal + 1; j <= i; j++)
-                    cum_freqs[j]--;
-            } else {
-                assert(best_steal > i);
-                for (int j = i + 1; j <= best_steal; j++)
-                    cum_freqs[j]++;
-            }
-        }
-    }
-
-    // calculate updated freqs and make sure we didn't screw anything up
-    assert(cum_freqs[0] == 0 && cum_freqs[256] == target_total);
-    for (int i=0; i < 256; i++) {
-        if (freqs[i] == 0)
-            assert(cum_freqs[i+1] == cum_freqs[i]);
-        else
-            assert(cum_freqs[i+1] > cum_freqs[i]);
-
-        // calc updated freq
-        freqs[i] = cum_freqs[i+1] - cum_freqs[i];
-    }
 }
 
 uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
@@ -232,8 +151,6 @@ class EntropyEncoder{
 		uint8_t* out_buf;
 		uint8_t* out_end;
 		uint8_t* ptr;
-		uint8_t buffer;
-		uint8_t buffer_length;
 		RansState rans;
 };
 
@@ -242,8 +159,6 @@ EntropyEncoder::EntropyEncoder(void){
 	out_end = out_buf + out_max_elems;
 	ptr = out_end;
 	RansEncInit(&rans);
-	buffer = 0;
-	buffer_length = 0;
 }
 EntropyEncoder::~EntropyEncoder(void){
 	delete[] out_buf;
@@ -264,20 +179,6 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 	}
 	return out;
 }
-
-class EntropyDecoder{
-	public:
-		EntropyDecoder(uint8_t* start);
-		~EntropyDecoder();
-		uint8_t decodeSymbol(RansDecSymbol* magic);
-		uint8_t readByte();
-		uint8_t readBits(uint8_t number);
-	private:
-		uint8_t* ptr;
-		uint8_t buffer;
-		uint8_t buffer_length;
-		RansState rans;
-};
 
 void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
@@ -300,6 +201,9 @@ void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, length);
 	stats.normalize_freqs(256);
+	*(outPointer++) = 8;
+	*(outPointer++) = (uint8_t)stats.freqs[0];
+	*(outPointer++) = (uint8_t)stats.freqs[1];
 	stats.normalize_freqs(1 << 16);
 
 	RansEncSymbol esyms[2];
@@ -313,40 +217,10 @@ void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t
 
 	size_t streamSize;
 	uint8_t* buffer = entropy.conclude(&streamSize);
-
-	if(streamSize + 2 < (length + 7)/8){
-		printf("using ANS for entropy image, %d bytes\n",(int)(streamSize + 3));
-		*(outPointer++) = 8;
-		*(outPointer++) = stats.freqs[0];
-		*(outPointer++) = stats.freqs[1];
-		for(size_t i=0;i<streamSize;i++){
-			*(outPointer++) = buffer[i];
-		}
+	printf("using ANS for entropy image, %d bytes\n",(int)(streamSize + 3));
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
 	}
-	else{
-		printf("using raw binary for entropy image, %d bytes\n",(int)((length + 7)/8 + 1));
-		*(outPointer++) = 0;
-		for(size_t i=0;i<length;i += 8){
-			*(outPointer++) =
-				(in_bytes[i] << 7)
-				 + (in_bytes[i+1] << 6)
-				 + (in_bytes[i+2] << 5)
-				 + (in_bytes[i+3] << 4)
-				 + (in_bytes[i+4] << 3)
-				 + (in_bytes[i+5] << 2)
-				 + (in_bytes[i+6] << 1)
-				 + (in_bytes[i+7]);
-		}
-		int residual = width*height % 8;
-		if(residual){
-			uint8_t lastByte = 0;
-			for(size_t i=residual;i--;){
-				lastByte += in_bytes[length - i - 1] << i;
-			}
-			*(outPointer++) = lastByte;
-		}
-	}
-	//delete[] filter_bytes;
 	delete[] buffer;
 }
 
@@ -374,6 +248,7 @@ void writeVarint(uint32_t value,uint8_t*& outPointer){
 	}
 }
 
+/*
 void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
 	*(outPointer++) = 0;//use flat entropy table
@@ -382,6 +257,7 @@ void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_b
 		*(outPointer++) = in_bytes[index];
 	}
 }
+
 
 void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
@@ -410,6 +286,7 @@ void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_b
 	}
 	delete[] buffer;
 }
+*/
 
 void ffv1Coder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
