@@ -1,5 +1,6 @@
 coder
-decode
+decoder
 *.png
+*.raw
 *.g
 *.hoh

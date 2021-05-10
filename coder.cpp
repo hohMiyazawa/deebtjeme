@@ -12,46 +12,11 @@
 #include "rans_byte.h"
 #include "file_io.hpp"
 #include "symbolstats.hpp"
+#include "filters.hpp"
+#include "2dutils.hpp"
 
 void print_usage(){
 	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-1\n");
-}
-
-uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
-	if(a > b){
-		if(b > c){
-			return b;
-		}
-		else if(c > a){
-			return a;
-		}
-		else{
-			return c;
-		}
-	}
-	else{
-		if(b < c){
-			return b;
-		}
-		else if(c > a){
-			return c;
-		}
-		else{
-			return a;
-		}
-	}
-}
-
-uint8_t clamp(int a){
-	if(a < 0){
-		return 0;
-	}
-	else if(a > 255){
-		return 255;
-	}
-	else{
-		return (uint8_t)a;
-	}
 }
 
 uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
@@ -364,19 +329,6 @@ double regionalEntropy(
 	return sum;
 }
 
-size_t tileIndexFromPixel(
-	size_t pixel,
-	uint32_t width,
-	uint32_t b_width,
-	size_t blockSize
-){
-	uint32_t y = pixel / width;
-	uint32_t x = pixel % width;
-	uint32_t b_y = y / 8;
-	uint32_t b_x = x / 8;
-	return b_y * b_width + b_x;
-}
-
 void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b11000000;//110: use prediction and enropy image, no LZ | 00000 use awesome predictor
@@ -469,6 +421,15 @@ void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 		*(outPointer++) = (stats2.freqs[i]) % 256;
 		RansEncSymbolInit(&esyms2[i], stats2.cum_freqs[i], stats2.freqs[i], 16);
 	}
+
+/*
+	for(size_t i=0;i<256;i++){
+		printf("prob 0 %d\n",(int)stats1.freqs[i]);
+	}
+	for(size_t i=0;i<256;i++){
+		printf("prob 1 %d\n",(int)stats2.freqs[i]);
+	}
+*/
 
 
 	EntropyEncoder entropy;

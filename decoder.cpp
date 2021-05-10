@@ -9,6 +9,8 @@
 #include "rans_byte.h"
 #include "file_io.hpp"
 #include "symbolstats.hpp"
+#include "filters.hpp"
+#include "2dutils.hpp"
 
 void print_usage(){
 	printf("./decoder infile.hoh outfile.grey speed\n");
@@ -36,6 +38,31 @@ uint32_t readVarint(uint8_t*& pointer){
 			}
 		}
 	}
+}
+
+uint8_t* unfilter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
+	uint8_t* filtered = new uint8_t[width * height];
+
+	filtered[0] = in_bytes[0];
+	for(size_t i=1;i<width;i++){
+		filtered[i] = in_bytes[i] + filtered[i - 1];//top edge is always left-predicted
+	}
+	for(size_t y=1;y<height;y++){
+		filtered[y * width] = in_bytes[y * width] + filtered[(y-1) * width];//left edge is always top-predicted
+		for(size_t i=1;i<width;i++){
+			uint8_t L = filtered[y * width + i - 1];
+			uint8_t TL = filtered[(y-1) * width + i - 1];
+			uint8_t T = filtered[(y-1) * width + i];
+			filtered[(y * width) + i] = (
+				in_bytes[y * width + i] + median3(
+					L,
+					T,
+					L + T - TL
+				)
+			);
+		}
+	}
+	return filtered;
 }
 
 SymbolStats readTable(uint8_t*& fileIndex,size_t range){
@@ -74,6 +101,7 @@ uint8_t* readImageData_simple(
 	size_t range
 ){
 	printf("simple image started!\n");
+	uint8_t* pointer_start = fileIndex;
 	SymbolStats stats = readTable(fileIndex,range);
 	uint8_t* buffer = new uint8_t[width*height];
 	for(size_t i=0;i<width*height;i++){
@@ -99,7 +127,7 @@ uint8_t* readImageData_simple(
 		buffer[i] = (uint8_t)s;
 		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
 	}
-	printf("simple image read!\n");
+	printf("simple image read (%d bytes)!\n",(int)(fileIndex - pointer_start));
 	return buffer;
 }
 
@@ -115,13 +143,48 @@ uint8_t* readImageData_1prediction_entropy(
 	uint32_t e_height,
 	uint16_t contextBlockSize
 ){
+	printf("regular image started!\n");
 	SymbolStats stats[contexts];
 	for(size_t i=0;i<contexts;i++){
 		stats[i] = readTable(fileIndex,range);
 	}
+
+	RansDecSymbol dsyms[contexts][range];
+	for(size_t cont=0;cont<contexts;cont++){
+		for(size_t i=0;i<range;i++){
+//        		RansDecSymbolInit(&dsyms[i], stats.cum_freqs[i], stats.freqs[i]);
+			RansDecSymbolInit(&dsyms[cont][i], stats[cont].cum_freqs[i], stats[cont].freqs[i]);
+		}
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
 	uint8_t* buffer = new uint8_t[width*height];
 	for(size_t i=0;i<width*height;i++){
-		buffer[i] = 0;
+		uint8_t cont = entropyImage[tileIndexFromPixel(
+			i,
+			width,
+			e_width,
+			contextBlockSize
+		)];
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+		for(size_t j=0;j<256;j++){
+			if(stats[cont].cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		buffer[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[cont][s], 16);
+	}
+	uint8_t* unfiltered;
+	if(predictor == 0){
+		unfiltered = unfilter_all_ffv1(buffer, width, height);
+		printf("regular image read!\n");
+		delete[] buffer;
+		return unfiltered;
 	}
 	return buffer;
 }
@@ -226,6 +289,7 @@ int main(int argc, char *argv[]){
 	}
 	size_t in_size;
 	uint8_t* in_bytes = read_file(argv[1], &in_size);
+	printf("read %d bytes\n",(int)in_size);
 
 	uint8_t* fileIndex = in_bytes;
 	uint32_t width =    readVarint(fileIndex) + 1;
@@ -236,6 +300,9 @@ int main(int argc, char *argv[]){
 	uint8_t* out_bytes = readImage(fileIndex,width,height,256);
 	
 	delete[] in_bytes;
+
+	write_file(argv[2],out_bytes,width*height);
+
 	delete[] out_bytes;
 	return 0;
 }
