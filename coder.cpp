@@ -302,6 +302,23 @@ double* entropyLookup(SymbolStats stats,size_t total){
 	return table;
 }
 
+double* entropyLookup(SymbolStats stats){
+	double* table = new double[256];
+	size_t total = 0;
+	for(size_t i=0;i<256;i++){
+		total += stats.freqs[i];
+	}
+	for(size_t i=0;i<256;i++){
+		if(stats.freqs[i] == 0){
+			table[i] = -std::log2(1/(double)total);
+		}
+		else{
+			table[i] = -std::log2(stats.freqs[i]/(double)total);
+		}
+	}
+	return table;
+}
+
 double regionalEntropy(
 	uint8_t* in_bytes,
 	double* entropyTable,
@@ -362,6 +379,7 @@ void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 		entropyMap[i] = region;
 		sum += region;
 	}
+	delete[] entropyTable;
 	double average = sum/(b_width*b_height);//use for partitioning
 
 	uint8_t* entropyIndex = new uint8_t[b_width*b_height];
@@ -422,14 +440,194 @@ void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 		RansEncSymbolInit(&esyms2[i], stats2.cum_freqs[i], stats2.freqs[i], 16);
 	}
 
-/*
-	for(size_t i=0;i<256;i++){
-		printf("prob 0 %d\n",(int)stats1.freqs[i]);
+
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		if(entropyIndex[tileIndexFromPixel(
+			index,
+			width,
+			b_width,
+			blockSize
+		)] == 0){
+			entropy.encodeSymbol(esyms1,filtered_bytes[index]);
+		}
+		else{
+			entropy.encodeSymbol(esyms2,filtered_bytes[index]);
+		}
 	}
-	for(size_t i=0;i<256;i++){
-		printf("prob 1 %d\n",(int)stats2.freqs[i]);
+	delete[] filtered_bytes;
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	//printf("streamsize %d\n",(int)streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
 	}
-*/
+	delete[] entropyIndex;
+	delete[] buffer;
+}
+
+void fastCoder2(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
+
+	*(outPointer++) = 0b11000000;//110: use prediction and enropy image, no LZ | 00000 use awesome predictor
+	*(outPointer++) = 0b00000010;//two contexts
+	*(outPointer++) = 0b00100000;//entropy block size 8
+
+	size_t blockSize = 8;
+	uint32_t b_width = (width + blockSize - 1)/blockSize;
+	uint32_t b_height = (height + blockSize - 1)/blockSize;
+
+	uint8_t* filtered_bytes  = filter_all_ffv1(in_bytes, width, height);
+
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes, width*height);
+
+	double* entropyTable = entropyLookup(stats,width*height);
+
+	double entropyMap[b_width*b_height];
+	double sum = 0;
+	for(size_t i=0;i<b_width*b_height;i++){
+		double region = regionalEntropy(
+			filtered_bytes,
+			entropyTable,
+			i,
+			width,
+			height,
+			b_width,
+			b_height,
+			blockSize
+		);
+		entropyMap[i] = region;
+		sum += region;
+	}
+	delete[] entropyTable;
+	double average = sum/(b_width*b_height);//use for partitioning
+
+	uint8_t* entropyIndex = new uint8_t[b_width*b_height];
+	for(size_t i=0;i<b_width*b_height;i++){
+		if(entropyMap[i] < average){
+			entropyIndex[i] = 0;
+		}
+		else{
+			entropyIndex[i] = 1;
+		}
+	}
+
+	SymbolStats stats1;
+	SymbolStats stats2;
+	for(size_t i=0;i<256;i++){
+		stats1.freqs[i] = 0;
+		stats2.freqs[i] = 0;
+	}
+
+	for(size_t i=0;i<width*height;i++){
+		if(entropyIndex[tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		)] == 0){
+			stats1.freqs[filtered_bytes[i]]++;
+		}
+		else{
+			stats2.freqs[filtered_bytes[i]]++;
+		}
+	}
+
+	double* entropyTable1 = entropyLookup(stats1);
+	double* entropyTable2 = entropyLookup(stats2);
+
+	for(size_t i=0;i<b_width*b_height;i++){
+		double region1 = regionalEntropy(
+			filtered_bytes,
+			entropyTable1,
+			i,
+			width,
+			height,
+			b_width,
+			b_height,
+			blockSize
+		);
+		double region2 = regionalEntropy(
+			filtered_bytes,
+			entropyTable2,
+			i,
+			width,
+			height,
+			b_width,
+			b_height,
+			blockSize
+		);
+		if(region1 < region2){
+			entropyIndex[i] = 0;
+		}
+		else{
+			entropyIndex[i] = 1;
+		}
+	}
+
+
+	delete[] entropyTable1;
+	delete[] entropyTable2;
+
+	for(size_t i=0;i<width*height;i++){
+		if(entropyIndex[tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		)] == 0){
+			stats1.freqs[filtered_bytes[i]]++;
+		}
+		else{
+			stats2.freqs[filtered_bytes[i]]++;
+		}
+	}
+
+	binaryPaletteImage(entropyIndex,b_width,b_height,outPointer);
+
+	for(size_t i=0;i<256;i++){
+		stats1.freqs[i] = 0;
+		stats2.freqs[i] = 0;
+	}
+
+	for(size_t i=0;i<width*height;i++){
+		if(entropyIndex[tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		)] == 0){
+			stats1.freqs[filtered_bytes[i]]++;
+		}
+		else{
+			stats2.freqs[filtered_bytes[i]]++;
+		}
+	}
+
+
+
+
+	*(outPointer++) = 16;//use 16bit entropy table
+	stats1.normalize_freqs(1 << 16);
+
+	RansEncSymbol esyms1[256];
+
+	for (int i=0; i < 256; i++) {
+		*(outPointer++) = (stats1.freqs[i]) >> 8;
+		*(outPointer++) = (stats1.freqs[i]) % 256;
+		RansEncSymbolInit(&esyms1[i], stats1.cum_freqs[i], stats1.freqs[i], 16);
+	}
+
+	*(outPointer++) = 16;//use 16bit entropy table
+	stats2.normalize_freqs(1 << 16);
+
+	RansEncSymbol esyms2[256];
+
+	for (int i=0; i < 256; i++) {
+		*(outPointer++) = (stats2.freqs[i]) >> 8;
+		*(outPointer++) = (stats2.freqs[i]) % 256;
+		RansEncSymbolInit(&esyms2[i], stats2.cum_freqs[i], stats2.freqs[i], 16);
+	}
 
 
 	EntropyEncoder entropy;
@@ -454,7 +652,6 @@ void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 		*(outPointer++) = buffer[i];
 	}
 	delete[] entropyIndex;
-	delete[] entropyTable;
 	delete[] buffer;
 }
 
@@ -490,6 +687,9 @@ int main(int argc, char *argv[]){
 	else if(argc > 4 && strcmp(argv[5],"1") == 0){
 		cruncher_mode = 1;
 	}
+	else if(argc > 4 && strcmp(argv[5],"2") == 0){
+		cruncher_mode = 2;
+	}
 	else if(argc > 4){
 		printf("invalid speed setting\n");
 		print_usage();
@@ -506,6 +706,9 @@ int main(int argc, char *argv[]){
 	}
 	else if(cruncher_mode == 1){
 		fastCoder(in_bytes,width,height,out_buf,outPointer);
+	}
+	else if(cruncher_mode == 2){
+		fastCoder2(in_bytes,width,height,out_buf,outPointer);
 	}
 	delete[] in_bytes;
 
