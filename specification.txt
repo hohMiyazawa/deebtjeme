@@ -1,0 +1,60 @@
+VARINT: width  - 1
+VARINT: height - 1
+1 bit: use prediction?
+1 bit: use entropy image?
+1 bit: use LZ?
+if(use prediction){
+	5 bits: codeword
+	if(codeword == 0){
+		use the awesome predictor
+	}
+	if(codeword == 1){
+		8 bits: predictor index
+	}
+	if(codeword == 2 - 28){
+		2-28x 8 bits: predictor indices
+		4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
+	}
+	if(codeword == 29){
+		235 bits: predictor bitmask
+		4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
+	}
+}
+if(use entropy image){
+	8 bits number of contexts
+	4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
+}
+1-7 bits: padding to whole byte
+if(use prediction){
+	[predictor image]
+}
+if(use entropy image){
+	[entropy image]
+}
+if(use LZ){
+	LZ entropy code{
+		8 bits: mode
+		if(mode == 0){
+			flat distribution
+		}
+		if(mode == 1 - 16){
+			40x 1-16 bits: values
+		}
+	}
+}
+entropy codes{
+	8 bits: mode
+	if(mode == 0){
+		flat distribution
+	}
+	if(mode == 1 - 16){
+		rangex 1-16 bits: values
+	}
+	if(mode 128-255){
+		8 bits: startIndex high
+		8 bits: endIndex high
+		???x high bits: values
+		???x low bits: values
+	}
+}
+image data

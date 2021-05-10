@@ -122,6 +122,18 @@ uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
 	}
 }
 
+uint8_t clamp(int a){
+	if(a < 0){
+		return 0;
+	}
+	else if(a > 255){
+		return 255;
+	}
+	else{
+		return (uint8_t)a;
+	}
+}
+
 uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
 	uint8_t* filtered = new uint8_t[width * height];
 
@@ -147,9 +159,10 @@ uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
 	return filtered;
 }
 
-uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,int8_t a,int8_t b,int8_t c,int8_t d){
+uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,int a,int b,int c,int d){
 	uint8_t* filtered = new uint8_t[width * height];
-	int8_t sum = a + b + c + d;
+	uint8_t sum = a + b + c + d;
+	uint8_t halfsum = sum >> 1;
 
 	filtered[0] = in_bytes[0];//TL prediction
 	for(size_t i=1;i<width;i++){
@@ -162,9 +175,9 @@ uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,i
 			uint8_t TL = in_bytes[(y-1) * width + i - 1];
 			uint8_t T = in_bytes[(y-1) * width + i];
 			uint8_t TR = in_bytes[(y-1) * width + i + 1];
-			filtered[(y * width) + i] = (
-				in_bytes[y * width + i] - (
-					a*L + b*T + c*TL + d*TR
+			filtered[(y * width) + i] = clamp(
+				(int)in_bytes[y * width + i] - (
+					a*L + b*T + c*TL + d*TR + halfsum
 				)/sum
 			);
 		}
@@ -267,22 +280,55 @@ class EntropyDecoder{
 
 void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	*(outPointer++) = 0;//use no features
-	*(outPointer++) = 0;//use flat entropy table
-	for(size_t i=0;i<width*height;i += 8){
-		*(outPointer++) =
-			(in_bytes[i] << 7)
-			 + (in_bytes[i+1] << 6)
-			 + (in_bytes[i+2] << 5)
-			 + (in_bytes[i+3] << 4)
-			 + (in_bytes[i+4] << 3)
-			 + (in_bytes[i+5] << 2)
-			 + (in_bytes[i+6] << 1)
-			 + (in_bytes[i+7]);
+
+	size_t length = width*height;
+
+	SymbolStats stats;
+	stats.count_freqs(in_bytes, length);
+	stats.normalize_freqs(256);
+	stats.normalize_freqs(1 << 16);
+
+	RansEncSymbol esyms[2];
+	RansEncSymbolInit(&esyms[0], stats.cum_freqs[0], stats.freqs[0], 16);
+	RansEncSymbolInit(&esyms[1], stats.cum_freqs[1], stats.freqs[1], 16);
+
+	EntropyEncoder entropy;
+	for(size_t index=length;index--;){
+		entropy.encodeSymbol(esyms,in_bytes[index]);
 	}
-	int residual = width*height % 8;
-	if(residual){
-		*(outPointer++) = 0;//fix later
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+
+	if(streamSize + 2 < (length + 7)/8){
+		printf("using ANS for entropy image, %d bytes\n",(int)(streamSize + 3));
+		*(outPointer++) = 8;
+		*(outPointer++) = stats.freqs[0];
+		*(outPointer++) = stats.freqs[1];
+		for(size_t i=0;i<streamSize;i++){
+			*(outPointer++) = buffer[i];
+		}
 	}
+	else{
+		printf("using raw binary for entropy image, %d bytes\n",(int)((length + 7)/8 + 1));
+		*(outPointer++) = 0;
+		for(size_t i=0;i<length;i += 8){
+			*(outPointer++) =
+				(in_bytes[i] << 7)
+				 + (in_bytes[i+1] << 6)
+				 + (in_bytes[i+2] << 5)
+				 + (in_bytes[i+3] << 4)
+				 + (in_bytes[i+4] << 3)
+				 + (in_bytes[i+5] << 2)
+				 + (in_bytes[i+6] << 1)
+				 + (in_bytes[i+7]);
+		}
+		int residual = width*height % 8;
+		if(residual){
+			*(outPointer++) = 0;//fix later
+		}
+	}
+	delete[] buffer;
 }
 
 void print_usage(){
@@ -297,20 +343,6 @@ void writeVarint(uint32_t value,uint8_t*& outPointer){
 		*(outPointer++) = 128 + (uint8_t)(value >> 7);
 		*(outPointer++) = (uint8_t)(value % 128);
 	}
-}
-
-uint8_t* smallPaletteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t symbolCount,uint8_t* size){
-	uint8_t* buffer = new uint8_t[width * height + 100];
-	buffer[0] = 0;//don't bother with features yet
-	if(symbolCount == 2){
-		for(size_t i=0;i*8 < width*height - 7;i++){
-			buffer[i] = (in_bytes[i*8] << 7) + (in_bytes[i*8 + 1] << 6) + (in_bytes[i*8 + 2] << 5) + (in_bytes[i*8 + 3] << 4) + (in_bytes[i*8 + 4] << 3) + (in_bytes[i*8 + 5] << 2) + (in_bytes[i*8 + 6] << 1) + (in_bytes[i*8 + 7]);
-		}
-		//handle waff
-	}
-	else{
-	}
-	return buffer;
 }
 
 void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
