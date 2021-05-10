@@ -19,6 +19,12 @@ if(use prediction){
 		235 bits: predictor bitmask
 		4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
 	}
+	if(codeword == 30){
+		use the left predictor
+	}
+	if(codeword == 31){
+		use the top predictor
+	}
 }
 if(use entropy image){
 	8 bits number of contexts

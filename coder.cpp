@@ -12,8 +12,9 @@
 #include "rans_byte.h"
 #include "file_io.hpp"
 
-// This is just the sample program. All the meat is in rans_byte.h.
-
+void print_usage(){
+	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-1\n");
+}
 
 struct SymbolStats
 {
@@ -283,6 +284,19 @@ void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t
 
 	size_t length = width*height;
 
+	/*uint8_t* filter_bytes = new uint8_t[length];
+	filter_bytes[0] = in_bytes[0];
+
+	for(size_t i=1;i<length;i++){
+		if(in_bytes[i-1] == in_bytes[i]){
+			filter_bytes[i] = 0;
+		}
+		else{
+			filter_bytes[i] = 1;
+		}
+	}
+	in_bytes = filter_bytes;*/
+
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, length);
 	stats.normalize_freqs(256);
@@ -325,23 +339,38 @@ void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t
 		}
 		int residual = width*height % 8;
 		if(residual){
-			*(outPointer++) = 0;//fix later
+			uint8_t lastByte = 0;
+			for(size_t i=residual;i--;){
+				lastByte += in_bytes[length - i - 1] << i;
+			}
+			*(outPointer++) = lastByte;
 		}
 	}
+	//delete[] filter_bytes;
 	delete[] buffer;
-}
-
-void print_usage(){
-	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-1");
 }
 
 void writeVarint(uint32_t value,uint8_t*& outPointer){
 	if(value < 128){
 		*(outPointer++) = (uint8_t)value;
 	}
+	else if(value < (1<<14)){
+		*(outPointer++) = (uint8_t)((value % 128) + 128);
+		*(outPointer++) = (uint8_t)(value >> 7);
+	}
+	else if(value < (1<<21)){
+		*(outPointer++) = (uint8_t)((value % 128) + 128);
+		*(outPointer++) = (uint8_t)(((value >> 7) % 128) + 128);
+		*(outPointer++) = (uint8_t)(value >> 14);
+
+	}
+	else if(value < (1<<28)){
+		*(outPointer++) = (uint8_t)((value % 128) + 128);
+		*(outPointer++) = (uint8_t)(((value >> 7) % 128) + 128);
+		*(outPointer++) = (uint8_t)(((value >> 14) % 128) + 128);
+		*(outPointer++) = (uint8_t)(value >> 21);	}
 	else{
-		*(outPointer++) = 128 + (uint8_t)(value >> 7);
-		*(outPointer++) = (uint8_t)(value % 128);
+		//nope
 	}
 }
 
@@ -473,21 +502,15 @@ size_t tileIndexFromPixel(
 
 void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
-	//TODO add actual decoding?
-	*(outPointer++) = 0b00010000;
-	*(outPointer++) = 0b00000000;
-	*(outPointer++) = 0b00000000;
-
-	//something something entropy and LZ
-	*(outPointer++) = 0b00000000;
-	*(outPointer++) = 0b00000000;
+	*(outPointer++) = 0b11000000;//110: use prediction and enropy image, no LZ | 00000 use awesome predictor
+	*(outPointer++) = 0b00000010;//two contexts
+	*(outPointer++) = 0b00100000;//entropy block size 8
 
 	size_t blockSize = 8;
 	uint32_t b_width = (width + blockSize - 1)/blockSize;
 	uint32_t b_height = (height + blockSize - 1)/blockSize;
 
 	uint8_t* filtered_bytes  = filter_all_ffv1(in_bytes, width, height);
-	//uint8_t* filtered_bytes2 = filter_all_generic(in_bytes, width, height,1,2,0,1);
 
 	SymbolStats stats;
 	stats.count_freqs(filtered_bytes, width*height);
@@ -598,7 +621,7 @@ void fastCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 }
 
 int main(int argc, char *argv[]){
-	if(argc < 3){
+	if(argc < 6){
 		printf("not enough arguments\n");
 		print_usage();
 		return 1;
@@ -619,7 +642,8 @@ int main(int argc, char *argv[]){
 	}
 
 	printf("read %d bytes\n",(int)in_size);
-	printf("width x height %d x %d\n",(int)(width),(int)(height));
+	printf("width : %d\n",(int)(width));
+	printf("height: %d\n",(int)(height));
 
 	size_t cruncher_mode = 0;
 	if(argc > 4 && strcmp(argv[5],"0") == 0){
