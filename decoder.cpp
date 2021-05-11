@@ -9,7 +9,7 @@
 #include "rans_byte.h"
 #include "file_io.hpp"
 #include "symbolstats.hpp"
-#include "filters.hpp"
+#include "filter_utils.hpp"
 #include "2dutils.hpp"
 
 void print_usage(){

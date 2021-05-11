@@ -1,5 +1,5 @@
-#ifndef FILTERS_HEADER
-#define FILTERS_HEADER
+#ifndef FILTER_UTILS_HEADER
+#define FILTER_UTILS_HEADER
 
 uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
 	if(a > b){
@@ -37,4 +37,4 @@ uint8_t clamp(int a){
 		return (uint8_t)a;
 	}
 }
-#endif //FILTERS_HEADER
+#endif //FILTER_UTILS_HEADER
