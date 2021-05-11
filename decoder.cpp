@@ -180,7 +180,7 @@ uint8_t* readImageData_1prediction_entropy(
 		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[cont][s], 16);
 	}
 	uint8_t* unfiltered;
-	if(predictor == 0){
+	if(predictor == 6){
 		unfiltered = unfilter_all_ffv1(buffer, width, height);
 		printf("regular image read!\n");
 		delete[] buffer;
@@ -199,6 +199,7 @@ uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height,size_t ran
 	uint8_t predictorLength = 0;
 	uint8_t contexts = 0;
 	uint16_t contextBlockSize = 0;
+	uint16_t predictorBlockSize = 0;
 	uint32_t e_width;
 	uint32_t e_height;
 	uint8_t* entropyImage;
@@ -209,15 +210,31 @@ uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height,size_t ran
 		printf("  prediction\n");
 		uint8_t codeword = modebyte1 % 32;
 		if(codeword == 0){
-			predictors[0] = 0;
+			predictors[0] = 6;
 			predictorLength = 1;
 		}
-		else{
-			printf("NO IMPLEMENTATION!\n");
+		else if(codeword == 30){
+			predictors[0] = 0b01000100;
+			predictorLength = 1;
 		}
-		if(codeword > 1){
+		else if(codeword == 31){
+			predictors[0] = 0b00010100;
+			predictorLength = 1;
 		}
-		if(useEntropy){
+
+
+		if(codeword > 1 && codeword < 30){
+			if(codeword == 29){
+				//TODO bitmask
+			}
+			else{
+				predictorLength = codeword;
+				for(size_t i=0;i<predictorLength;i++){
+					predictors[i] = *(fileIndex++);
+				}
+			}
+		}
+		else if(useEntropy){
 			printf("  entropy image\n");
 			uint8_t modebyte2 = *(fileIndex++);
 			contexts = modebyte2;

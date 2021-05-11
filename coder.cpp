@@ -13,129 +13,12 @@
 #include "file_io.hpp"
 #include "symbolstats.hpp"
 #include "filter_utils.hpp"
+#include "filters.hpp"
 #include "2dutils.hpp"
 
 void print_usage(){
-	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-1\n");
+	printf("./coder infile.grey width height outfile.hoh speed\n\nspeed is a number from 0-4\n");
 }
-
-uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	uint8_t* filtered = new uint8_t[width * height];
-
-	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			uint8_t L = in_bytes[y * width + i - 1];
-			uint8_t TL = in_bytes[(y-1) * width + i - 1];
-			uint8_t T = in_bytes[(y-1) * width + i];
-			filtered[(y * width) + i] = (
-				in_bytes[y * width + i] - median3(
-					L,
-					T,
-					L + T - TL
-				)
-			);
-		}
-	}
-	return filtered;
-}
-
-uint8_t* filter_all_median(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	uint8_t* filtered = new uint8_t[width * height];
-
-	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			filtered[(y * width) + i] = (
-				in_bytes[y * width + i] - median3(
-					in_bytes[y * width + i - 1],
-					in_bytes[(y-1) * width + i],
-					in_bytes[(y-1) * width + i - 1]
-				)
-			);
-		}
-	}
-	return filtered;
-}
-
-uint8_t* filter_all_left(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	uint8_t* filtered = new uint8_t[width * height];
-
-	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[y * width + i - 1];
-		}
-	}
-	return filtered;
-}
-
-uint8_t* filter_all_top(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	uint8_t* filtered = new uint8_t[width * height];
-
-	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[(y-1) * width + i];
-		}
-	}
-	return filtered;
-}
-
-uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,int a,int b,int c,int d){
-	uint8_t* filtered = new uint8_t[width * height];
-	uint8_t sum = a + b + c + d;
-	uint8_t halfsum = sum >> 1;
-
-	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			uint8_t L = in_bytes[y * width + i - 1];
-			uint8_t TL = in_bytes[(y-1) * width + i - 1];
-			uint8_t T = in_bytes[(y-1) * width + i];
-			uint8_t TR = in_bytes[(y-1) * width + i + 1];
-			filtered[(y * width) + i] = clamp(
-				(int)in_bytes[y * width + i] - (
-					a*L + b*T + c*TL + d*TR + halfsum
-				)/sum
-			);
-		}
-	}
-	return filtered;
-}
-
-			/*if(y == 100 && i == 110){
-				printf("filtered %d\n",filtered[y * width + i]);
-				printf("value %d\n",in_bytes[i]);
-				printf("L %d\n",in_bytes[(y) * width + i - 1]);
-				printf("T %d\n",in_bytes[(y-1) * width + i]);
-				printf("TL %d\n",in_bytes[(y-1) * width + i - 1]);
-				printf("median %d\n",median3(
-					in_bytes[(y) * width + i - 1],
-					in_bytes[(y-1) * width + i],
-					in_bytes[(y) * width + i - 1] + in_bytes[(y-1) * width + i] - in_bytes[(y-1) * width + i - 1]
-				));
-			}*/
 
 double estimateEntropy(uint8_t* in_bytes, size_t size){
 	uint8_t frequencies[size];
@@ -243,6 +126,55 @@ void binaryPaletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t
 	delete[] buffer;
 }
 
+SymbolStats lagrange(int bias){
+}
+
+void paletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t range,uint8_t*& outPointer){
+	*(outPointer++) = 0;//use no features
+
+	size_t length = width*height;
+
+	/*uint8_t* filter_bytes = new uint8_t[length];
+	filter_bytes[0] = in_bytes[0];
+
+	for(size_t i=1;i<length;i++){
+		if(in_bytes[i-1] == in_bytes[i]){
+			filter_bytes[i] = 0;
+		}
+		else{
+			filter_bytes[i] = 1;
+		}
+	}
+	in_bytes = filter_bytes;*/
+
+	SymbolStats stats;
+	stats.count_freqs(in_bytes, length);
+	stats.normalize_freqs(256);
+	*(outPointer++) = 8;
+	for(size_t i=0;i<range;i++){
+		*(outPointer++) = (uint8_t)stats.freqs[i];
+	}
+	stats.normalize_freqs(1 << 16);
+
+	RansEncSymbol esyms[range];
+	for(size_t i=0;i<range;i++){
+		RansEncSymbolInit(&esyms[i], stats.cum_freqs[i], stats.freqs[i], 16);
+	}
+
+	EntropyEncoder entropy;
+	for(size_t index=length;index--;){
+		entropy.encodeSymbol(esyms,in_bytes[index]);
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	printf("sub image, %d bytes\n",(int)(streamSize + 2 + range));
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+	delete[] buffer;
+}
+
 void writeVarint(uint32_t value,uint8_t*& outPointer){
 	if(value < 128){
 		*(outPointer++) = (uint8_t)value;
@@ -266,46 +198,6 @@ void writeVarint(uint32_t value,uint8_t*& outPointer){
 		//nope
 	}
 }
-
-/*
-void simpleCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
-	*(outPointer++) = 0;//use no features
-	*(outPointer++) = 0;//use flat entropy table
-
-	for(size_t index=0;index < width*height;index++){
-		*(outPointer++) = in_bytes[index];
-	}
-}
-
-
-void staticCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
-	*(outPointer++) = 0;//use no features
-	*(outPointer++) = 8;//use 8bit entropy table
-
-	SymbolStats stats;
-	stats.count_freqs(in_bytes, width*height);
-	stats.normalize_freqs(1 << 16);
-
-	RansEncSymbol esyms[256];
-
-	for (int i=0; i < 256; i++) {
-		*(outPointer++) = (stats.freqs[i]) >> 8;
-		*(outPointer++) = (stats.freqs[i]) % 256;
-		RansEncSymbolInit(&esyms[i], stats.cum_freqs[i], stats.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;--index;){
-		entropy.encodeSymbol(esyms,in_bytes[index]);
-	}
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	printf("streamsize %d\n",(int)streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-*/
 
 void ffv1Coder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
@@ -1204,6 +1096,268 @@ void slowCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf
 	delete[] entropyTable2;
 }
 
+static int compare (const void * a, const void * b){
+	if (*(double*)a > *(double*)b) return 1;
+	else if (*(double*)a < *(double*)b) return -1;
+	else return 0;  
+}
+
+void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
+
+	size_t predictorNum = 3;
+	uint8_t predictors[predictorNum] = {
+		0b00000110,//ffv1
+		0b00000111,//median
+		0b01000100,//left
+		0b00010100,//top
+		0b01010100,//L-T
+		0b11000010,//[3,0,-1,2]
+		0b01100000,//[1,2,-1,0]
+		0b01010000//[1,1,-1,0]
+	};
+
+	*(outPointer++) = 0b11000000 + predictorNum;//110: use prediction and enropy image, no LZ | 00100 use eight predictor
+
+	for(size_t i=0;i<predictorNum;i++){
+		*(outPointer++) = predictors[i];
+	}
+
+	*(outPointer++) = 0b00100000;//four contexts, entropy block size 8
+	*(outPointer++) = 0b01000010;
+
+	size_t blockSize = 8;
+	uint32_t b_width = (width + blockSize - 1)/blockSize;
+	uint32_t b_height = (height + blockSize - 1)/blockSize;
+
+	uint8_t* filtered_bytes[predictorNum];
+	for(size_t i=0;i<predictorNum;i++){
+		filtered_bytes[i] = filter_all(in_bytes,width,height,predictors[i]);
+	}
+
+	SymbolStats stats_d;
+	stats_d.count_freqs(filtered_bytes[0], width*height);
+
+	double* entropyTable_d = entropyLookup(stats_d,width*height);
+
+	double entropyMap[b_width*b_height];
+	double sortedEntropies[b_width*b_height];
+	double sum = 0;
+	for(size_t i=0;i<b_width*b_height;i++){
+		double region = regionalEntropy(
+			filtered_bytes[0],
+			entropyTable_d,
+			i,
+			width,
+			height,
+			b_width,
+			b_height,
+			blockSize
+		);
+		entropyMap[i] = region;
+		sortedEntropies[i] = region;
+		sum += region;
+	}
+	delete[] entropyTable_d;
+
+	qsort(sortedEntropies, b_width*b_height, sizeof(double), compare);
+	double pivot1 = sortedEntropies[b_width*b_height/4];
+	double pivot2 = sortedEntropies[b_width*b_height/2];
+	double pivot3 = sortedEntropies[3*b_width*b_height/4];
+	printf("pivots %f %f %f\n",pivot1,pivot2,pivot3);
+
+	uint8_t* entropyIndex = new uint8_t[b_width*b_height];
+
+	for(size_t i=0;i<b_width*b_height;i++){
+		if(entropyMap[i] < pivot1){
+			entropyIndex[i] = 0;
+		}
+		else if(entropyMap[i] < pivot2){
+			entropyIndex[i] = 1;
+		}
+		else if(entropyMap[i] < pivot3){
+			entropyIndex[i] = 2;
+		}
+		else{
+			entropyIndex[i] = 3;
+		}
+	}
+
+	SymbolStats stats[4];
+	for(size_t i=0;i<256;i++){
+		stats[0].freqs[i] = 0;
+		stats[1].freqs[i] = 0;
+		stats[2].freqs[i] = 0;
+		stats[3].freqs[i] = 0;
+	}
+
+	for(size_t i=0;i<width*height;i++){
+		stats[entropyIndex[tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		)]].freqs[filtered_bytes[0][i]]++;
+	}
+
+	double* entropyTable[4];
+	for(size_t i=0;i<4;i++){
+		entropyTable[i] = entropyLookup(stats[i]);
+	}
+
+	uint8_t* predictorIndex = new uint8_t[b_width*b_height];
+
+	printf("setup\n");
+//end setup
+//optimisation passes
+	for(size_t i=0;i<b_width*b_height;i++){
+		double regions[predictorNum];
+		for(size_t pred=0;pred<predictorNum;pred++){
+			regions[pred] = regionalEntropy(
+				filtered_bytes[pred],
+				entropyTable[entropyIndex[i]],
+				i,
+				width,
+				height,
+				b_width,
+				b_height,
+				blockSize
+			);
+		}
+		double best = regions[0];
+		predictorIndex[i] = 0;
+		for(size_t pred=1;pred<predictorNum;pred++){
+			if(regions[pred] < best){
+				best = regions[pred];
+				predictorIndex[i] = pred;
+			}
+		}
+	}
+
+	printf("selection\n");
+
+	for(size_t i=0;i<256;i++){
+		stats[0].freqs[i] = 0;
+		stats[1].freqs[i] = 0;
+		stats[2].freqs[i] = 0;
+		stats[3].freqs[i] = 0;
+	}
+
+	printf("nulling\n");
+
+	for(size_t i=0;i<width*height;i++){
+		size_t place = tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		);
+		stats[entropyIndex[place]].freqs[filtered_bytes[predictorIndex[place]][i]]++;
+	}
+
+	printf("stats collection\n");
+
+	for(size_t i=0;i<4;i++){
+		delete[] entropyTable[i];
+		entropyTable[i] = entropyLookup(stats[i]);
+	}
+
+	for(size_t i=0;i<b_width*b_height;i++){
+		double regions[4];
+		for(size_t pred=0;pred<4;pred++){
+			regions[pred] = regionalEntropy(
+				filtered_bytes[predictorIndex[i]],
+				entropyTable[pred],
+				i,
+				width,
+				height,
+				b_width,
+				b_height,
+				blockSize
+			);
+		}
+		double best = regions[0];
+		//printf("ll %f %f %f %f\n",regions[0],regions[1],regions[2],regions[3]);
+		entropyIndex[i] = 0;
+		for(size_t pred=1;pred<4;pred++){
+			if(regions[pred] < best){
+				best = regions[pred];
+				entropyIndex[i] = pred;
+			}
+		}
+	}
+
+	printf("optim\n");
+//end optimisation passes
+	for(size_t i=0;i<256;i++){
+		stats[0].freqs[i] = 0;
+		stats[1].freqs[i] = 0;
+		stats[2].freqs[i] = 0;
+		stats[3].freqs[i] = 0;
+	}
+
+	for(size_t i=0;i<width*height;i++){
+		size_t place = tileIndexFromPixel(
+			i,
+			width,
+			b_width,
+			blockSize
+		);
+		stats[entropyIndex[place]].freqs[filtered_bytes[place][i]]++;
+	}
+//coding
+
+	paletteImage(predictorIndex,b_width,b_height,8,outPointer);
+	paletteImage(entropyIndex,b_width,b_height,4,outPointer);
+
+	RansEncSymbol esyms[4][256];
+	for(size_t ent = 0;ent < 4;ent++){
+		*(outPointer++) = 16;//use 16bit entropy table
+		/*printf("  ent1 %d\n",(int)ent);
+		for(size_t i=0;i<256;i++){
+			printf("laff %d\n",(int)stats[3].freqs[i]);
+		}*/
+		stats[ent].normalize_freqs(1 << 16);
+		//printf("  ent2 %d\n",(int)ent);
+		for (int i=0; i < 256; i++) {
+			*(outPointer++) = (stats[ent].freqs[i]) >> 8;
+			*(outPointer++) = (stats[ent].freqs[i]) % 256;
+			RansEncSymbolInit(&esyms[ent][i], stats[ent].cum_freqs[i], stats[ent].freqs[i], 16);
+		}
+	}
+
+	printf("entropy written\n");
+
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		size_t place = tileIndexFromPixel(
+			index,
+			width,
+			b_width,
+			blockSize
+		);
+		entropy.encodeSymbol(esyms[entropyIndex[place]],filtered_bytes[place][index]);
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	//printf("streamsize %d\n",(int)streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+	printf("coding done\n");
+//end coding
+
+
+//destructors
+	for(size_t i=0;i<4;i++){
+		delete[] entropyTable[i];
+	}
+	delete[] entropyIndex;
+	for(size_t i=0;i<predictorNum;i++){
+		delete[] filtered_bytes[i];
+	}
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 6){
 		printf("not enough arguments\n");
@@ -1245,6 +1399,9 @@ int main(int argc, char *argv[]){
 	else if(argc > 4 && strcmp(argv[5],"3") == 0){
 		cruncher_mode = 3;
 	}
+	else if(argc > 4 && strcmp(argv[5],"4") == 0){
+		cruncher_mode = 4;
+	}
 	else if(argc > 4){
 		printf("invalid speed setting\n");
 		print_usage();
@@ -1267,6 +1424,9 @@ int main(int argc, char *argv[]){
 	}
 	else if(cruncher_mode == 3){
 		slowCoder(in_bytes,width,height,out_buf,outPointer);
+	}
+	else if(cruncher_mode == 4){
+		bruteCoder(in_bytes,width,height,out_buf,outPointer);
 	}
 	delete[] in_bytes;
 

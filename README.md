@@ -8,7 +8,7 @@ Usage:
 ./coder infile.raw width height outfile.hoh speed
 ```
 
-Where ``infile.raw`` is raw 8bit values, and ``speed`` is one of ``0``, ``1``, ``2`` or ``3``, increasingly slower.
+Where ``infile.raw`` is raw 8bit values, and ``speed`` is one of ``0``, ``1``, ``2``, ``3`` or ``4``, increasingly slower.
 
 You can use imagemagick to get raw 8bit values:
 ```
