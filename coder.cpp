@@ -40,6 +40,46 @@ double estimateEntropy(uint8_t* in_bytes, size_t size){
 const uint32_t prob_bits = 16;
 const uint32_t prob_scale = 1 << prob_bits;
 
+class BitBuffer{
+	public:
+		uint8_t buffer[1024];
+		uint8_t length;
+		BitBuffer();
+		void writeBits(uint8_t value,uint8_t size);
+		void conclude();
+		
+	private:
+		uint8_t partial;
+		uint8_t partial_length;
+};
+
+BitBuffer::BitBuffer(){
+	length = 0;
+	partial = 0;
+	partial_length = 0;
+}
+void BitBuffer::conclude(){
+	buffer[length++] = partial << (8 - partial_length);
+	partial = 0;
+	partial_length = 0;
+}
+void BitBuffer::writeBits(uint8_t value,uint8_t size){
+	if(size + partial_length == 8){
+		buffer[length++] = partial + value;
+		partial = 0;
+		partial_length = 0;
+	}
+	else if(size + partial_length < 8){
+		partial += value << (8 - partial_length - size);
+		partial_length += size;
+	}
+	else{
+		buffer[length++] = partial + (value >> (partial_length + size - 8));
+		partial = (value % (1 << (partial_length + size - 8))) << (16 - partial_length - size);
+		partial_length = (partial_length + size - 8);
+	}
+}
+
 class EntropyEncoder{
 	public:
 		EntropyEncoder();
@@ -1104,7 +1144,7 @@ static int compare (const void * a, const void * b){
 
 void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
-	size_t predictorNum = 8;
+	size_t predictorNum = 9;
 	uint8_t predictors[predictorNum] = {
 		0b00000110,//ffv1
 		0b00000111,//median
@@ -1113,10 +1153,11 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		0b01010100,//L-T
 		0b11000010,//[3,0,-1,2]
 		0b01100000,//[1,2,-1,0]
-		0b01010000//[1,1,-1,0]
+		0b01010000,//[1,1,-1,0]
+		0b10010001//2,1,-1,1
 	};
 
-	*(outPointer++) = 0b11000000 + predictorNum;//110: use prediction and enropy image, no LZ | 00100 use eight predictor
+	*(outPointer++) = 0b11000000 + predictorNum;//110: use prediction and enropy image, no LZ | 00100 use nine predictors
 
 	for(size_t i=0;i<predictorNum;i++){
 		*(outPointer++) = predictors[i];

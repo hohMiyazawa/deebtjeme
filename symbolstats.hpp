@@ -1,6 +1,8 @@
 #ifndef SYMBOLSTATS_HEADER
 #define SYMBOLSTATS_HEADER
 
+#include <assert.h>
+
 struct SymbolStats
 {
     uint32_t freqs[256];
