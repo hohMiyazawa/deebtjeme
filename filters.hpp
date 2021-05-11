@@ -116,6 +116,9 @@ uint8_t* filter_all(uint8_t* in_bytes, uint32_t width, uint32_t height,uint8_t p
 	else if(predictor == 68){
 		return filter_all_left(in_bytes, width, height);
 	}
+	else if(predictor == 20){
+		return filter_all_top(in_bytes, width, height);
+	}
 	else{
 		int a = (predictor & 0b11000000) >> 6;
 		int b = (predictor & 0b00110000) >> 4;

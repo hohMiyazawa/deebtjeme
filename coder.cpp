@@ -1104,7 +1104,7 @@ static int compare (const void * a, const void * b){
 
 void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
-	size_t predictorNum = 3;
+	size_t predictorNum = 4;
 	uint8_t predictors[predictorNum] = {
 		0b00000110,//ffv1
 		0b00000111,//median
@@ -1206,7 +1206,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 
 	uint8_t* predictorIndex = new uint8_t[b_width*b_height];
 
-	printf("setup\n");
 //end setup
 //optimisation passes
 	for(size_t i=0;i<b_width*b_height;i++){
@@ -1233,7 +1232,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		}
 	}
 
-	printf("selection\n");
 
 	for(size_t i=0;i<256;i++){
 		stats[0].freqs[i] = 0;
@@ -1242,7 +1240,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		stats[3].freqs[i] = 0;
 	}
 
-	printf("nulling\n");
 
 	for(size_t i=0;i<width*height;i++){
 		size_t place = tileIndexFromPixel(
@@ -1254,7 +1251,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		stats[entropyIndex[place]].freqs[filtered_bytes[predictorIndex[place]][i]]++;
 	}
 
-	printf("stats collection\n");
 
 	for(size_t i=0;i<4;i++){
 		delete[] entropyTable[i];
@@ -1286,7 +1282,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		}
 	}
 
-	printf("optim\n");
 //end optimisation passes
 	for(size_t i=0;i<256;i++){
 		stats[0].freqs[i] = 0;
@@ -1302,7 +1297,7 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 			b_width,
 			blockSize
 		);
-		stats[entropyIndex[place]].freqs[filtered_bytes[place][i]]++;
+		stats[entropyIndex[place]].freqs[filtered_bytes[predictorIndex[place]][i]]++;
 	}
 //coding
 
@@ -1325,8 +1320,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 		}
 	}
 
-	printf("entropy written\n");
-
 	EntropyEncoder entropy;
 	for(size_t index=width*height;index--;){
 		size_t place = tileIndexFromPixel(
@@ -1335,7 +1328,7 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 			b_width,
 			blockSize
 		);
-		entropy.encodeSymbol(esyms[entropyIndex[place]],filtered_bytes[place][index]);
+		entropy.encodeSymbol(esyms[entropyIndex[place]],filtered_bytes[predictorIndex[place]][index]);
 	}
 
 	size_t streamSize;
@@ -1344,7 +1337,6 @@ void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_bu
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
-	printf("coding done\n");
 //end coding
 
 
