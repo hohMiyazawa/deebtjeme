@@ -1104,7 +1104,7 @@ static int compare (const void * a, const void * b){
 
 void bruteCoder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
-	size_t predictorNum = 4;
+	size_t predictorNum = 8;
 	uint8_t predictors[predictorNum] = {
 		0b00000110,//ffv1
 		0b00000111,//median

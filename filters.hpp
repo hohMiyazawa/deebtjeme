@@ -96,8 +96,8 @@ uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,i
 			int TL = in_bytes[(y-1) * width + i - 1];
 			int T = in_bytes[(y-1) * width + i];
 			int TR = in_bytes[(y-1) * width + i + 1];
-			filtered[(y * width) + i] = clamp(
-				(int)in_bytes[y * width + i] - (
+			filtered[(y * width) + i] = in_bytes[y * width + i] - clamp(
+				(
 					a*L + b*T + c*TL + d*TR + halfsum
 				)/sum
 			);
