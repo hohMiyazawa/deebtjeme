@@ -1,6 +1,8 @@
 #ifndef SYMBOLSTATS_HEADER
 #define SYMBOLSTATS_HEADER
 
+#include <stdlib.h>
+#include <stdint.h>
 #include <assert.h>
 
 struct SymbolStats
