@@ -5,22 +5,12 @@
 Usage:
 
 ```
-./coder infile.raw width height outfile.hoh speed
+./choh infile.png outfile.hoh speed
 ```
 
-Where ``infile.raw`` is raw 8bit values, and ``speed`` is one of ``0``, ``1``, ``2``, ``3`` or ``4``, increasingly slower.
-
-You can use imagemagick to get raw 8bit values:
-```
-convert infile.png -depth 8 gray:infile.raw
-```
+Where ``speed`` is one of ``0``, ``1``, ``2``, ``3`` or ``4``, increasingly slower.
 
 Decoding:
 ```
-./decoder infile.hoh outfile.raw
-```
-
-Imagemagick can also be used to convert raw bytes back to an image:
-```
-convert -size widthxheight -depth 8 gray:infile.raw outfile.png
+./dhoh infile.hoh outfile.png
 ```

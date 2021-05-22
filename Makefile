@@ -1,12 +1,12 @@
 LIBS=-lm -lrt
 
-all: coder decoder tabletester testing raw_interleaving
+all: choh dhoh tabletester testing raw_interleaving
 
-coder: coder.cpp platform.h rans_byte.h symbolstats.hpp file_io.hpp filter_utils.hpp filters.hpp varint.hpp
-	g++ -o $@ $< -O3 $(LIBS)
+dhoh: dhoh.cpp platform.h rans_byte.h symbolstats.hpp file_io.hpp filter_utils.hpp unfilters.hpp varint.hpp
+	g++ lodepng.cpp -o $@ $< -O3 $(LIBS)
 
-decoder: decoder.cpp platform.h rans_byte.h symbolstats.hpp file_io.hpp filter_utils.hpp unfilters.hpp varint.hpp
-	g++ -o $@ $< -O3 $(LIBS)
+choh: choh.cpp platform.h rans_byte.h symbolstats.hpp file_io.hpp filter_utils.hpp filters.hpp varint.hpp
+	g++ lodepng.cpp -o $@ $< -O3 $(LIBS)
 
 tabletester: tabletester.cpp symbolstats.hpp file_io.hpp filter_utils.hpp filters.hpp
 	g++ -o $@ $< -O3 $(LIBS)
