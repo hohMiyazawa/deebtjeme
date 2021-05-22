@@ -2,19 +2,7 @@
 #define FILE_IO_HEADER
 
 #include <fstream>
-#include <stdarg.h>
-
-static void panic(const char *fmt, ...){
-	va_list arg;
-
-	va_start(arg, fmt);
-	fputs("Error: ", stderr);
-	vfprintf(stderr, fmt, arg);
-	va_end(arg);
-	fputs("\n", stderr);
-
-	exit(1);
-}
+#include "panic.hpp"
 
 static void write_file(char const* filename, uint8_t* start, size_t size){
 	std::ofstream file(filename,std::ofstream::binary);

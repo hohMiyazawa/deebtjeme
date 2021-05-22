@@ -1,7 +1,7 @@
 #ifndef LODE_IO_HEADER
 #define LODE_IO_HEADER
 
-#include "../lodepng.h"
+#include "lodepng.h"
 #include <iostream>
 
 void encodeOneStep(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height) {
