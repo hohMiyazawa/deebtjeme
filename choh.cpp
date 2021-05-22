@@ -105,7 +105,43 @@ void BitBuffer::writeBits(uint8_t value,uint8_t size){
 	}
 }
 
-SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer sink){
+SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
+	//current behaviour: always use 4bit magnitude coding
+	(*sink).writeBits(0,1);
+	//printf("sink %d %d\n",(int)(*sink).partial,(int)(*sink).partial_length);
+	(*sink).writeBits(3,2);
+	//printf("sink %d %d\n",(int)(*sink).partial,(int)(*sink).partial_length);
+
+	//current behaviour: scale down to nearest power of 2
+	freqs.normalize_freqs(1 << 16);
+	SymbolStats newFreqs;
+	for(size_t i=0;i<256;i++){
+		uint32_t power = 1;
+		uint32_t power_index = 1;
+		while(power <= freqs.freqs[i]){
+			power*=2;
+			power_index++;
+		}
+		power = power >> 1;
+		power_index--;
+		if(power_index > 15){
+			power_index = 15;
+			power = (1 << 14);
+		}
+		newFreqs.freqs[i] = power;
+		//printf("----%d %d %d\n",(int)i,(int)newFreqs.freqs[i],(int)freqs.freqs[i]);
+		//printf("power index %d\n",(int)power_index);
+		(*sink).writeBits(power_index,4);
+		uint8_t extraBits = power_index >> 1;
+		if(extraBits){
+			extraBits--;
+			if(extraBits){
+				(*sink).writeBits(0,extraBits);
+			}
+		}
+	}
+	newFreqs.normalize_freqs(1 << 16);
+	return newFreqs;
 }
 
 uint8_t* encode_grey_8bit_simple(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -165,6 +201,53 @@ uint8_t* encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 	return out_buf;
 }
 
+uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+
+	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
+	outPointer = out_buf;
+
+	writeVarint((uint32_t)(width - 1), outPointer);
+	writeVarint((uint32_t)(height - 1),outPointer);
+
+	*(outPointer++) = 0b00011100;//8bit greyscale header
+
+	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+
+	*(outPointer++) = 0;//ffv1 predictor
+
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes, width*height);
+
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,&tableEncode);
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		printf("buffer content %d\n",(int)tableEncode.buffer[i]);
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+	}
+	delete[] filtered_bytes;
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+
+	return out_buf;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -193,8 +276,12 @@ int main(int argc, char *argv[]){
 	printf("encoding as uncompressed hoh\n");
 	uint8_t* out_buf = encode_grey_8bit_simple(grey,width,height,outPointer);
 	*/
+	/*
 	printf("encoding as static predicted\n");
 	uint8_t* out_buf = encode_grey_8bit_static_ffv1(grey,width,height,outPointer);
+	*/
+	printf("encoding as ffv1 predicted\n");
+	uint8_t* out_buf = encode_grey_8bit_ffv1(grey,width,height,outPointer);
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
 

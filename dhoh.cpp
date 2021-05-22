@@ -95,6 +95,7 @@ SymbolStats decode_freqTable(BitReader reader){
 	SymbolStats stats;
 	uint8_t mode = reader.readBits(1);
 	if(mode == 1){//special modes
+		printf("    laplace table\n");
 		mode = reader.readBits(7);
 		if(mode == 0){
 			for(size_t i=0;i<256;i++){
@@ -106,7 +107,33 @@ SymbolStats decode_freqTable(BitReader reader){
 		}
 	}
 	else{
+		mode = reader.readBits(2);
+		if(mode == 3){
+			printf("    4bit magnitude table\n");
+			for(size_t i=0;i<256;i++){
+				uint8_t magnitude = reader.readBits(4);
+				if(magnitude == 0){
+					stats.freqs[i] = 0;
+					//TODO zero modelling
+				}
+				else{
+					uint32_t power = 1 << (magnitude - 1);
+					stats.freqs[i] = power;
+					uint8_t extraBits = magnitude >> 1;
+					if(extraBits){
+						extraBits--;
+						stats.freqs[i] += reader.readBits(extraBits) << (magnitude - extraBits - 1);
+					}
+				}
+				//printf("----%d %d %d\n",(int)i,(int)stats.freqs[i],(int)magnitude);
+			}
+		}
+		else{
+			panic("only 4bit magnitude coding implemented!\n");
+		}
+		stats.normalize_freqs(1 << 16);
 	}
+	printf("    table read\n");
 	return stats;
 }
 
@@ -231,7 +258,6 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 		BitReader reader(&fileIndex);
 		printf("  reader created\n");
 		for(size_t i=0;i<entropyContexts;i++){
-			printf("    table read\n");
 			tables[i] = decode_freqTable(reader);
 		}
 	}
