@@ -11,33 +11,10 @@
 #include "symbolstats.hpp"
 #include "filter_utils.hpp"
 #include "2dutils.hpp"
+#include "varint.hpp"
 
 void print_usage(){
 	printf("./decoder infile.hoh outfile.grey speed\n");
-}
-
-uint32_t readVarint(uint8_t*& pointer){
-	uint32_t value = 0;
-	uint32_t read1 = *(pointer++);
-	if(read1 < 128){
-		return read1;
-	}
-	else{
-		uint32_t read2 = *(pointer++);
-		if(read2 < 128){
-			return (read1 % 128) + (read2 << 7);
-		}
-		else{
-			uint32_t read3 = *(pointer++);
-			if(read3 < 128){
-				return (read1 % 128) + ((read2 % 128) << 7)  + (read3 << 14);
-			}
-			else{
-				uint32_t read4 = *(pointer++);
-				return (read1 % 128) + ((read2 % 128) << 7)  + ((read3 % 128) << 14) + (read4 << 21);
-			}
-		}
-	}
 }
 
 uint8_t* unfilter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){

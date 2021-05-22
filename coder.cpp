@@ -215,30 +215,6 @@ void paletteImage(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t range
 	delete[] buffer;
 }
 
-void writeVarint(uint32_t value,uint8_t*& outPointer){
-	if(value < 128){
-		*(outPointer++) = (uint8_t)value;
-	}
-	else if(value < (1<<14)){
-		*(outPointer++) = (uint8_t)((value % 128) + 128);
-		*(outPointer++) = (uint8_t)(value >> 7);
-	}
-	else if(value < (1<<21)){
-		*(outPointer++) = (uint8_t)((value % 128) + 128);
-		*(outPointer++) = (uint8_t)(((value >> 7) % 128) + 128);
-		*(outPointer++) = (uint8_t)(value >> 14);
-
-	}
-	else if(value < (1<<28)){
-		*(outPointer++) = (uint8_t)((value % 128) + 128);
-		*(outPointer++) = (uint8_t)(((value >> 7) % 128) + 128);
-		*(outPointer++) = (uint8_t)(((value >> 14) % 128) + 128);
-		*(outPointer++) = (uint8_t)(value >> 21);	}
-	else{
-		//nope
-	}
-}
-
 void ffv1Coder(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t* out_buf,uint8_t*& outPointer){
 
 	//use ffv1 predictor

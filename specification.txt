@@ -1,66 +1,61 @@
-VARINT: width  - 1
-VARINT: height - 1
-1 bit: use prediction?
-1 bit: use entropy image?
-1 bit: use LZ?
-if(use prediction){
-	5 bits: codeword
-	if(codeword == 0){
-		use the awesome predictor
-	}
-	if(codeword == 1){
-		8 bits: predictor index
-	}
-	if(codeword == 2 - 28){
-		2-28x 8 bits: predictor indices
-		4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
-	}
-	if(codeword == 29){
-		235 bits: predictor bitmask
-		4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
-	}
-	if(codeword == 30){
-		use the left predictor
-	}
-	if(codeword == 31){
-		use the top predictor
-	}
-}
-if(use entropy image){
-	8 bits number of contexts
-	4 bits: block size, (1 << (1 + 3bit)) * (2 + 1bit), that is, the values [4,6,8,12,16,24,32,48,64,96,128,192,256,384,512,768]
-}
-1-7 bits: padding to whole byte
-if(use prediction){
-	[predictor image]
-}
-if(use entropy image){
-	[entropy image]
-}
-if(use LZ){
-	LZ entropy code{
-		8 bits: mode
-		if(mode == 0){
-			flat distribution
-		}
-		if(mode == 1 - 16){
-			40x 1-16 bits: values
-		}
-	}
-}
-entropy codes{
-	8 bits: mode
-	if(mode == 0){
-		flat distribution
-	}
-	if(mode == 1 - 16){
-		rangex 1-16 bits: values
-	}
-	if(mode 128-255){
-		8 bits: startIndex high
-		8 bits: endIndex high
-		???x high bits: values
-		???x low bits: values
-	}
-}
-image data
+This is an experiment in lossless image compression.
+
+No attempt is made to made a fully featured image format. If this scheme is to have a real world application, it should be embedded in some suitable container format.
+
+---
+
+Part 1: Minimal container format for standalone files.
+
+Consists of:
+
+WIDTH
+HEIGHT
+PIXEL FORMAT
+
+Width and height are both encoded as varints, minus one.
+
+The pixel format is a byte with the following bits:
+
+0DDDDDAC
+
+bit 0: a "0", reserved for future extension of the header format.
+	If this is set to "1", the bitstream does not conform to this standard.
+bit 1-5: bit depth, minus one. Values in the range 1-32
+bit 6: signals if an alpha channel is present
+bit 7: signals if colour is present
+
+for this purpose, the values of bits 6 and 7 have the following meanings:
+
+00: greyscale
+01: RGB
+10: greyscale + alpha
+11: ARGB
+
+The size of this header is thus 3-9 bytes
+
+---
+
+Part 2: Compression format
+
+Consists of:
+
+TRANSFORMS
+DATA FOR TRANSFORMS
+IMAGE DATA
+
+TRANSFORMS consists of one byte with the following bits:
+
+bit 0: reserved, should be 0
+bit 1: signals if the SYMMETRY transform is used
+bit 2: signals if the SUB_GREEN transform is used
+bit 3: signals if the INDEX transform is used
+bit 4: signals if the PREDICTION transform is used
+bit 5: signals if the ENTROPY_MAP transform is used
+bit 6: signals if the LZ transform is used
+bit 7; signals if the image data is entropy coded
+
+Remark: some combinations are not valid:
+if entropy coding is not used, PREDICTION and ENTROPY_MAP should be set to zero.
+
+
+
