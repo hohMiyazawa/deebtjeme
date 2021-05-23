@@ -95,7 +95,7 @@ uint8_t BitReader::readBits(uint8_t size){
 	}
 }
 
-SymbolStats decode_freqTable(BitReader reader){
+SymbolStats decode_freqTable(BitReader reader,size_t range){
 	SymbolStats stats;
 	uint8_t mode = reader.readBits(1);
 	if(mode == 1){//special modes
@@ -103,8 +103,14 @@ SymbolStats decode_freqTable(BitReader reader){
 		mode = reader.readBits(7);
 		if(mode == 0){
 			for(size_t i=0;i<256;i++){
-				stats.freqs[i] = 256;
+				if(i < range){
+					stats.freqs[i] = 1;
+				}
+				else{
+					stats.freqs[i] = 0;
+				}
 			}
+			stats.normalize_freqs(1 << 16);
 		}
 		else{
 			return laplace(mode);
@@ -115,10 +121,14 @@ SymbolStats decode_freqTable(BitReader reader){
 		if(mode == 3){
 			printf("    complete 4bit magnitude table\n");
 			for(size_t i=0;i<256;i++){
+				if(i >= range){
+					stats.freqs[i] = 0;
+					continue;
+				}
 				uint8_t magnitude = reader.readBits(4);
 				if(magnitude == 0){
 					stats.freqs[i] = 0;
-					uint8_t remainingNeededBits = log2_plus(255 - i);
+					uint8_t remainingNeededBits = log2_plus(range - 1 - i);
 					uint8_t runLength = reader.readBits(remainingNeededBits);
 					for(size_t j=0;j<runLength;j++){
 						i++;
@@ -151,6 +161,10 @@ SymbolStats decode_freqTable(BitReader reader){
 		else if(mode == 2){
 			printf("    4bit magnitude table\n");
 			for(size_t i=0;i<256;i++){
+				if(i >= range){
+					stats.freqs[i] = 0;
+					continue;
+				}
 				uint8_t magnitude = reader.readBits(4);
 				if(magnitude == 0){
 					stats.freqs[i] = 0;
@@ -241,7 +255,7 @@ uint8_t* read_binary_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t heigh
 	return bitmap;
 }
 
-uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height){
+uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height){
 	uint8_t compressionMode = *(fileIndex++);
 
 	uint8_t RESERVED    = (compressionMode & 0b10000000) >> 7;
@@ -270,7 +284,7 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 	if(INDEX){
 		printf("using colour index\n");
 		indexWidth = readVarint(fileIndex) + 1;
-		indexImage = read_8bit_greyscale(fileIndex,indexWidth,1);
+		indexImage = read_ranged_greyscale(fileIndex,range,indexWidth,1);
 	}
 	uint8_t predictors[235];
 	size_t predictorCount = 0;
@@ -278,9 +292,18 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 	if(PREDICTION){
 		printf("using prediction\n");
 		uint8_t predictionMode = *(fileIndex++);
-		if(predictionMode < 200){//fix number later
+		if(predictionMode < 226){
 			predictorCount = 1;
 			predictors[0] = predictionMode;
+		}
+		else if(predictionMode < 255){
+			predictorCount = 255 - predictionMode;
+			for(size_t i=0;i<predictorCount;i++){
+				predictors[i] = *(fileIndex++);
+			}
+		}
+		else{
+			//TODO read bitmask
 		}
 
 		if(predictorCount > 1){
@@ -302,10 +325,9 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 		BitReader reader(&fileIndex);
 		printf("  reader created\n");
 		for(size_t i=0;i<entropyContexts;i++){
-			tables[i] = decode_freqTable(reader);
+			tables[i] = decode_freqTable(reader,256);
 		}
 	}
-
 
 	uint8_t* bitmap = new uint8_t[width*height];
 	if(
@@ -315,6 +337,7 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 		&& CODED == 0
+		&& range == 256
 	){
 		for(size_t i=0;i<width*height;i++){
 			bitmap[i] = *(fileIndex++);
@@ -361,15 +384,7 @@ uint8_t* read_8bit_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height)
 		}
 	}
 	return bitmap;
-}
 
-uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height){
-	if(range == 2){
-		return read_binary_greyscale(fileIndex,width,height);
-	}
-	else if(range == 256){
-		return read_8bit_greyscale(fileIndex,width,height);
-	}
 }
 
 uint8_t* bitmap_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
@@ -403,7 +418,7 @@ uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height){
 		panic("colour decoding not yet implemented!\n");
 	}
 	if(!hasAlpha && !hasColour && bitDepth == 8){
-		return bitmap_expander(read_8bit_greyscale(fileIndex,width,height),width,height);
+		return bitmap_expander(read_ranged_greyscale(fileIndex,256,width,height),width,height);
 	}
 }
 
