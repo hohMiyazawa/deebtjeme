@@ -264,7 +264,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint32_t entropyWidth;
 	uint32_t entropyHeight;
 	if(ENTROPY_MAP){
-		entropyContexts = *(fileIndex++);
+		entropyContexts = *(fileIndex++) + 1;
 		if(entropyContexts > 1){
 			entropyWidth = readVarint(fileIndex) + 1;
 			entropyHeight = readVarint(fileIndex) + 1;
@@ -296,10 +296,18 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 		&& CODED == 0
-		&& range == 256
 	){
-		for(size_t i=0;i<width*height;i++){
-			bitmap[i] = *(fileIndex++);
+		if(range == 256){
+			for(size_t i=0;i<width*height;i++){
+				bitmap[i] = *(fileIndex++);
+			}
+		}
+		else{
+			BitReader reader(&fileIndex);
+			uint8_t bitsPerSymbol = log2_plus(range - 1);
+			for(size_t i=0;i<width*height;i++){
+				bitmap[i] = reader.readBits(bitsPerSymbol);
+			}
 		}
 	}
 	else if(

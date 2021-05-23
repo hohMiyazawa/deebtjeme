@@ -308,6 +308,134 @@ uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,
 	return out_buf;
 }
 
+uint8_t* sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	uint8_t* out_buf = new uint8_t[width*height + 64];
+	outPointer = out_buf;
+
+	*(outPointer++) = 0b00000000;//use no compression features
+	BitBuffer sink;
+	uint8_t bitDepth = log2_plus(range - 1);
+	for(size_t i=0;i<width*height;i++){
+		sink.writeBits(in_bytes[i],bitDepth);
+	}
+	sink.conclude();
+	for(size_t i=0;i<sink.length;i++){
+		*(outPointer++) = sink.buffer[i];
+	}
+
+	return out_buf;
+}
+
+uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+
+	uint32_t entropyWidth  = (width)/128;
+	uint32_t entropyHeight = (height)/128;
+	if(entropyWidth == 0){
+		entropyWidth = 1;
+	}
+	if(entropyHeight == 0){
+		entropyHeight = 1;
+	}
+	if(entropyWidth * entropyHeight == 1){
+		return encode_grey_8bit_ffv1(in_bytes,width,height,outPointer);
+	}
+	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+	printf("entropy map %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	printf("block size %d x %d\n",(int)entropyWidth_block,(int)entropyHeight_block);
+
+	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
+	outPointer = out_buf;
+
+	writeVarint((uint32_t)(width - 1), outPointer);
+	writeVarint((uint32_t)(height - 1),outPointer);
+
+	*(outPointer++) = 0b00011100;//8bit greyscale header
+
+	*(outPointer++) = 0b00001101;//use prediction and entropy coding
+
+	*(outPointer++) = 0;//ffv1 predictor
+
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+
+	SymbolStats stats[entropyWidth*entropyHeight];
+	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
+		for(size_t i=0;i<256;i++){
+			stats[context].freqs[i] = 0;
+		}
+	}
+	for(size_t i=0;i<width*height;i++){
+		stats[tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		)].freqs[filtered_bytes[i]]++;
+	}
+
+	*(outPointer++) = entropyWidth*entropyHeight - 1;//number of contexts
+
+	uint8_t* entropyImage = new uint8_t[entropyWidth*entropyHeight];
+	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
+		entropyImage[i] = i;//all contexts are unique
+	}
+
+	uint8_t* entropyImageData_pointer;
+	uint8_t* entropyImageData = sub_encode_ranged_simple(
+		entropyImage,
+		entropyWidth*entropyHeight,
+		entropyWidth,
+		entropyHeight,
+		entropyImageData_pointer
+	);
+	delete[] entropyImage;//don't need it, since all the contexts are unique
+	for(size_t i=0;i<(entropyImageData_pointer - entropyImageData);i++){
+		*(outPointer++) = entropyImageData[i];
+	}
+	delete[] entropyImageData;
+
+	BitBuffer tableEncode;
+	SymbolStats table[entropyWidth*entropyHeight];
+	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
+		table[context] = encode_freqTable(stats[context],&tableEncode);
+	}
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[entropyWidth*entropyHeight][256];
+
+	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
+		for(size_t i=0; i < 256; i++) {
+			RansEncSymbolInit(&esyms[context][i], table[context].cum_freqs[i], table[context].freqs[i], 16);
+		}
+	}
+	printf("starting entropy coding\n");
+
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		size_t tileIndex = tileIndexFromPixel(
+			index,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);
+	}
+	delete[] filtered_bytes;
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+
+	return out_buf;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -340,8 +468,12 @@ int main(int argc, char *argv[]){
 	printf("encoding as static predicted\n");
 	uint8_t* out_buf = encode_grey_8bit_static_ffv1(grey,width,height,outPointer);
 	*/
+	/*
 	printf("encoding as ffv1 predicted\n");
 	uint8_t* out_buf = encode_grey_8bit_ffv1(grey,width,height,outPointer);
+	*/
+	printf("encoding as ffv1 predicted and entropy mapped\n");
+	uint8_t* out_buf = encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
 
