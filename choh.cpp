@@ -86,7 +86,7 @@ BitBuffer::BitBuffer(){
 }
 void BitBuffer::conclude(){
 	if(partial_length){
-		buffer[length++] = partial << (8 - partial_length - 1);
+		buffer[length++] = partial;
 	}
 	partial = 0;
 	partial_length = 0;
@@ -204,7 +204,6 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 		printf("table %d %d\n",(int)i,(int)newFreqs.freqs[i]);
 	}
 */
-
 	newFreqs.normalize_freqs(1 << 16);
 	return newFreqs;
 }
@@ -412,7 +411,8 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 		table[context] = encode_freqTable(stats[context],tableEncode);
 	}
 	tableEncode.conclude();
-	printf("  buffer content %d\n",(int)tableEncode.buffer[0]);
+	//printf("  buffer content %d\n",(int)tableEncode.buffer[tableEncode.length - 2]);
+	//printf("  buffer content %d\n",(int)tableEncode.buffer[tableEncode.length - 1]);
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
 	}
