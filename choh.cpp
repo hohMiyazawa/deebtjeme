@@ -18,6 +18,7 @@
 #include "lode_io.hpp"
 #include "varint.hpp"
 #include "laplace.hpp"
+#include "numerics.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -84,12 +85,14 @@ BitBuffer::BitBuffer(){
 	partial_length = 0;
 }
 void BitBuffer::conclude(){
-	buffer[length++] = partial << (8 - partial_length);
+	buffer[length++] = partial << (8 - partial_length - 1);
 	partial = 0;
 	partial_length = 0;
 }
 void BitBuffer::writeBits(uint8_t value,uint8_t size){
-	if(size + partial_length == 8){
+	if(size == 0){
+	}
+	else if(size + partial_length == 8){
 		buffer[length++] = partial + value;
 		partial = 0;
 		partial_length = 0;
@@ -106,11 +109,10 @@ void BitBuffer::writeBits(uint8_t value,uint8_t size){
 }
 
 SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
+/*
 	//current behaviour: always use 4bit magnitude coding
 	(*sink).writeBits(0,1);
-	//printf("sink %d %d\n",(int)(*sink).partial,(int)(*sink).partial_length);
-	(*sink).writeBits(3,2);
-	//printf("sink %d %d\n",(int)(*sink).partial,(int)(*sink).partial_length);
+	(*sink).writeBits(2,2);
 
 	//current behaviour: scale down to nearest power of 2
 	freqs.normalize_freqs(1 << 16);
@@ -140,6 +142,65 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
 			}
 		}
 	}
+*/
+
+	//current behaviour: always use accurate 4bit magnitude coding, even if less accurate tables are sometimes more compact
+	(*sink).writeBits(0,1);
+	(*sink).writeBits(3,2);
+
+	size_t sum = 0;
+	for(size_t i=0;i<256;i++){
+		sum += freqs.freqs[i];
+	}
+	if(sum > (1 << 16)){
+		freqs.normalize_freqs(1 << 16);
+	}
+	SymbolStats newFreqs;
+	for(size_t i=0;i<256;i++){
+		newFreqs.freqs[i] = freqs.freqs[i];
+	}
+	for(size_t i=0;i<256;i++){
+		uint8_t magnitude = log2_plus(freqs.freqs[i]);
+		if(magnitude < 15){
+			(*sink).writeBits(magnitude,4);
+		}
+		else if(magnitude == 15){
+			(*sink).writeBits(15,4);
+			(*sink).writeBits(0,1);
+		}
+		else if(magnitude == 16){
+			(*sink).writeBits(15,4);
+			(*sink).writeBits(1,1);
+		}
+		if(magnitude == 0){
+			uint8_t remainingNeededBits = log2_plus(255 - i);
+			uint8_t count = 0;
+			for(uint8_t j=0;i + j < 256;j++){
+				if(freqs.freqs[i + j]){
+					break;
+				}
+				count++;
+			}
+			(*sink).writeBits(count - 1,remainingNeededBits);
+			i += (count - 1);
+		}
+		else{
+			uint32_t residual = freqs.freqs[i] - (1 << (magnitude - 1));
+			if(magnitude - 1 > 8){
+				(*sink).writeBits(residual >> 8,magnitude - 9);
+				(*sink).writeBits(residual % 256,8);
+			}
+			else{
+				(*sink).writeBits(residual,magnitude - 1);
+			}
+		}
+	}
+/*
+	for(size_t i=0;i<256;i++){
+		printf("table %d %d\n",(int)i,(int)newFreqs.freqs[i]);
+	}
+*/
+
 	newFreqs.normalize_freqs(1 << 16);
 	return newFreqs;
 }
@@ -224,7 +285,6 @@ uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,
 	SymbolStats table = encode_freqTable(stats,&tableEncode);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
-		printf("buffer content %d\n",(int)tableEncode.buffer[i]);
 		*(outPointer++) = tableEncode.buffer[i];
 	}
 
