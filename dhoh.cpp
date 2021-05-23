@@ -195,66 +195,6 @@ SymbolStats decode_freqTable(BitReader reader,size_t range){
 	return stats;
 }
 
-uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height);
-
-uint8_t* read_binary_greyscale(uint8_t*& fileIndex,uint32_t width,uint32_t height){
-	uint8_t compressionMode = *(fileIndex++);
-
-	uint8_t RESERVED    = (compressionMode & 0b10000000) >> 7;
-	uint8_t SYMMETRY    = (compressionMode & 0b01000000) >> 6;
-	uint8_t SUB_GREEN   = (compressionMode & 0b00100000) >> 5;
-	uint8_t INDEX       = (compressionMode & 0b00010000) >> 4;
-
-	uint8_t PREDICTION  = (compressionMode & 0b00001000) >> 3;
-	uint8_t ENTROPY_MAP = (compressionMode & 0b00000100) >> 2;
-	uint8_t LZ          = (compressionMode & 0b00000010) >> 1;
-	uint8_t CODED       = (compressionMode & 0b00000001) >> 0;
-	if(RESERVED == 1){
-		panic("reserved bit set! not a valid hoh file\n");
-	}
-	if(SUB_GREEN == 1){
-		panic("SUB_GREEN transform not valid for greyscale images!\n");
-	}
-
-	uint8_t* bitmap;
-	if(
-		SYMMETRY == 0
-		&& INDEX == 0
-		&& PREDICTION == 0
-		&& ENTROPY_MAP == 0
-		&& LZ == 0
-		&& CODED == 0
-	){
-		bitmap = new uint8_t[width*height];
-		for(size_t i=0;i<width*height;i += 8){
-			uint8_t bits = *(fileIndex++);
-			bitmap[i*8] = (bits & 0b10000000) >> 7;
-			if(i+1 < width*height){
-				bitmap[i*8 + 1] = (bits & 0b01000000) >> 6;
-			}
-			if(i+2 < width*height){
-				bitmap[i*8 + 2] = (bits & 0b00100000) >> 5;
-			}
-			if(i+3 < width*height){
-				bitmap[i*8 + 3] = (bits & 0b00010000) >> 4;
-			}
-			if(i+4 < width*height){
-				bitmap[i*8 + 4] = (bits & 0b00001000) >> 3;
-			}
-			if(i+5 < width*height){
-				bitmap[i*8 + 5] = (bits & 0b00000100) >> 2;
-			}
-			if(i+6 < width*height){
-				bitmap[i*8 + 6] = (bits & 0b00000010) >> 1;
-			}
-			if(i+7 < width*height){
-				bitmap[i*8 + 7] = (bits & 0b00000001) >> 0;
-			}
-		}
-	}
-	return bitmap;
-}
-
 uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height){
 	uint8_t compressionMode = *(fileIndex++);
 
@@ -289,6 +229,8 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint8_t predictors[235];
 	size_t predictorCount = 0;
 	uint8_t* predictorImage;
+	uint32_t predictorWidth;
+	uint32_t predictorHeight;
 	if(PREDICTION){
 		printf("using prediction\n");
 		uint8_t predictionMode = *(fileIndex++);
@@ -308,7 +250,9 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 
 		if(predictorCount > 1){
 			printf("  %d predictors\n",(int)predictorCount);
-			predictorImage = read_ranged_greyscale(fileIndex,predictorCount,indexWidth,1);
+			predictorWidth = readVarint(fileIndex) + 1;
+			predictorHeight = readVarint(fileIndex) + 1;
+			predictorImage = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
 		}
 		else{
 			printf("  1 predictor\n");
@@ -316,6 +260,21 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	}
 
 	uint8_t entropyContexts = 1;
+	uint8_t* entropyImage;
+	uint32_t entropyWidth;
+	uint32_t entropyHeight;
+	if(ENTROPY_MAP){
+		entropyContexts = *(fileIndex++);
+		if(entropyContexts > 1){
+			entropyWidth = readVarint(fileIndex) + 1;
+			entropyHeight = readVarint(fileIndex) + 1;
+			entropyImage = read_ranged_greyscale(fileIndex,entropyContexts,entropyWidth,entropyHeight);
+		}
+	}
+
+	if(LZ){
+		panic("LZ decoding not yet implemented!\n");
+	}
 	
 
 	SymbolStats tables[entropyContexts];
@@ -382,6 +341,15 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		for(size_t i=0;i<width*height;i++){
 			bitmap[i] = 0;
 		}
+	}
+	if(INDEX){
+		delete[] indexImage;
+	}
+	if(predictorCount > 1){
+		delete[] predictorImage;
+	}
+	if(entropyContexts > 1){
+		delete[] entropyImage;
 	}
 	return bitmap;
 
