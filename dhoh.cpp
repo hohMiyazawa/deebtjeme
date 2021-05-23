@@ -95,7 +95,7 @@ uint8_t BitReader::readBits(uint8_t size){
 	}
 }
 
-SymbolStats decode_freqTable(BitReader reader,size_t range){
+SymbolStats decode_freqTable(BitReader& reader,size_t range){
 	SymbolStats stats;
 	uint8_t mode = reader.readBits(1);
 	if(mode == 1){//special modes
@@ -191,7 +191,7 @@ SymbolStats decode_freqTable(BitReader reader,size_t range){
 */
 		stats.normalize_freqs(1 << 16);
 	}
-	printf("    table read\n");
+	//printf("    table read\n");
 	return stats;
 }
 
@@ -263,11 +263,17 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint8_t* entropyImage;
 	uint32_t entropyWidth;
 	uint32_t entropyHeight;
+	uint32_t entropyWidth_block;
+	uint32_t entropyHeight_block;
 	if(ENTROPY_MAP){
 		entropyContexts = *(fileIndex++) + 1;
 		if(entropyContexts > 1){
+			printf("  %d entropy contexts\n",(int)entropyContexts);
 			entropyWidth = readVarint(fileIndex) + 1;
 			entropyHeight = readVarint(fileIndex) + 1;
+			entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+			entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+			printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 			entropyImage = read_ranged_greyscale(fileIndex,entropyContexts,entropyWidth,entropyHeight);
 		}
 	}
@@ -275,7 +281,11 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	if(LZ){
 		panic("LZ decoding not yet implemented!\n");
 	}
-	
+/*
+	printf("    bbuffer content %d\n",(int)(*(fileIndex-3)));
+	printf("    bbuffer content %d\n",(int)(*(fileIndex-2)));
+	printf("    bbuffer content %d\n",(int)(*(fileIndex-1)));
+*/
 
 	SymbolStats tables[entropyContexts];
 	if(CODED){
@@ -284,7 +294,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		BitReader reader(&fileIndex);
 		printf("  reader created\n");
 		for(size_t i=0;i<entropyContexts;i++){
-			tables[i] = decode_freqTable(reader,256);
+			tables[i] = decode_freqTable(reader,range);
 		}
 	}
 
@@ -318,7 +328,6 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& LZ == 0
 		&& CODED == 1
 	){
-
 		printf("ransdec\n");
 
 		RansDecSymbol dsyms[256];
@@ -340,6 +349,50 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			}
 			bitmap[i] = s;
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+		}
+
+		unfilter_all_ffv1(bitmap, width, height);
+	}
+	else if(
+		SYMMETRY == 0
+		&& INDEX == 0
+		&& PREDICTION == 1 && predictorCount == 1 && predictors[0] == 0
+		&& ENTROPY_MAP == 1 && entropyContexts > 1
+		&& LZ == 0
+		&& CODED == 1
+	){
+		printf("ransdec\n");
+
+		RansDecSymbol dsyms[entropyContexts][256];
+		for(size_t context=0;context < entropyContexts;context++){
+			for(size_t i=0;i<256;i++){
+				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
+			}
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+
+			size_t tileIndex = tileIndexFromPixel(
+				i,
+				width,
+				entropyWidth,
+				entropyWidth_block,
+				entropyHeight_block
+			);
+
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
 
 		unfilter_all_ffv1(bitmap, width, height);

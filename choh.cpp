@@ -68,13 +68,13 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 
 class BitBuffer{
 	public:
-		uint8_t buffer[1024];
-		uint8_t length;
+		uint8_t buffer[8192];
+		size_t length;
 		BitBuffer();
 		void writeBits(uint8_t value,uint8_t size);
 		void conclude();
 		
-	private:
+	//private:
 		uint8_t partial;
 		uint8_t partial_length;
 };
@@ -85,7 +85,9 @@ BitBuffer::BitBuffer(){
 	partial_length = 0;
 }
 void BitBuffer::conclude(){
-	buffer[length++] = partial << (8 - partial_length - 1);
+	if(partial_length){
+		buffer[length++] = partial << (8 - partial_length - 1);
+	}
 	partial = 0;
 	partial_length = 0;
 }
@@ -108,7 +110,7 @@ void BitBuffer::writeBits(uint8_t value,uint8_t size){
 	}
 }
 
-SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
+SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 /*
 	//current behaviour: always use 4bit magnitude coding
 	(*sink).writeBits(0,1);
@@ -145,8 +147,10 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
 */
 
 	//current behaviour: always use accurate 4bit magnitude coding, even if less accurate tables are sometimes more compact
-	(*sink).writeBits(0,1);
-	(*sink).writeBits(3,2);
+
+	//printf("first in buffer %d %d\n",(int)sink.buffer[0],(int)sink.length);
+	sink.writeBits(0,1);
+	sink.writeBits(3,2);
 
 	size_t sum = 0;
 	for(size_t i=0;i<256;i++){
@@ -162,15 +166,15 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
 	for(size_t i=0;i<256;i++){
 		uint8_t magnitude = log2_plus(freqs.freqs[i]);
 		if(magnitude < 15){
-			(*sink).writeBits(magnitude,4);
+			sink.writeBits(magnitude,4);
 		}
 		else if(magnitude == 15){
-			(*sink).writeBits(15,4);
-			(*sink).writeBits(0,1);
+			sink.writeBits(15,4);
+			sink.writeBits(0,1);
 		}
 		else if(magnitude == 16){
-			(*sink).writeBits(15,4);
-			(*sink).writeBits(1,1);
+			sink.writeBits(15,4);
+			sink.writeBits(1,1);
 		}
 		if(magnitude == 0){
 			uint8_t remainingNeededBits = log2_plus(255 - i);
@@ -181,17 +185,17 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer* sink){
 				}
 				count++;
 			}
-			(*sink).writeBits(count - 1,remainingNeededBits);
+			sink.writeBits(count - 1,remainingNeededBits);
 			i += (count - 1);
 		}
 		else{
 			uint32_t residual = freqs.freqs[i] - (1 << (magnitude - 1));
 			if(magnitude - 1 > 8){
-				(*sink).writeBits(residual >> 8,magnitude - 9);
-				(*sink).writeBits(residual % 256,8);
+				sink.writeBits(residual >> 8,magnitude - 9);
+				sink.writeBits(residual % 256,8);
 			}
 			else{
-				(*sink).writeBits(residual,magnitude - 1);
+				sink.writeBits(residual,magnitude - 1);
 			}
 		}
 	}
@@ -282,7 +286,7 @@ uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,
 	stats.count_freqs(filtered_bytes, width*height);
 
 	BitBuffer tableEncode;
-	SymbolStats table = encode_freqTable(stats,&tableEncode);
+	SymbolStats table = encode_freqTable(stats,tableEncode);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
@@ -317,8 +321,10 @@ uint8_t* sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t widt
 	uint8_t bitDepth = log2_plus(range - 1);
 	for(size_t i=0;i<width*height;i++){
 		sink.writeBits(in_bytes[i],bitDepth);
+		//printf("s %d\n",(int)sink.partial_length);
 	}
 	sink.conclude();
+	//printf("sink length %d, %d x %d, %d<-%d\n",(int)sink.length,(int)width,(int)height,(int)bitDepth,(int)range);
 	for(size_t i=0;i<sink.length;i++){
 		*(outPointer++) = sink.buffer[i];
 	}
@@ -381,6 +387,8 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 		entropyImage[i] = i;//all contexts are unique
 	}
 
+	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
+	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
 	uint8_t* entropyImageData_pointer;
 	uint8_t* entropyImageData = sub_encode_ranged_simple(
 		entropyImage,
@@ -394,13 +402,17 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 		*(outPointer++) = entropyImageData[i];
 	}
 	delete[] entropyImageData;
+	/*printf("  cbuffer content %d\n",(int)(*(outPointer-3)));
+	printf("  cbuffer content %d\n",(int)(*(outPointer-2)));
+	printf("  cbuffer content %d\n",(int)(*(outPointer-1)));*/
 
 	BitBuffer tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		table[context] = encode_freqTable(stats[context],&tableEncode);
+		table[context] = encode_freqTable(stats[context],tableEncode);
 	}
 	tableEncode.conclude();
+	printf("  buffer content %d\n",(int)tableEncode.buffer[0]);
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
 	}
@@ -423,7 +435,7 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 			entropyWidth_block,
 			entropyHeight_block
 		);
-		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);
+		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);//index == context here, but that's not generally true. Use a map lookup!
 	}
 	delete[] filtered_bytes;
 
