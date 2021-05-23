@@ -13,4 +13,18 @@ uint8_t log2_plus(uint32_t input){
 	return pow;
 }
 
+uint8_t add_mod(uint8_t a, uint8_t b, uint32_t modulo){
+	if(b == 0 ){
+		return a;
+	}
+
+	b = modulo - b;
+	if(a >= b){
+		return a - b;
+	}
+	else{
+		return modulo - b + a;
+	}
+}
+
 #endif // NUMERICS_HEADER

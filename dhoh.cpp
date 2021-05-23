@@ -9,90 +9,17 @@
 #include "file_io.hpp"
 #include "symbolstats.hpp"
 #include "filter_utils.hpp"
+#include "unfilters.hpp"
 #include "2dutils.hpp"
 #include "varint.hpp"
 #include "lode_io.hpp"
 #include "laplace.hpp"
 #include "panic.hpp"
 #include "numerics.hpp"
+#include "bitreader.hpp"
 
 void print_usage(){
 	printf("./dhoh infile.hoh outfile.png\n");
-}
-
-void unfilter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	for(size_t i=1;i<width;i++){
-		in_bytes[i] = in_bytes[i] + in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		in_bytes[y * width] = in_bytes[y * width] + in_bytes[(y-1) * width];//left edge is always top-predicted
-		for(size_t i=1;i<width;i++){
-			uint8_t L = in_bytes[y * width + i - 1];
-			uint8_t TL = in_bytes[(y-1) * width + i - 1];
-			uint8_t T = in_bytes[(y-1) * width + i];
-			in_bytes[(y * width) + i] = (
-				in_bytes[y * width + i] + median3(
-					L,
-					T,
-					L + T - TL
-				)
-			);
-		}
-	}
-}
-
-class BitReader{
-	public:
-		BitReader(uint8_t** source);
-		BitReader(uint8_t** source,uint8_t startBits,uint8_t startBits_number);
-		uint8_t readBits(uint8_t size);
-	private:
-		uint8_t partial;
-		uint8_t partial_length;
-		uint8_t** byteSource;
-};
-
-BitReader::BitReader(uint8_t** source){
-	partial = 0;
-	partial_length = 0;
-	byteSource = source;
-}
-
-BitReader::BitReader(uint8_t** source,uint8_t startBits,uint8_t startBits_number){
-	partial = startBits;
-	partial_length = startBits_number;
-	byteSource = source;
-}
-
-uint8_t BitReader::readBits(uint8_t size){
-	if(size == 0){
-		return 0;
-	}
-	else if(size == partial_length){
-		uint8_t result = partial;
-		partial = 0;
-		partial_length = 0;
-		return result;
-	}
-	else if(size < partial_length){
-		uint8_t result = partial >> (partial_length - size);
-		partial = partial - (result << (partial_length - size));
-		partial_length -= size;
-		return result;
-	}
-	else{
-		uint8_t result = partial << (size - partial_length);
-		size -= partial_length;
-		partial = **byteSource;
-		(*byteSource)++;
-		partial_length = 8;
-
-		result += partial >> (partial_length - size);
-		partial = partial - (result << (partial_length - size));
-		partial_length -= size;
-
-		return result;
-	}
 }
 
 SymbolStats decode_freqTable(BitReader& reader,size_t range){
@@ -351,7 +278,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
 		}
 
-		unfilter_all_ffv1(bitmap, width, height);
+		unfilter_all_ffv1(bitmap, range, width, height);
 	}
 	else if(
 		SYMMETRY == 0
@@ -395,7 +322,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
 
-		unfilter_all_ffv1(bitmap, width, height);
+		unfilter_all_ffv1(bitmap, range, width, height);
 	}
 	else{
 		printf("missing decoder functionallity! writing black image\n");
