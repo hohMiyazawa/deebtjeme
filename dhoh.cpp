@@ -156,8 +156,8 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint8_t predictors[235];
 	size_t predictorCount = 0;
 	uint8_t* predictorImage;
-	uint32_t predictorWidth;
-	uint32_t predictorHeight;
+	uint32_t predictorWidth = 1;
+	uint32_t predictorHeight = 1;
 	if(PREDICTION){
 		printf("using prediction\n");
 		uint8_t predictionMode = *(fileIndex++);
@@ -287,7 +287,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	else if(
 		SYMMETRY == 0
 		&& INDEX == 0
-		&& PREDICTION == 1 && predictorCount == 1 && predictors[0] == 0
+		&& PREDICTION == 1
 		&& ENTROPY_MAP == 1 && entropyContexts > 1
 		&& LZ == 0
 		&& CODED == 1
@@ -326,7 +326,26 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
 
-		unfilter_all_ffv1(bitmap, range, width, height);
+		if(predictorCount == 1){
+			unfilter_all(
+				bitmap,
+				range,
+				width,
+				height,
+				predictors[0]
+			);
+		}
+		else{
+			unfilter_all(
+				bitmap,
+				range,
+				width,
+				height,
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
+		}
 	}
 	else if(
 		SYMMETRY == 0

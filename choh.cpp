@@ -293,6 +293,45 @@ void encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint
 	}
 }
 
+void entropyCoding_map(
+	uint8_t* filtered_bytes,
+	uint32_t width,
+	uint32_t height,
+	SymbolStats* table,
+	uint32_t entropyWidth,
+	uint32_t entropyHeight,
+	uint8_t*& outPointer
+){
+	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+	RansEncSymbol esyms[entropyWidth*entropyHeight][256];
+
+	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
+		for(size_t i=0; i < 256; i++) {
+			RansEncSymbolInit(&esyms[context][i], table[context].cum_freqs[i], table[context].freqs[i], 16);
+		}
+	}
+	printf("starting entropy coding\n");
+
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		size_t tileIndex = tileIndexFromPixel(
+			index,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);//index == context here, but that's not generally true. Use a map lookup!
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+}
+
 void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	uint32_t entropyWidth  = (width)/128;
@@ -367,33 +406,17 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 		*(outPointer++) = tableEncode.buffer[i];
 	}
 
-	RansEncSymbol esyms[entropyWidth*entropyHeight][256];
+	entropyCoding_map(
+		filtered_bytes,
+		width,
+		height,
+		table,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
 
-	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		for(size_t i=0; i < 256; i++) {
-			RansEncSymbolInit(&esyms[context][i], table[context].cum_freqs[i], table[context].freqs[i], 16);
-		}
-	}
-	printf("starting entropy coding\n");
-
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		size_t tileIndex = tileIndexFromPixel(
-			index,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		);
-		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);//index == context here, but that's not generally true. Use a map lookup!
-	}
 	delete[] filtered_bytes;
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
 }
 
 void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
