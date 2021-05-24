@@ -2,6 +2,11 @@
 
 8bit grayscale photographic images
 
+Compile:
+```
+make
+```
+
 Usage:
 
 ```
