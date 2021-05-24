@@ -249,6 +249,19 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	}
 	//encode_ranged_simple(in_bytes,range,width,height,outPointer);
 	encode_left(in_bytes,range,width,height,outPointer);
+
+/*
+	std::vector<unsigned char> image;
+	image.resize(width * height * 4);
+	for(size_t i=0;i<width*height;i++){
+		image[i*4] = in_bytes[i];
+		image[i*4+1] = in_bytes[i];
+		image[i*4+2] = in_bytes[i];
+		image[i*4+3] = 255;
+	}
+
+	encodeOneStep("lazer.png", image, width, height);
+*/
 }
 
 void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -1464,8 +1477,6 @@ void encode_optimiser2(
 	uint32_t predictorHeight_block = 8;
 	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
 	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
 
 	uint8_t *filtered_bytes[predictorCount];
 
@@ -1531,10 +1542,7 @@ void encode_optimiser2(
 	uint32_t entropyWidth  = (width + 7)/8;
 	uint32_t entropyHeight = (height + 7)/8;
 
-	uint8_t contextNumber = width*height/(128*128*2);
-	if(contextNumber == 0){
-		contextNumber = 1;
-	}
+	uint8_t contextNumber = (width + height + 255)/256;
 
 	printf("entropy map %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 	printf("block size %d x %d\n",(int)entropyWidth_block,(int)entropyHeight_block);
@@ -1823,6 +1831,9 @@ void encode_optimiser2(
 		delete[] filtered_bytes[i];
 	}
 
+	uint8_t* trailing = outPointer;
+	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
+	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
 	encode_ranged_simple2(
 		predictorImage,
 		predictorCount,
@@ -1831,8 +1842,8 @@ void encode_optimiser2(
 		outPointer
 	);
 	delete[] predictorImage;
+	printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
 
-	printf("gathering final stat tables\n");
 	for(size_t context = 0;context < contextNumber;context++){
 		for(size_t i=0;i<256;i++){
 			stats[context].freqs[i] = 0;
@@ -1851,7 +1862,7 @@ void encode_optimiser2(
 
 	*(outPointer++) = contextNumber - 1;//number of contexts
 
-	printf("encoding entropy image\n");
+	trailing = outPointer;
 	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
 	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
 	encode_ranged_simple2(
@@ -1861,18 +1872,19 @@ void encode_optimiser2(
 		entropyHeight,
 		outPointer
 	);
+	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
 
-	printf("writing frequency tables\n");
+	trailing = outPointer;
 	BitBuffer tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
 	}
 	tableEncode.conclude();
-	printf("frequency tables written\n");
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
 	}
+	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
 
 	entropyCoding_map(
 		final_bytes,
@@ -1955,7 +1967,6 @@ int main(int argc, char *argv[]){
 	}
 	else{
 		encode_optimiser2(grey, 256,width,height,outPointer, speed);
-		//encode_fewPass2(grey, 256,width,height,outPointer, speed);
 	}
 
 	

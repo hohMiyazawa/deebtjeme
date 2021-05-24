@@ -52,10 +52,10 @@ uint8_t clamp(int a,uint32_t range){
 
 uint8_t is_valid_predictor(uint8_t predictor){
 	if(predictor == 0){
-		return 1;
+		return 1;//ffv1
 	}
 	else if(predictor == 6){
-		return 1;
+		return 1;//median
 	}
 	else if(predictor == 7){
 		return 1;
