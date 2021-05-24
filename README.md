@@ -13,7 +13,7 @@ Usage:
 ./choh infile.png outfile.hoh speed
 ```
 
-Where ``speed`` is one of ``0``, ``1``, ``2``, ``3`` or ``4``, increasingly slower.
+Where ``speed`` is one of ``0``, ``1``, ``2``, ``3``, ``4``, ``5`` or ``6``, increasingly slower.
 
 Decoding:
 ```
