@@ -14,3 +14,8 @@ Decoding:
 ```
 ./dhoh infile.hoh outfile.png
 ```
+
+Need some grayscale test images? Create them with imagemagick:
+```
+convert anything.png -depth 8 -colorspace Gray gray.png
+```
