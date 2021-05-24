@@ -164,6 +164,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		if(predictionMode < 226){
 			predictorCount = 1;
 			predictors[0] = predictionMode;
+			printf("  predictor: %d\n",(int)predictors[0]);
 		}
 		else if(predictionMode < 255){
 			predictorCount = 255 - predictionMode;
@@ -180,7 +181,9 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
+			printf("---\n");
 			predictorImage = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
+			printf("--- end predictor image\n");
 			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 				predictorImage[i] = predictors[predictorImage[i]];
 			}
@@ -283,6 +286,39 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		}
 
 		unfilter_all_ffv1(bitmap, range, width, height);
+	}
+	else if(
+		SYMMETRY == 0
+		&& INDEX == 0
+		&& PREDICTION == 1 && predictorCount == 1 && predictors[0] == 68
+		&& ENTROPY_MAP == 0
+		&& LZ == 0
+		&& CODED == 1
+	){
+		printf("ransdec\n");
+
+		RansDecSymbol dsyms[256];
+		for(size_t i=0;i<256;i++){
+			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+			for(size_t j=0;j<256;j++){
+				if(tables[0].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+		}
+
+		unfilter_all_left(bitmap, range, width, height);
 	}
 	else if(
 		SYMMETRY == 0

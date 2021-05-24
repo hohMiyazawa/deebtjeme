@@ -73,17 +73,38 @@ uint8_t* filter_all_median(uint8_t* in_bytes, uint32_t width, uint32_t height){
 	return filtered;
 }
 
-uint8_t* filter_all_left(uint8_t* in_bytes, uint32_t width, uint32_t height){
+uint8_t* filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
 	uint8_t* filtered = new uint8_t[width * height];
 
 	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+	if(range == 256){
 		for(size_t i=1;i<width;i++){
-			filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[y * width + i - 1];
+			filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+			for(size_t i=1;i<width;i++){
+				filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[y * width + i - 1];
+			}
+		}
+	}
+	else{
+		for(size_t i=1;i<width;i++){
+			filtered[i] = sub_mod(in_bytes[i],in_bytes[i - 1],range);//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			filtered[y * width] = sub_mod(
+				in_bytes[y * width],
+				in_bytes[(y-1) * width],
+				range
+			);//left edge is always top-predicted
+			for(size_t i=1;i<width;i++){
+				filtered[(y * width) + i] = sub_mod(
+					in_bytes[y * width + i],
+					in_bytes[y * width + i - 1],
+					range
+				);
+			}
 		}
 	}
 	return filtered;
@@ -139,7 +160,7 @@ uint8_t* filter_all(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t 
 		return filter_all_median(in_bytes, width, height);
 	}
 	else if(predictor == 68){
-		return filter_all_left(in_bytes, width, height);
+		return filter_all_left(in_bytes, range, width, height);
 	}
 	else if(predictor == 20){
 		return filter_all_top(in_bytes, width, height);

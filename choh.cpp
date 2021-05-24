@@ -110,7 +110,7 @@ void BitBuffer::writeBits(uint8_t value,uint8_t size){
 	}
 }
 
-SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
+SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink, uint32_t range){
 /*
 	//current behaviour: always use 4bit magnitude coding
 	(*sink).writeBits(0,1);
@@ -153,7 +153,7 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 	sink.writeBits(3,2);
 
 	size_t sum = 0;
-	for(size_t i=0;i<256;i++){
+	for(size_t i=0;i<range;i++){//technically, there should be no frequencies above the range
 		sum += freqs.freqs[i];
 	}
 	if(sum > (1 << 16)){
@@ -163,7 +163,7 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 	for(size_t i=0;i<256;i++){
 		newFreqs.freqs[i] = freqs.freqs[i];
 	}
-	for(size_t i=0;i<256;i++){
+	for(size_t i=0;i<range;i++){
 		uint8_t magnitude = log2_plus(freqs.freqs[i]);
 		if(magnitude < 15){
 			sink.writeBits(magnitude,4);
@@ -177,9 +177,9 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 			sink.writeBits(1,1);
 		}
 		if(magnitude == 0){
-			uint8_t remainingNeededBits = log2_plus(255 - i);
+			uint8_t remainingNeededBits = log2_plus(range - 1 - i);
 			uint8_t count = 0;
-			for(uint8_t j=0;i + j < 256;j++){
+			for(uint8_t j=0;i + j < range;j++){
 				if(freqs.freqs[i + j]){
 					break;
 				}
@@ -228,6 +228,18 @@ void encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32
 	}
 }
 
+void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
+void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
+
+void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	if(width*height <= 16){//simple coding for small ones
+		encode_ranged_simple(in_bytes,range,width,height,outPointer);
+		return;
+	}
+	//encode_ranged_simple(in_bytes,range,width,height,outPointer);
+	encode_left(in_bytes,range,width,height,outPointer);
+}
+
 void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
@@ -269,7 +281,43 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	stats.count_freqs(filtered_bytes, width*height);
 
 	BitBuffer tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode);
+	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+	}
+	delete[] filtered_bytes;
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+}
+
+void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+
+	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+
+	*(outPointer++) = 68;//left predictor
+
+	uint8_t* filtered_bytes = filter_all_left(in_bytes, range, width, height);
+
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes, width*height);
+
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
@@ -397,7 +445,7 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 	BitBuffer tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		table[context] = encode_freqTable(stats[context],tableEncode);
+		table[context] = encode_freqTable(stats[context],tableEncode,256);
 	}
 	tableEncode.conclude();
 	//printf("  buffer content %d\n",(int)tableEncode.buffer[tableEncode.length - 2]);
@@ -447,7 +495,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 	delete[] predictorImage;//don't need it, since all the contexts are unique
 
 	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, 256, width, height);
-	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, width, height);
+	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, 256, width, height);
 
 	SymbolStats stats;
 	for(size_t i=0;i<256;i++){
@@ -463,7 +511,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 	}
 
 	BitBuffer tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode);
+	SymbolStats table = encode_freqTable(stats,tableEncode,256);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
@@ -628,7 +676,7 @@ void encode_fewPass(
 
 	delete[] costTable;
 
-	encode_ranged_simple(
+	encode_ranged_simple2(
 		predictorImage,
 		predictorCount,
 		predictorWidth,
@@ -702,7 +750,7 @@ void encode_fewPass(
 	BitBuffer tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		table[context] = encode_freqTable(stats[context],tableEncode);
+		table[context] = encode_freqTable(stats[context],tableEncode, range);
 	}
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
