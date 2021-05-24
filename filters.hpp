@@ -106,56 +106,11 @@ uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,i
 	return filtered;
 }
 
-uint8_t is_valid_predictor(uint8_t predictor){
-	if(predictor == 0){
-		return 1;
-	}
-	else if(predictor == 6){
-		return 1;
-	}
-	else if(predictor == 7){
-		return 1;
-	}
-	else{
-		int a = (predictor & 0b11000000) >> 6;
-		int b = (predictor & 0b00110000) >> 4;
-		int c = (int)((predictor & 0b00001100) >> 2) - 1;
-		int d = (predictor & 0b00000011);
-		int sum = a + b + c + d;
-		if(sum < 1){
-			return 0;
-		}
-		else if(
-			(
-				(a == 0 && b == 0 && c == 0)
-				&& (d == 2 || d == 3)
-			)
-			||
-			(
-				(a == 0 && b == 0 && d == 0)
-				&& (c == 2)
-			)
-			||
-			(
-				(a == 0 && c == 0 && d == 0)
-				&& (b == 2 || b == 3)
-			)
-			||
-			(
-				(b == 0 && c == 0 && d == 0)
-				&& (a == 2 || a == 3)
-			)
-		){
-		}
-		return 1;
-	}
-}
-
 uint8_t* filter_all(uint8_t* in_bytes, uint32_t width, uint32_t height,uint8_t predictor){
-	if(predictor == 6){
+	if(predictor == 0){
 		return filter_all_ffv1(in_bytes, width, height);
 	}
-	else if(predictor == 7){
+	else if(predictor == 6){
 		return filter_all_median(in_bytes, width, height);
 	}
 	else if(predictor == 68){

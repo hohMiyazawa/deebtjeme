@@ -448,6 +448,95 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 	return out_buf;
 }
 
+uint8_t* encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+
+	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
+	outPointer = out_buf;
+
+	writeVarint((uint32_t)(width - 1), outPointer);
+	writeVarint((uint32_t)(height - 1),outPointer);
+
+	*(outPointer++) = 0b00011100;//8bit greyscale header
+
+	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+
+	*(outPointer++) = 253;//use two predictors
+	*(outPointer++) = 0;//ffv1
+	*(outPointer++) = 68;//left
+
+	uint32_t predictorWidth = 2;
+	uint32_t predictorHeight = 1;
+	uint32_t predictorWidth_block = (width + 1)/predictorWidth;
+	uint32_t predictorHeight_block = height;
+	uint8_t* predictorImage = new uint8_t[predictorWidth*predictorHeight];
+	predictorImage[0] = 0;
+	predictorImage[1] = 1;
+
+	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
+	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
+	uint8_t* predictorImageData_pointer;
+	uint8_t* predictorImageData = sub_encode_ranged_simple(
+		predictorImage,
+		predictorWidth*predictorHeight,
+		predictorWidth,
+		predictorHeight,
+		predictorImageData_pointer
+	);
+	delete[] predictorImage;//don't need it, since all the contexts are unique
+	for(size_t i=0;i<(predictorImageData_pointer - predictorImageData);i++){
+		*(outPointer++) = predictorImageData[i];
+	}
+	delete[] predictorImageData;
+
+	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, width, height);
+	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, width, height);
+
+	SymbolStats stats;
+	for(size_t i=0;i<256;i++){
+		stats.freqs[i] = 0;
+	}
+	for(size_t i=0;i<width*height;i++){
+		if((i % width)/ predictorWidth_block){
+			stats.freqs[filtered_bytes2[i]]++;
+		}
+		else{
+			stats.freqs[filtered_bytes1[i]]++;
+		}
+	}
+
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,tableEncode);
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		if((index % width)/ predictorWidth_block){
+			entropy.encodeSymbol(esyms,filtered_bytes2[index]);
+		}
+		else{
+			entropy.encodeSymbol(esyms,filtered_bytes1[index]);
+		}
+	}
+	delete[] filtered_bytes1;
+	delete[] filtered_bytes2;
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+
+	return out_buf;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -484,8 +573,13 @@ int main(int argc, char *argv[]){
 	printf("encoding as ffv1 predicted\n");
 	uint8_t* out_buf = encode_grey_8bit_ffv1(grey,width,height,outPointer);
 	*/
+	/*
 	printf("encoding as ffv1 predicted and entropy mapped\n");
 	uint8_t* out_buf = encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
+	*/
+	printf("encoding as left-right\n");
+	uint8_t* out_buf = encode_grey_predictorMap(grey,width,height,outPointer);
+
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
 
