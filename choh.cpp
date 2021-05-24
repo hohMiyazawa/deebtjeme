@@ -1431,9 +1431,12 @@ int main(int argc, char *argv[]){
 	}
 	delete[] decoded;
 
-	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
+	printf("creating buffer\n");
+
+	uint8_t* out_buf = new uint8_t[width*height + 4096];
 	uint8_t* outPointer = out_buf;
 
+	printf("writing header\n");
 	writeVarint((uint32_t)(width - 1), outPointer);
 	writeVarint((uint32_t)(height - 1),outPointer);
 
