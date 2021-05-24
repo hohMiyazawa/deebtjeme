@@ -74,7 +74,7 @@ class BitBuffer{
 		void writeBits(uint8_t value,uint8_t size);
 		void conclude();
 		
-	//private:
+	private:
 		uint8_t partial;
 		uint8_t partial_length;
 };
@@ -208,10 +208,23 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 	return newFreqs;
 }
 
-void encode_grey_8bit_simple(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+void encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	*(outPointer++) = 0b00000000;//use no compression features
-	for(size_t i=0;i<width*height;i++){
-		*(outPointer++) = in_bytes[i];
+	if(range == 256){
+		for(size_t i=0;i<width*height;i++){
+			*(outPointer++) = in_bytes[i];
+		}
+	}
+	else{
+		BitBuffer sink;
+		uint8_t bitDepth = log2_plus(range - 1);
+		for(size_t i=0;i<width*height;i++){
+			sink.writeBits(in_bytes[i],bitDepth);
+		}
+		sink.conclude();
+		for(size_t i=0;i<sink.length;i++){
+			*(outPointer++) = sink.buffer[i];
+		}
 	}
 }
 
@@ -280,22 +293,6 @@ void encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint
 	}
 }
 
-void sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	*(outPointer++) = 0b00000000;//use no compression features
-	BitBuffer sink;
-	uint8_t bitDepth = log2_plus(range - 1);
-	for(size_t i=0;i<width*height;i++){
-		sink.writeBits(in_bytes[i],bitDepth);
-		//printf("s %d\n",(int)sink.partial_length);
-	}
-	sink.conclude();
-	//printf("sink length %d, %d x %d, %d<-%d\n",(int)sink.length,(int)width,(int)height,(int)bitDepth,(int)range);
-	for(size_t i=0;i<sink.length;i++){
-		*(outPointer++) = sink.buffer[i];
-	}
-}
-
 void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	uint32_t entropyWidth  = (width)/128;
@@ -346,7 +343,7 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 
 	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
 	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	sub_encode_ranged_simple(
+	encode_ranged_simple(
 		entropyImage,
 		entropyWidth*entropyHeight,
 		entropyWidth,
@@ -417,7 +414,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 
 	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
 	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-	sub_encode_ranged_simple(
+	encode_ranged_simple(
 		predictorImage,
 		predictorWidth*predictorHeight,
 		predictorWidth,
@@ -506,7 +503,7 @@ int main(int argc, char *argv[]){
 
 	/*
 	printf("encoding as uncompressed hoh\n");
-	encode_grey_8bit_simple(grey,width,height,outPointer);
+	encode_ranged_simple(grey,256,width,height,outPointer);
 	*/
 	/*
 	printf("encoding as static predicted\n");
