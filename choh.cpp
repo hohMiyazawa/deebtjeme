@@ -68,7 +68,7 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 
 class BitBuffer{
 	public:
-		uint8_t buffer[8192];
+		uint8_t buffer[65536];
 		size_t length;
 		BitBuffer();
 		void writeBits(uint8_t value,uint8_t size);
@@ -558,16 +558,26 @@ void encode_fewPass(
 {
 	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
 
-	uint8_t predictorCount = 4;
+	uint8_t predictorCount = 8;
+	uint8_t predictorSelection[predictorCount] = {
+		0,//ffv1
+		0b01010100,//avg L-T
+		0b01010000,//(1,1,-1,0)
+		0b11010001,//(3,1,-1,1)
+
+		0b01110000,//(1,3,-1,0)
+		0b11000010,//(3,0,-1,2)
+		0b11000001,//(3,0,-1,1)
+		0b01000100//(1,0,0,0)
+	};
 
 	*(outPointer++) = 255 - predictorCount;//use three predictors
-	*(outPointer++) = 0;//ffv1
-	*(outPointer++) = 0b01010100;//avg L-T
-	*(outPointer++) = 0b01010000;//GRAD
-	*(outPointer++) = 0b11010001;//oddball
+	for(size_t i=0;i<predictorCount;i++){
+		*(outPointer++) = predictorSelection[i];
+	}
 
-	uint32_t predictorWidth_block = 16;
-	uint32_t predictorHeight_block = 16;
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
 	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
 	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
 	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
@@ -575,10 +585,9 @@ void encode_fewPass(
 
 	uint8_t *filtered_bytes[predictorCount];
 
-	filtered_bytes[0] = filter_all_ffv1(in_bytes, width, height);
-	filtered_bytes[1] = filter_all(in_bytes, width, height, 0b01010100);
-	filtered_bytes[2] = filter_all(in_bytes, width, height, 0b01010000);
-	filtered_bytes[3] = filter_all(in_bytes, width, height, 0b11010001);
+	for(size_t i=0;i<predictorCount;i++){
+		filtered_bytes[i] = filter_all(in_bytes, width, height, predictorSelection[i]);
+	}
 
 	SymbolStats defaultFreqs;
 	defaultFreqs.count_freqs(filtered_bytes[0], width*height);
@@ -612,10 +621,9 @@ void encode_fewPass(
 	SymbolStats predictorsUsed;
 	predictorsUsed.count_freqs(predictorImage, predictorWidth*predictorHeight);
 
-	printf("pred 0: %d\n",(int)predictorsUsed.freqs[0]);
-	printf("pred 1: %d\n",(int)predictorsUsed.freqs[1]);
-	printf("pred 2: %d\n",(int)predictorsUsed.freqs[2]);
-	printf("pred 3: %d\n",(int)predictorsUsed.freqs[3]);
+	for(size_t i=0;i<predictorCount;i++){
+		printf("pred %d: %d\n",(int)i,(int)predictorsUsed.freqs[i]);
+	}
 
 	delete[] costTable;
 
