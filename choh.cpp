@@ -1086,10 +1086,10 @@ void encode_optimiser(
 	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
 
 	uint8_t predictorCount = speed*2;
-	if(predictorCount > 12){
-		predictorCount = 12;
+	if(predictorCount > 14){
+		predictorCount = 14;
 	}
-	uint8_t predictorSelection[12] = {
+	uint8_t predictorSelection[14] = {
 		0,//ffv1
 		0b01010100,//avg L-T
 		0b01010000,//(1,1,-1,0)
@@ -1097,6 +1097,8 @@ void encode_optimiser(
 
 		0b01110000,//(1,3,-1,0)
 		0b11000010,//(3,0,-1,2)
+		0b10010001,//(2,1,-1,1)
+		0b11100000,//(3,2,-1,0)
 		0b11000001,//(3,0,-1,1)
 		0b10010000,//(2,1,-1,0)
 		0b01100000,//(1,2,-1,0)
