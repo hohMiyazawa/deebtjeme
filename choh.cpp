@@ -603,12 +603,16 @@ void encode_fewPass(
 	uint32_t range,
 	uint32_t width,
 	uint32_t height,
-	uint8_t*& outPointer)
-{
+	uint8_t*& outPointer,
+	size_t speed
+){
 	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
 
-	uint8_t predictorCount = 8;
-	uint8_t predictorSelection[predictorCount] = {
+	uint8_t predictorCount = speed*2;
+	if(predictorCount > 12){
+		predictorCount = 12;
+	}
+	uint8_t predictorSelection[12] = {
 		0,//ffv1
 		0b01010100,//avg L-T
 		0b01010000,//(1,1,-1,0)
@@ -617,7 +621,11 @@ void encode_fewPass(
 		0b01110000,//(1,3,-1,0)
 		0b11000010,//(3,0,-1,2)
 		0b11000001,//(3,0,-1,1)
-		0b01000100//(1,0,0,0)
+		0b10010000,//(2,1,-1,0)
+		0b01100000,//(1,2,-1,0)
+		0b01000100,//(1,0,0,0)
+		6,//median
+		0b00010100//(0,1,0,0)
 	};
 
 	*(outPointer++) = 255 - predictorCount;//use three predictors
@@ -738,7 +746,7 @@ void encode_fewPass(
 
 	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
 	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple(
+	encode_ranged_simple2(
 		entropyImage,
 		entropyWidth*entropyHeight,
 		entropyWidth,
@@ -821,8 +829,16 @@ int main(int argc, char *argv[]){
 	printf("encoding as left-right\n");
 	encode_grey_predictorMap(grey,width,height,outPointer);
 	*/
+/*
 	printf("encoding as fewpass\n");
 	encode_fewPass(grey, 256,width,height,outPointer);
+*/
+	if(speed == 0){
+		encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
+	}
+	else{
+		encode_fewPass(grey, 256,width,height,outPointer, speed);
+	}
 
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
