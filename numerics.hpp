@@ -27,4 +27,13 @@ uint8_t add_mod(uint8_t a, uint8_t b, uint32_t modulo){
 	}
 }
 
+uint8_t sub_mod(uint8_t a, uint8_t b, uint32_t modulo){
+	if (a >= b){
+		return a - b;
+	}
+	else{
+		return modulo - b + a;
+	}
+}
+
 #endif // NUMERICS_HEADER

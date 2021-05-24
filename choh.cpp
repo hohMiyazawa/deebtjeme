@@ -235,7 +235,7 @@ void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t heig
 	*(outPointer++) = 0;//ffv1 predictor
 	*(outPointer++) = 0b10001000;//use table number 8
 
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, 256, width, height);
 
 	SymbolStats table = laplace(8);
 
@@ -257,13 +257,13 @@ void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t heig
 	}
 }
 
-void encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
 
 	*(outPointer++) = 0;//ffv1 predictor
 
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	SymbolStats stats;
 	stats.count_freqs(filtered_bytes, width*height);
@@ -343,7 +343,7 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 		entropyHeight = 1;
 	}
 	if(entropyWidth * entropyHeight == 1){
-		encode_grey_8bit_ffv1(in_bytes,width,height,outPointer);
+		encode_ffv1(in_bytes, 256,width,height,outPointer);
 		return;
 	}
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
@@ -355,7 +355,7 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 
 	*(outPointer++) = 0;//ffv1 predictor
 
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, width, height);
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, 256, width, height);
 
 	SymbolStats stats[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
@@ -446,7 +446,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 	);
 	delete[] predictorImage;//don't need it, since all the contexts are unique
 
-	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, width, height);
+	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, 256, width, height);
 	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, width, height);
 
 	SymbolStats stats;
@@ -552,6 +552,7 @@ double regionalEntropy(
 
 void encode_fewPass(
 	uint8_t* in_bytes,
+	uint32_t range,
 	uint32_t width,
 	uint32_t height,
 	uint8_t*& outPointer)
@@ -586,7 +587,7 @@ void encode_fewPass(
 	uint8_t *filtered_bytes[predictorCount];
 
 	for(size_t i=0;i<predictorCount;i++){
-		filtered_bytes[i] = filter_all(in_bytes, width, height, predictorSelection[i]);
+		filtered_bytes[i] = filter_all(in_bytes, range, width, height, predictorSelection[i]);
 	}
 
 	SymbolStats defaultFreqs;
@@ -762,7 +763,7 @@ int main(int argc, char *argv[]){
 	*/
 	/*
 	printf("encoding as ffv1 predicted\n");
-	encode_grey_8bit_ffv1(grey,width,height,outPointer);
+	encode_ffv1(grey,width,height,outPointer);
 	*/
 /*
 	printf("encoding as ffv1 predicted and entropy mapped\n");
@@ -773,7 +774,7 @@ int main(int argc, char *argv[]){
 	encode_grey_predictorMap(grey,width,height,outPointer);
 	*/
 	printf("encoding as fewpass\n");
-	encode_fewPass(grey,width,height,outPointer);
+	encode_fewPass(grey, 256,width,height,outPointer);
 
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));

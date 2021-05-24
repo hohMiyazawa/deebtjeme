@@ -1,26 +1,51 @@
 #ifndef FILTERS_HEADER
 #define FILTERS_HEADER
 
-uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t width, uint32_t height){
-	uint8_t* filtered = new uint8_t[width * height];
+#include "numerics.hpp"
 
+uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
+	uint8_t* filtered = new uint8_t[width * height];
 	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+	if(range == 256){
 		for(size_t i=1;i<width;i++){
-			uint8_t L = in_bytes[y * width + i - 1];
-			uint8_t TL = in_bytes[(y-1) * width + i - 1];
-			uint8_t T = in_bytes[(y-1) * width + i];
-			filtered[(y * width) + i] = (
-				in_bytes[y * width + i] - median3(
-					L,
-					T,
-					L + T - TL
-				)
-			);
+			filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+			for(size_t i=1;i<width;i++){
+				uint8_t L = in_bytes[y * width + i - 1];
+				uint8_t TL = in_bytes[(y-1) * width + i - 1];
+				uint8_t T = in_bytes[(y-1) * width + i];
+				filtered[(y * width) + i] = (
+					in_bytes[y * width + i] - median3(
+						L,
+						T,
+						L + T - TL
+					)
+				);
+			}
+		}
+	}
+	else{
+		for(size_t i=1;i<width;i++){
+			filtered[i] = sub_mod(in_bytes[i],in_bytes[i - 1],range);//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			filtered[y * width] = sub_mod(in_bytes[y * width],in_bytes[(y-1) * width],range);//left edge is always top-predicted
+			for(size_t i=1;i<width;i++){
+				uint8_t L = in_bytes[y * width + i - 1];
+				uint8_t TL = in_bytes[(y-1) * width + i - 1];
+				uint8_t T = in_bytes[(y-1) * width + i];
+				filtered[(y * width) + i] = sub_mod(
+					in_bytes[y * width + i],
+					median3(
+						L,
+						T,
+						L + T - TL
+					),
+					range
+				);
+			}
 		}
 	}
 	return filtered;
@@ -106,9 +131,9 @@ uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,i
 	return filtered;
 }
 
-uint8_t* filter_all(uint8_t* in_bytes, uint32_t width, uint32_t height,uint8_t predictor){
+uint8_t* filter_all(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height,uint8_t predictor){
 	if(predictor == 0){
-		return filter_all_ffv1(in_bytes, width, height);
+		return filter_all_ffv1(in_bytes, range, width, height);
 	}
 	else if(predictor == 6){
 		return filter_all_median(in_bytes, width, height);
