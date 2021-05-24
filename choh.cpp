@@ -149,13 +149,24 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink, uint32_t range){
 	//current behaviour: always use accurate 4bit magnitude coding, even if less accurate tables are sometimes more compact
 
 	//printf("first in buffer %d %d\n",(int)sink.buffer[0],(int)sink.length);
-	sink.writeBits(0,1);
-	sink.writeBits(3,2);
 
 	size_t sum = 0;
 	for(size_t i=0;i<range;i++){//technically, there should be no frequencies above the range
 		sum += freqs.freqs[i];
 	}
+	if(sum == 0){//dumb things can happen
+		//write a flat table, in case this gets used
+		sink.writeBits(1,1);
+		sink.writeBits(0,7);
+		SymbolStats newFreqs;
+		for(size_t i=0;i<256;i++){
+			newFreqs.freqs[i] = 1;
+		}
+		newFreqs.normalize_freqs(1 << 16);
+		return newFreqs;
+	}
+	sink.writeBits(0,1);
+	sink.writeBits(3,2);
 	if(sum > (1 << 16)){
 		freqs.normalize_freqs(1 << 16);
 	}
@@ -1389,6 +1400,7 @@ void encode_optimiser(
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
 	}
 	tableEncode.conclude();
+	printf("frequency tables written\n");
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
 	}
