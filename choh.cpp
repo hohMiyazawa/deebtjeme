@@ -208,33 +208,14 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink){
 	return newFreqs;
 }
 
-uint8_t* encode_grey_8bit_simple(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	uint8_t* out_buf = new uint8_t[width*height + 64];
-	outPointer = out_buf;
-
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
-
-	*(outPointer++) = 0b00011100;//8bit greyscale header
-
+void encode_grey_8bit_simple(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	*(outPointer++) = 0b00000000;//use no compression features
 	for(size_t i=0;i<width*height;i++){
 		*(outPointer++) = in_bytes[i];
 	}
-
-	return out_buf;
 }
 
-uint8_t* encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
-	outPointer = out_buf;
-
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
-
-	*(outPointer++) = 0b00011100;//8bit greyscale header
+void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
 
@@ -261,19 +242,9 @@ uint8_t* encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
-
-	return out_buf;
 }
 
-uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
-	outPointer = out_buf;
-
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
-
-	*(outPointer++) = 0b00011100;//8bit greyscale header
+void encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
 
@@ -307,13 +278,9 @@ uint8_t* encode_grey_8bit_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
-
-	return out_buf;
 }
 
-uint8_t* sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	uint8_t* out_buf = new uint8_t[width*height + 64];
-	outPointer = out_buf;
+void sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00000000;//use no compression features
 	BitBuffer sink;
@@ -327,11 +294,9 @@ uint8_t* sub_encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t widt
 	for(size_t i=0;i<sink.length;i++){
 		*(outPointer++) = sink.buffer[i];
 	}
-
-	return out_buf;
 }
 
-uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	uint32_t entropyWidth  = (width)/128;
 	uint32_t entropyHeight = (height)/128;
@@ -342,20 +307,13 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 		entropyHeight = 1;
 	}
 	if(entropyWidth * entropyHeight == 1){
-		return encode_grey_8bit_ffv1(in_bytes,width,height,outPointer);
+		encode_grey_8bit_ffv1(in_bytes,width,height,outPointer);
+		return;
 	}
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
 	printf("entropy map %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 	printf("block size %d x %d\n",(int)entropyWidth_block,(int)entropyHeight_block);
-
-	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
-	outPointer = out_buf;
-
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
-
-	*(outPointer++) = 0b00011100;//8bit greyscale header
 
 	*(outPointer++) = 0b00001101;//use prediction and entropy coding
 
@@ -388,19 +346,14 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 
 	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
 	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	uint8_t* entropyImageData_pointer;
-	uint8_t* entropyImageData = sub_encode_ranged_simple(
+	sub_encode_ranged_simple(
 		entropyImage,
 		entropyWidth*entropyHeight,
 		entropyWidth,
 		entropyHeight,
-		entropyImageData_pointer
+		outPointer
 	);
 	delete[] entropyImage;//don't need it, since all the contexts are unique
-	for(size_t i=0;i<(entropyImageData_pointer - entropyImageData);i++){
-		*(outPointer++) = entropyImageData[i];
-	}
-	delete[] entropyImageData;
 	/*printf("  cbuffer content %d\n",(int)(*(outPointer-3)));
 	printf("  cbuffer content %d\n",(int)(*(outPointer-2)));
 	printf("  cbuffer content %d\n",(int)(*(outPointer-1)));*/
@@ -444,19 +397,9 @@ uint8_t* encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint3
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
-
-	return out_buf;
 }
 
-uint8_t* encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
-	outPointer = out_buf;
-
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
-
-	*(outPointer++) = 0b00011100;//8bit greyscale header
+void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
 
@@ -474,19 +417,14 @@ uint8_t* encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t heig
 
 	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
 	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-	uint8_t* predictorImageData_pointer;
-	uint8_t* predictorImageData = sub_encode_ranged_simple(
+	sub_encode_ranged_simple(
 		predictorImage,
 		predictorWidth*predictorHeight,
 		predictorWidth,
 		predictorHeight,
-		predictorImageData_pointer
+		outPointer
 	);
 	delete[] predictorImage;//don't need it, since all the contexts are unique
-	for(size_t i=0;i<(predictorImageData_pointer - predictorImageData);i++){
-		*(outPointer++) = predictorImageData[i];
-	}
-	delete[] predictorImageData;
 
 	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, width, height);
 	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, width, height);
@@ -533,8 +471,6 @@ uint8_t* encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t heig
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
-
-	return out_buf;
 }
 
 int main(int argc, char *argv[]){
@@ -560,25 +496,33 @@ int main(int argc, char *argv[]){
 	}
 	delete[] decoded;
 
-	uint8_t* outPointer;
+	uint8_t* out_buf = new uint8_t[width*height + 1<<20];
+	uint8_t* outPointer = out_buf;
+
+	writeVarint((uint32_t)(width - 1), outPointer);
+	writeVarint((uint32_t)(height - 1),outPointer);
+
+	*(outPointer++) = 0b00011100;//8bit greyscale header
+
 	/*
 	printf("encoding as uncompressed hoh\n");
-	uint8_t* out_buf = encode_grey_8bit_simple(grey,width,height,outPointer);
+	encode_grey_8bit_simple(grey,width,height,outPointer);
 	*/
 	/*
 	printf("encoding as static predicted\n");
-	uint8_t* out_buf = encode_grey_8bit_static_ffv1(grey,width,height,outPointer);
+	encode_grey_8bit_static_ffv1(grey,width,height,outPointer);
 	*/
 	/*
 	printf("encoding as ffv1 predicted\n");
-	uint8_t* out_buf = encode_grey_8bit_ffv1(grey,width,height,outPointer);
+	encode_grey_8bit_ffv1(grey,width,height,outPointer);
 	*/
-	/*
+
 	printf("encoding as ffv1 predicted and entropy mapped\n");
-	uint8_t* out_buf = encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
-	*/
+	encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
+	/*
 	printf("encoding as left-right\n");
-	uint8_t* out_buf = encode_grey_predictorMap(grey,width,height,outPointer);
+	encode_grey_predictorMap(grey,width,height,outPointer);
+	*/
 
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
