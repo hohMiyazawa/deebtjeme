@@ -266,15 +266,17 @@ void encode_ranged_table(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
+void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 4;
+	uint8_t alternates = 3;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing[alternates];
 	for(size_t i=0;i<alternates;i++){
@@ -283,8 +285,9 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	}
 	encode_ranged_simple(in_bytes,range,width,height,miniBuffer[0]);
 	encode_ranged_table(in_bytes,range,width,height,miniBuffer[1]);
-	encode_left(in_bytes,range,width,height,miniBuffer[2]);
-	encode_ffv1(in_bytes,range,width,height,miniBuffer[3]);
+	encode_singlePredictor(in_bytes,range,width,height,miniBuffer[2]);
+	//encode_left(in_bytes,range,width,height,miniBuffer[2]);
+	//encode_ffv1(in_bytes,range,width,height,miniBuffer[3]);
 
 	uint8_t bestIndex = 0;
 	size_t best = miniBuffer[0] - trailing[0];
@@ -344,6 +347,125 @@ void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t heig
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
+}
+
+double estimateEntropy(uint8_t* in_bytes, size_t size){
+	uint8_t frequencies[size];
+	for(size_t i=0;i<256;i++){
+		frequencies[i] = 0;
+	}
+	for(size_t i=0;i<size;i++){
+		frequencies[in_bytes[i]]++;
+	}
+	double sum = 0;
+	for(size_t i=0;i<256;i++){
+		if(frequencies[i]){
+			sum += -std::log2((double)frequencies[i]/(double)size) * (double)frequencies[i];
+		}
+	}
+	return sum;
+}
+
+size_t estimateLayer(uint8_t* in_bytes, uint32_t range, size_t length){
+	size_t estimate = 0;
+	SymbolStats stats;
+	stats.count_freqs(in_bytes, length);
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	tableEncode.conclude();
+	estimate += tableEncode.length;
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=length;index--;){
+		entropy.encodeSymbol(esyms,in_bytes[index]);
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	delete[] buffer;
+	estimate += streamSize;
+	return estimate;
+}
+
+void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+
+	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+
+
+	uint8_t predictorCount = 15;
+	uint8_t predictorSelection[predictorCount] = {
+		0,//ffv1
+		0b01010100,//avg L-T
+		0b01010000,//(1,1,-1,0)
+		0b11010001,//(3,1,-1,1)
+
+		0b01110000,//(1,3,-1,0)
+		0b11000010,//(3,0,-1,2)
+		0b10010001,//(2,1,-1,1)
+		0b11100000,//(3,2,-1,0)
+		0b11000001,//(3,0,-1,1)
+		0b10010000,//(2,1,-1,0)
+		0b01100000,//(1,2,-1,0)
+		0b01000100,//(1,0,0,0)
+		6,//median
+		7,//paeth
+		0b00010100//(0,1,0,0)
+	};
+	uint8_t *filtered_bytes[predictorCount];
+	size_t estimates[predictorCount];
+
+	for(size_t i=0;i<predictorCount;i++){
+		filtered_bytes[i] = filter_all(in_bytes, range, width, height, predictorSelection[i]);
+		estimates[i] = estimateLayer(filtered_bytes[i], range, width*height);
+		printf("esti: %d\n",(int)estimates[i]);
+	}
+	uint8_t bestIndex = 0;
+	size_t best = estimates[0];
+	for(size_t i=1;i<predictorCount;i++){
+		if(estimates[i] < best){
+			best = estimates[i];
+			bestIndex = i;
+		}
+	}
+
+	printf("Predictor selected: %d (%d)\n",(int)bestIndex,(int)predictorSelection[bestIndex]);
+	*(outPointer++) = predictorSelection[bestIndex];
+
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes[bestIndex], width*height);
+
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		entropy.encodeSymbol(esyms,filtered_bytes[bestIndex][index]);
+	}
+	for(size_t i=0;i<predictorCount;i++){
+		delete[] filtered_bytes[i];
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+	delete[] buffer;
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -380,6 +502,7 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -416,6 +539,7 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 void entropyCoding_map(
@@ -456,6 +580,7 @@ void entropyCoding_map(
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 void entropyCoding_map(
@@ -497,6 +622,7 @@ void entropyCoding_map(
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -659,6 +785,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 	for(size_t i=0;i<streamSize;i++){
 		*(outPointer++) = buffer[i];
 	}
+	delete[] buffer;
 }
 
 double* entropyLookup(SymbolStats stats,size_t total){
@@ -1500,10 +1627,10 @@ void encode_optimiser2(
 	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
 
 	uint8_t predictorCount = speed*2;
-	if(predictorCount > 14){
-		predictorCount = 14;
+	if(predictorCount > 15){
+		predictorCount = 15;
 	}
-	uint8_t predictorSelection[14] = {
+	uint8_t predictorSelection[15] = {
 		0,//ffv1
 		0b01010100,//avg L-T
 		0b01010000,//(1,1,-1,0)
@@ -1518,6 +1645,7 @@ void encode_optimiser2(
 		0b01100000,//(1,2,-1,0)
 		0b01000100,//(1,0,0,0)
 		6,//median
+		7,//paeth
 		0b00010100//(0,1,0,0)
 	};
 

@@ -93,6 +93,11 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range){
 					continue;
 				}
 				uint8_t magnitude = reader.readBits(4);
+				if(magnitude == 15){
+					if(reader.readBits(1)){
+						magnitude = 16;
+					}
+				}
 				if(magnitude == 0){
 					stats.freqs[i] = 0;
 					//TODO zero modelling

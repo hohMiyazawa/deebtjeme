@@ -40,7 +40,7 @@ uint8_t ffv1(uint8_t L,uint8_t T,uint8_t TL){
 	}
 	return max - (TL - min);
 }
-/*
+
 uint8_t semi_paeth(uint8_t L,uint8_t T,uint8_t TL){
 	uint8_t min = L;
 	uint8_t max = T;
@@ -48,8 +48,22 @@ uint8_t semi_paeth(uint8_t L,uint8_t T,uint8_t TL){
 		min = T;
 		max = L;
 	}
+	uint8_t grad;
+	if(TL >= max){
+		return min;
+	}
+	if(TL <= min){
+		return max;
+	}
+	if(
+		(TL - min)
+		< (max - TL)
+	){
+		return max;
+	}
+	return min;
 }
-*/
+
 uint8_t clamp(int a){
 	if(a < 0){
 		return 0;
@@ -82,7 +96,7 @@ uint8_t is_valid_predictor(uint8_t predictor){
 		return 1;//median
 	}
 	else if(predictor == 7){
-		return 1;
+		return 1;//semi-paeth
 	}
 	else{
 		int a = (predictor & 0b11000000) >> 6;
