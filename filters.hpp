@@ -17,10 +17,10 @@ uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint
 				uint8_t TL = in_bytes[(y-1) * width + i - 1];
 				uint8_t T = in_bytes[(y-1) * width + i];
 				filtered[(y * width) + i] = (
-					in_bytes[y * width + i] - median3(
+					in_bytes[y * width + i] - ffv1(
 						L,
 						T,
-						L + T - TL
+						TL
 					)
 				);
 			}
@@ -38,10 +38,10 @@ uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint
 				uint8_t T = in_bytes[(y-1) * width + i];
 				filtered[(y * width) + i] = sub_mod(
 					in_bytes[y * width + i],
-					median3(
+					ffv1(
 						L,
 						T,
-						L + T - TL
+						TL
 					),
 					range
 				);

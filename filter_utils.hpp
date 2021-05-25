@@ -25,7 +25,31 @@ uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
 		}
 	}
 }
-
+uint8_t ffv1(uint8_t L,uint8_t T,uint8_t TL){
+	uint8_t min = L;
+	uint8_t max = T;
+	if(L > T){
+		min = T;
+		max = L;
+	}
+	if(TL >= max){
+		return min;
+	}
+	if(TL <= min){
+		return max;
+	}
+	return max - (TL - min);
+}
+/*
+uint8_t semi_paeth(uint8_t L,uint8_t T,uint8_t TL){
+	uint8_t min = L;
+	uint8_t max = T;
+	if(L > T){
+		min = T;
+		max = L;
+	}
+}
+*/
 uint8_t clamp(int a){
 	if(a < 0){
 		return 0;
