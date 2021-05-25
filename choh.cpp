@@ -2081,6 +2081,159 @@ void encode_optimiser2(
 	delete[] final_bytes;
 }
 
+void predictor_research(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
+	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
+	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	SymbolStats defaultFreqs;
+	defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+	double* costTable = entropyLookup(defaultFreqs,width*height);
+	double* predictorImage = new double[predictorWidth*predictorHeight];
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictorImage[i] = regionalEntropy(
+			filtered_bytes,
+			costTable,
+			i,
+			width,
+			height,
+			predictorWidth_block,
+			predictorHeight_block
+		);
+	}
+
+	//for(size_t pred=1;pred<256;pred++){
+	for(int a=0;a<15;a++){
+	for(int b=0;b<15;b++){
+	for(int c=-10;c<0;c++){
+	for(int d=0;d<10;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+		//uint8_t* semi_filter = filter_all(in_bytes, range, width, height, pred);
+		double sum = 0;
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImage[i]){
+				sum += predictorImage[i] - cost;
+			}
+		}
+		printf("predictor (%d,%d,%d,%d): %f\n",a,b,c,d,sum);
+		
+		delete[] semi_filter;
+		/*semi_filter = filter_all_clamp(in_bytes, width, height,a,b,c,d);
+		sum = 0;
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImage[i]){
+				sum += predictorImage[i] - cost;
+			}
+		}
+		printf("predictor {%d,%d,%d,%d}: %f\n",a,b,c,d,sum);
+
+		delete[] semi_filter;*/
+	}
+	}
+	}
+	}
+	//}
+
+
+	delete[] filtered_bytes;
+	delete[] predictorImage;
+	delete[] costTable;
+}
+
+void predictor_research2(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
+	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
+	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+	//for(size_t pred=1;pred<256;pred++){
+	for(int a=0;a<9;a++){
+	for(int b=0;b<9;b++){
+	for(int c=-6;c<2;c++){
+	for(int d=0;d<6;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		uint8_t* filtered_bytes = filter_all_generic(in_bytes, width, height,a,b,c,d);
+		SymbolStats defaultFreqs;
+		defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+		double* costTable = entropyLookup(defaultFreqs,width*height);
+
+		double sum = 0;
+		for(size_t i=0;i<256;i++){
+			sum += defaultFreqs.freqs[i] * costTable[i];
+		}
+		printf("predictor (%d,%d,%d,%d): %f\n",a,b,c,d,sum);
+
+		delete[] costTable;
+		delete[] filtered_bytes;
+
+
+
+		filtered_bytes = filter_all_clamp(in_bytes, width, height,a,b,c,d);
+		defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+		costTable = entropyLookup(defaultFreqs,width*height);
+
+		sum = 0;
+		for(size_t i=0;i<256;i++){
+			sum += defaultFreqs.freqs[i] * costTable[i];
+		}
+		printf("predictor {%d,%d,%d,%d}: %f\n",a,b,c,d,sum);
+
+		delete[] costTable;
+		delete[] filtered_bytes;
+
+	}
+	}
+	}
+	}
+	//}
+
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -2139,7 +2292,13 @@ int main(int argc, char *argv[]){
 	printf("encoding as fewpass\n");
 	encode_fewPass(grey, 256,width,height,outPointer);
 */
-	if(speed == 0){
+	if(speed == 69){
+		predictor_research(grey,256,width,height);
+	}
+	else if(speed == 420){
+		predictor_research2(grey,256,width,height);
+	}
+	else if(speed == 0){
 		encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
 	}
 	else if(speed < 3){

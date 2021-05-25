@@ -88,6 +88,18 @@ uint8_t clamp(int a,uint32_t range){
 	}
 }
 
+uint8_t clamp(int a,uint8_t lower,uint8_t upper){
+	if(a < lower){
+		return lower;
+	}
+	else if(a > upper){
+		return upper;
+	}
+	else{
+		return (uint8_t)a;
+	}
+}
+
 uint8_t is_valid_predictor(uint8_t predictor){
 	if(predictor == 0){
 		return 1;//ffv1
@@ -128,6 +140,7 @@ uint8_t is_valid_predictor(uint8_t predictor){
 				&& (a == 2 || a == 3)
 			)
 		){
+			return 0;
 		}
 		return 1;
 	}

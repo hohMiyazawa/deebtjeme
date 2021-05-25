@@ -221,6 +221,40 @@ uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,i
 	return filtered;
 }
 
+uint8_t* filter_all_clamp(uint8_t* in_bytes, uint32_t width, uint32_t height,int a,int b,int c,int d){
+	uint8_t* filtered = new uint8_t[width * height];
+	uint8_t sum = a + b + c + d;
+	uint8_t halfsum = sum >> 1;
+
+	filtered[0] = in_bytes[0];//TL prediction
+	for(size_t i=1;i<width;i++){
+		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
+	}
+	for(size_t y=1;y<height;y++){
+		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+		for(size_t i=1;i<width;i++){
+			int L = in_bytes[y * width + i - 1];
+			int TL = in_bytes[(y-1) * width + i - 1];
+			int T = in_bytes[(y-1) * width + i];
+			int TR = in_bytes[(y-1) * width + i + 1];
+			uint8_t min = L;
+			uint8_t max = T;
+			if(L > T){
+				min = T;
+				max = L;
+			}
+			filtered[(y * width) + i] = in_bytes[y * width + i] - clamp(
+				(
+					a*L + b*T + c*TL + d*TR + halfsum
+				)/sum,
+				min,
+				max
+			);
+		}
+	}
+	return filtered;
+}
+
 uint8_t* filter_all(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height,uint8_t predictor){
 	if(predictor == 0){
 		return filter_all_ffv1(in_bytes, range, width, height);
