@@ -359,6 +359,39 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	else if(
 		SYMMETRY == 0
 		&& INDEX == 0
+		&& PREDICTION == 1 && predictorCount == 1
+		&& ENTROPY_MAP == 0
+		&& LZ == 0
+		&& CODED == 1
+	){
+		printf("ransdec\n");
+
+		RansDecSymbol dsyms[256];
+		for(size_t i=0;i<256;i++){
+			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+			for(size_t j=0;j<256;j++){
+				if(tables[0].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+		}
+
+		unfilter_all(bitmap, range, width, height, predictors[0]);
+	}
+	else if(
+		SYMMETRY == 0
+		&& INDEX == 0
 		&& PREDICTION == 1
 		&& ENTROPY_MAP == 1 && entropyContexts > 1
 		&& LZ == 0
