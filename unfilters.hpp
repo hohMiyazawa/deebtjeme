@@ -259,7 +259,7 @@ void unfilter_all(
 	else if(predictor == 6){
 		unfilter_all_median(in_bytes, range, width, height);
 	}
-	else if(predictor == 6){
+	else if(predictor == 7){
 		unfilter_all_sPaeth(in_bytes, range, width, height);
 	}
 	else if(predictor == 68){
