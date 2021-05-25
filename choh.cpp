@@ -239,16 +239,69 @@ void encode_ranged_simple(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32
 	}
 }
 
+void encode_ranged_table(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	*(outPointer++) = 0b00000001;//use only entropy coding
+	SymbolStats stats;
+	stats.count_freqs(in_bytes, width*height);
+
+	BitBuffer tableEncode;
+	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+
+	RansEncSymbol esyms[256];
+
+	for(size_t i=0; i < 256; i++) {
+		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
+	}
+	EntropyEncoder entropy;
+	for(size_t index=width*height;index--;){
+		entropy.encodeSymbol(esyms,in_bytes[index]);
+	}
+
+	size_t streamSize;
+	uint8_t* buffer = entropy.conclude(&streamSize);
+	for(size_t i=0;i<streamSize;i++){
+		*(outPointer++) = buffer[i];
+	}
+}
+
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	if(width*height <= 16){//simple coding for small ones
-		encode_ranged_simple(in_bytes,range,width,height,outPointer);
-		return;
+	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
+
+	uint8_t alternates = 4;
+	uint8_t* miniBuffer[alternates];
+	uint8_t* trailing[alternates];
+	for(size_t i=0;i<alternates;i++){
+		miniBuffer[i] = new uint8_t[safety_margin];
+		trailing[i] = miniBuffer[i];
 	}
-	//encode_ranged_simple(in_bytes,range,width,height,outPointer);
-	encode_left(in_bytes,range,width,height,outPointer);
+	encode_ranged_simple(in_bytes,range,width,height,miniBuffer[0]);
+	encode_ranged_table(in_bytes,range,width,height,miniBuffer[1]);
+	encode_left(in_bytes,range,width,height,miniBuffer[2]);
+	encode_ffv1(in_bytes,range,width,height,miniBuffer[3]);
+
+	uint8_t bestIndex = 0;
+	size_t best = miniBuffer[0] - trailing[0];
+	for(size_t i=1;i<alternates;i++){
+		size_t diff = miniBuffer[i] - trailing[i];
+		if(diff < best){
+			best = diff;
+			bestIndex = i;
+		}
+	}
+	printf("best type: %d\n",(int)bestIndex);
+	for(size_t i=0;i<(miniBuffer[bestIndex] - trailing[bestIndex]);i++){
+		*(outPointer++) = trailing[bestIndex][i];
+	}
+	for(size_t i=0;i<alternates;i++){
+		delete[] trailing[i];
+	}
 
 /*
 	std::vector<unsigned char> image;
