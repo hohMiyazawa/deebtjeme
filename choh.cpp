@@ -398,7 +398,7 @@ void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uin
 	*(outPointer++) = 0b00001001;//use prediction and entropy coding
 
 
-	uint8_t predictorCount = 15;
+	uint8_t predictorCount = 14;
 	uint8_t predictorSelection[predictorCount] = {
 		0,//ffv1
 		0b01010100,//avg L-T
@@ -414,7 +414,6 @@ void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uin
 		0b01100000,//(1,2,-1,0)
 		0b01000100,//(1,0,0,0)
 		6,//median
-		7,//paeth
 		0b00010100//(0,1,0,0)
 	};
 	uint8_t *filtered_bytes[predictorCount];
