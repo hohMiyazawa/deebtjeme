@@ -2234,6 +2234,185 @@ void predictor_research2(
 
 }
 
+void predictor_research3(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
+	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
+	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	SymbolStats defaultFreqs;
+	defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+	double* costTable = entropyLookup(defaultFreqs,width*height);
+	double* predictorImageCost = new double[predictorWidth*predictorHeight];
+	uint8_t* predictorImage = new uint8_t[predictorWidth*predictorHeight];
+	uint8_t* predictorImage_cum = new uint8_t[predictorWidth*predictorHeight];
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictorImageCost[i] = regionalEntropy(
+			filtered_bytes,
+			costTable,
+			i,
+			width,
+			height,
+			predictorWidth_block,
+			predictorHeight_block
+		);
+		predictorImage[i] = 0;
+		predictorImage_cum[i] = 0;
+	}
+
+	uint8_t* filter2;
+
+	size_t round = 7;
+	int predictor[][4] = {
+		{24,16,-15,8},
+		{23,12,-17,5},
+		{3,3,-1,1},
+		{22,11,-7,4},
+		{12,23,-11,1},
+		{23,10,-11,1},
+		{23,21,-16,13}
+	};
+
+	for(size_t r=0;r<round;r++){
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			predictorImage[i] = 0;
+		}
+
+		filter2 = filter_all_generic(in_bytes, width, height,predictor[r][0],predictor[r][1],predictor[r][2],predictor[r][3]);
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				filter2,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImageCost[i]){
+				predictorImage[i] = 1;
+				predictorImage_cum[i] = r + 1;
+			}
+		}
+
+		for(size_t i=0;i<width*height;i++){
+			uint8_t index = predictorImage[tileIndexFromPixel(
+				i,
+				width,
+				predictorWidth,
+				predictorWidth_block,
+				predictorHeight_block
+			)];
+			if(index){
+				filtered_bytes[i] = filter2[i];
+			}
+		}
+		delete[] filter2;
+
+		defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+		delete[] costTable;
+		costTable = entropyLookup(defaultFreqs,width*height);
+
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			predictorImageCost[i] = regionalEntropy(
+				filtered_bytes,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+		}
+	}
+
+	double bestSum = 0;
+	//for(size_t pred=1;pred<256;pred++){
+	for(int a=0;a<25;a++){
+	for(int b=0;b<25;b++){
+	for(int c=-20;c<3;c++){
+	for(int d=0;d<20;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+		double sum = 0;
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImageCost[i]){
+				sum += predictorImageCost[i] - cost;
+			}
+		}
+		if(sum > bestSum){
+			printf("predictor (%d,%d,%d,%d): %f\n",a,b,c,d,sum);
+			bestSum = sum;
+		}
+		
+		delete[] semi_filter;
+/*
+		semi_filter = filter_all_clamp(in_bytes, width, height,a,b,c,d);
+		sum = 0;
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImage[i]){
+				sum += predictorImage[i] - cost;
+			}
+		}
+		if(sum > bestSum){
+			printf("predictor {%d,%d,%d,%d}: %f\n",a,b,c,d,sum);
+			bestSum = sum;
+		}
+
+		delete[] semi_filter;*/
+	}
+	}
+	}
+	}
+	//}
+
+	SymbolStats finalFreqs;
+	finalFreqs.count_freqs(predictorImage_cum, predictorWidth*predictorHeight);
+	for(size_t i=0;i<256;i++){
+		printf("final %d: %d\n",(int)i,finalFreqs.freqs[i]);
+	}
+
+
+
+	delete[] filtered_bytes;
+	delete[] predictorImageCost;
+	delete[] predictorImage;
+	delete[] predictorImage_cum;
+	delete[] costTable;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -2297,6 +2476,9 @@ int main(int argc, char *argv[]){
 	}
 	else if(speed == 420){
 		predictor_research2(grey,256,width,height);
+	}
+	else if(speed == 696){
+		predictor_research3(grey,256,width,height);
 	}
 	else if(speed == 0){
 		encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
