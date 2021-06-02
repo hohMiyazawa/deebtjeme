@@ -93,4 +93,70 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 	return newFreqs;
 }
 
+SymbolStats encode_freqTable_dry(SymbolStats freqs,size_t& sink, uint32_t range){
+
+	sink = 0;
+	size_t sum = 0;
+	for(size_t i=0;i<range;i++){
+		sum += freqs.freqs[i];
+	}
+	SymbolStats newFreqs;
+	if(sum == 0){
+		sink += 8;
+		SymbolStats newFreqs;
+		for(size_t i=0;i<256;i++){
+			if(i < range){
+				newFreqs.freqs[i] = 1;
+			}
+			else{
+				newFreqs.freqs[i] = 0;
+			}
+		}
+		newFreqs.normalize_freqs(1 << 16);
+		return newFreqs;
+	}
+	if(sum > (1 << 16)){
+		freqs.normalize_freqs(1 << 16);
+	}
+	for(size_t i=0;i<256;i++){
+		newFreqs.freqs[i] = freqs.freqs[i];
+	}
+	sink += 8;
+
+	size_t zero_pointer_length = log2_plus(range - 1);
+	size_t zero_count_bits = log2_plus(range / zero_pointer_length - 1);
+	size_t zero_count = 0;
+	size_t changes[1 << zero_count_bits];
+	bool running = true;
+	for(size_t i=0;i<range;i++){
+		if((bool)newFreqs.freqs[i] != running){
+			running = (bool)newFreqs.freqs[i];
+			changes[zero_count++] = i;
+			if(zero_count == (1 << zero_count_bits) - 1){
+				break;
+			}
+		}
+	}
+
+	if(zero_count == (1 << zero_count_bits) - 1){
+		sink += zero_count_bits;
+		sink += range;
+	}
+	else{
+		sink += zero_count_bits;
+		sink += zero_count * zero_pointer_length;
+	}
+
+	for(size_t i=0;i<range;i++){
+		if(newFreqs.freqs[i]){
+			uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
+			sink += 4;
+			uint16_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
+			sink += magnitude;
+		}
+	}
+	newFreqs.normalize_freqs(1 << 16);
+	return newFreqs;
+}
+
 #endif //TABLE_ENCODE

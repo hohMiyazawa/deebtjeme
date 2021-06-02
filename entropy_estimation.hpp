@@ -43,6 +43,20 @@ double* entropyLookup(SymbolStats stats,size_t total){
 	return table;
 }
 
+double estimateEntropy_overhead(SymbolStats stats1, uint32_t range){
+	size_t overhead1;
+	SymbolStats codedTable1 = encode_freqTable_dry(stats1, overhead1, range);
+	double* cost1 = entropyLookup(codedTable1,1 << 16);
+	double collected = overhead1;
+	for(size_t i=0;i<range;i++){
+		if(stats1.freqs[i]){
+			collected += stats1.freqs[i] * cost1[i];
+		}
+	}
+	delete[] cost1;
+	return collected;
+}
+
 double* entropyLookup(SymbolStats stats){
 	double* table = new double[256];
 	size_t total = 0;
