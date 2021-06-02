@@ -1,6 +1,8 @@
 #ifndef BITREADER_HEADER
 #define BITREADER_HEADER
 
+#include "panic.hpp"
+
 class BitReader{
 	public:
 		BitReader(uint8_t** source);
@@ -27,6 +29,9 @@ BitReader::BitReader(uint8_t** source,uint8_t startBits,uint8_t startBits_number
 uint8_t BitReader::readBits(uint8_t size){
 	if(size == 0){
 		return 0;
+	}
+	else if(size > 8){
+		panic("can't read more than 8bits at the time from a buffer!");
 	}
 	else if(size == partial_length){
 		uint8_t result = partial;

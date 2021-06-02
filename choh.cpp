@@ -19,6 +19,7 @@
 #include "varint.hpp"
 #include "laplace.hpp"
 #include "numerics.hpp"
+#include "bitwriter.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -66,51 +67,7 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 	return out;
 }
 
-class BitBuffer{
-	public:
-		uint8_t buffer[65536];
-		size_t length;
-		BitBuffer();
-		void writeBits(uint8_t value,uint8_t size);
-		void conclude();
-		
-	private:
-		uint8_t partial;
-		uint8_t partial_length;
-};
-
-BitBuffer::BitBuffer(){
-	length = 0;
-	partial = 0;
-	partial_length = 0;
-}
-void BitBuffer::conclude(){
-	if(partial_length){
-		buffer[length++] = partial;
-	}
-	partial = 0;
-	partial_length = 0;
-}
-void BitBuffer::writeBits(uint8_t value,uint8_t size){
-	if(size == 0){
-	}
-	else if(size + partial_length == 8){
-		buffer[length++] = partial + value;
-		partial = 0;
-		partial_length = 0;
-	}
-	else if(size + partial_length < 8){
-		partial += value << (8 - partial_length - size);
-		partial_length += size;
-	}
-	else{
-		buffer[length++] = partial + (value >> (partial_length + size - 8));
-		partial = (value % (1 << (partial_length + size - 8))) << (16 - partial_length - size);
-		partial_length = (partial_length + size - 8);
-	}
-}
-
-SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink, uint32_t range){
+SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 	//current behaviour: always use accurate 4bit magnitude coding, even if less accurate tables are sometimes more compact
 
 	//printf("first in buffer %d %d\n",(int)sink.buffer[0],(int)sink.length);
@@ -145,9 +102,50 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitBuffer& sink, uint32_t range){
 	sink.writeBits(0,4);//no blocking
 	sink.writeBits(15,4);//mode 15
 
-	//TODO zero modelling
+	size_t zero_pointer_length = log2_plus(range - 1);
+	size_t zero_count_bits = log2_plus(range / zero_pointer_length);
+	size_t zero_count = 0;
+	size_t changes[1 << zero_count_bits];
+	bool running = true;
+	for(size_t i=0;i<range;i++){
+		if((bool)newFreqs.freqs[i] != running){
+			changes[zero_count++] = i;
+			if(zero_count == (1 << zero_count_bits) - 1){
+				break;
+			}
+		}
+	}
+	if(zero_count == (1 << zero_count_bits) - 1){
+		sink.writeBits((1 << zero_count_bits) - 1,zero_count_bits);
+		for(size_t i=0;i<range;i++){
+			if(newFreqs.freqs[i]){
+				sink.writeBits(1,1);
+			}
+			else{
+				sink.writeBits(0,1);
+			}
+		}
+	}
+	else{
+		sink.writeBits(zero_count,zero_count_bits);
+		for(size_t i=0;i<zero_count;i++){
+			sink.writeBits(changes[i],zero_pointer_length);
+		}
+	}
 
 	for(size_t i=0;i<range;i++){
+		if(newFreqs.freqs[i]){
+			uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
+			sink.writeBits(magnitude,4);
+			uint8_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
+			if(magnitude > 8){
+				sink.writeBits(extraBits >> 8,magnitude - 8);
+				sink.writeBits(extraBits % 256,8);
+			}
+			else{
+				sink.writeBits(extraBits,magnitude);
+			}
+		}
 	}
 	newFreqs.normalize_freqs(1 << 16);
 	return newFreqs;
@@ -158,7 +156,7 @@ void encode_ranged_table(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, width*height);
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
@@ -233,16 +231,15 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 */
 }
 
-void encode_grey_8bit_static_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
+void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
-	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+	*(outPointer++) = 0b00000000;//use no advanced features
 
-	*(outPointer++) = 0;//ffv1 predictor
-	*(outPointer++) = 0b10001000;//use table number 8
+	*(outPointer++) = 0b00001000;//use table number 8
 
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, 256, width, height);
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
-	SymbolStats table = laplace(8,256);
+	SymbolStats table = laplace(8,range);
 
 	RansEncSymbol esyms[256];
 
@@ -294,7 +291,7 @@ size_t estimateLayer(uint8_t* in_bytes, uint32_t range, size_t length){
 	size_t estimate = 0;
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, length);
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	estimate += tableEncode.length;
@@ -362,7 +359,7 @@ void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uin
 	SymbolStats stats;
 	stats.count_freqs(filtered_bytes[bestIndex], width*height);
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
@@ -401,7 +398,7 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	SymbolStats stats;
 	stats.count_freqs(filtered_bytes, width*height);
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
@@ -438,7 +435,7 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	SymbolStats stats;
 	stats.count_freqs(filtered_bytes, width*height);
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
@@ -609,7 +606,7 @@ void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t 
 	printf("  cbuffer content %d\n",(int)(*(outPointer-2)));
 	printf("  cbuffer content %d\n",(int)(*(outPointer-1)));*/
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode,256);
@@ -678,7 +675,7 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 		}
 	}
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,256);
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
@@ -930,7 +927,7 @@ void encode_fewPass(
 	);
 	delete[] entropyImage;
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
@@ -1160,7 +1157,7 @@ void encode_fewPass2(
 	);
 	delete[] entropyImage;
 
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
 	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
@@ -1511,7 +1508,7 @@ void encode_optimiser(
 	);
 
 	printf("writing frequency tables\n");
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
@@ -1978,7 +1975,7 @@ void encode_optimiser2(
 	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
 
 	trailing = outPointer;
-	BitBuffer tableEncode;
+	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
@@ -2037,7 +2034,7 @@ int main(int argc, char *argv[]){
 	writeVarint((uint32_t)(height - 1),outPointer);
 
 	if(speed == 0){
-		encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);
+		encode_static_ffv1(grey, 256,width,height,outPointer);
 	}
 	else if(speed < 3){
 		encode_fewPass(grey, 256,width,height,outPointer, speed);
