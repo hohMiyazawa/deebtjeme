@@ -912,354 +912,6 @@ static int compare (const void * a, const void * b){
 	else return 0;  
 }
 
-void encode_optimiser(
-	uint8_t* in_bytes,
-	uint32_t range,
-	uint32_t width,
-	uint32_t height,
-	uint8_t*& outPointer,
-	size_t speed
-){
-	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
-
-	uint8_t predictorCount = speed*2;
-	if(predictorCount > 14){
-		predictorCount = 14;
-	}
-	uint8_t predictorSelection[14] = {
-		0,//ffv1
-		0b01010100,//avg L-T
-		0b01010000,//(1,1,-1,0)
-		0b11010001,//(3,1,-1,1)
-
-		0b01110000,//(1,3,-1,0)
-		0b11000010,//(3,0,-1,2)
-		0b10010001,//(2,1,-1,1)
-		0b11100000,//(3,2,-1,0)
-		0b11000001,//(3,0,-1,1)
-		0b10010000,//(2,1,-1,0)
-		0b01100000,//(1,2,-1,0)
-		0b01000100,//(1,0,0,0)
-		6,//median
-		0b00010100//(0,1,0,0)
-	};
-
-	*(outPointer++) = 255 - predictorCount;
-	for(size_t i=0;i<predictorCount;i++){
-		*(outPointer++) = predictorSelection[i];
-	}
-
-	uint32_t predictorWidth_block = 8;
-	uint32_t predictorHeight_block = 8;
-	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
-	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-
-	uint8_t *filtered_bytes[predictorCount];
-
-	for(size_t i=0;i<predictorCount;i++){
-		filtered_bytes[i] = filter_all(in_bytes, range, width, height, predictorSelection[i]);
-	}
-
-	SymbolStats defaultFreqs;
-	defaultFreqs.count_freqs(filtered_bytes[0], width*height);
-
-	double* costTable = entropyLookup(defaultFreqs,width*height);
-
-	uint8_t* predictorImage = new uint8_t[predictorWidth*predictorHeight];
-
-	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
-		double regions[predictorCount];
-		for(size_t pred=0;pred<predictorCount;pred++){
-			regions[pred] = regionalEntropy(
-				filtered_bytes[pred],
-				costTable,
-				i,
-				width,
-				height,
-				predictorWidth_block,
-				predictorHeight_block
-			);
-		}
-		double best = regions[0];
-		predictorImage[i] = 0;
-		for(size_t pred=1;pred<predictorCount;pred++){
-			if(regions[pred] < best){
-				best = regions[pred];
-				predictorImage[i] = pred;
-			}
-		}
-	}
-	SymbolStats predictorsUsed;
-	predictorsUsed.count_freqs(predictorImage, predictorWidth*predictorHeight);
-
-	for(size_t i=0;i<predictorCount;i++){
-		printf("pred %d: %d\n",(int)i,(int)predictorsUsed.freqs[i]);
-	}
-
-	delete[] costTable;
-
-	printf("merging filtered bitplanes\n");
-	uint8_t* final_bytes = new uint8_t[width*height];
-	for(size_t i=0;i<width*height;i++){
-		final_bytes[i] = filtered_bytes[predictorImage[tileIndexFromPixel(
-			i,
-			width,
-			predictorWidth,
-			predictorWidth_block,
-			predictorHeight_block
-		)]][i];
-	}
-
-	printf("starting entropy mapping\n");
-
-	uint32_t entropyWidth_block  = 8;
-	uint32_t entropyHeight_block = 8;
-
-	uint32_t entropyWidth  = (width + 7)/8;
-	uint32_t entropyHeight = (height + 7)/8;
-
-	uint8_t contextNumber = width*height/(128*128*2);
-	if(contextNumber == 0){
-		contextNumber = 1;
-	}
-
-	printf("entropy map %d x %d\n",(int)entropyWidth,(int)entropyHeight);
-	printf("block size %d x %d\n",(int)entropyWidth_block,(int)entropyHeight_block);
-
-	defaultFreqs.count_freqs(final_bytes, width*height);
-
-	costTable = entropyLookup(defaultFreqs,width*height);
-
-	double entropyMap[entropyWidth*entropyHeight];
-	double sortedEntropies[entropyWidth*entropyHeight];
-	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
-		double region = regionalEntropy(
-			final_bytes,
-			costTable,
-			i,
-			width,
-			height,
-			entropyWidth_block,
-			entropyHeight_block
-		);
-		entropyMap[i] = region;
-		sortedEntropies[i] = region;
-	}
-	delete[] costTable;
-
-	qsort(sortedEntropies, entropyWidth*entropyHeight, sizeof(double), compare);
-
-	double pivots[contextNumber];
-	for(size_t i=0;i<contextNumber;i++){
-		pivots[i] = sortedEntropies[(entropyWidth*entropyHeight * (i+1))/contextNumber - 1];
-		//printf("pivot: %f\n",pivots[i]);
-	}
-
-	uint8_t* entropyImage = new uint8_t[entropyWidth*entropyHeight];
-	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
-		for(size_t j=0;j<contextNumber;j++){
-			if(entropyMap[i] <= pivots[j]){
-				entropyImage[i] = j;
-				break;
-			}
-		}
-	}
-
-	SymbolStats contextsUsed;
-	contextsUsed.count_freqs(entropyImage, entropyWidth*entropyHeight);
-
-	/*for(size_t i=0;i<contextNumber;i++){
-		printf("entr %d: %d\n",(int)i,(int)contextsUsed.freqs[i]);
-	}*/
-	printf("---\n");
-
-	SymbolStats stats[contextNumber];
-	for(size_t context = 0;context < contextNumber;context++){
-		for(size_t i=0;i<256;i++){
-			stats[context].freqs[i] = 0;
-		}
-	}
-
-	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropyImage[tileIndexFromPixel(
-			i,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		)];
-		stats[cntr].freqs[final_bytes[i]]++;
-	}
-
-	double* costTables[contextNumber];
-	for(size_t i=0;i<contextNumber;i++){
-		costTables[i] = entropyLookup(stats[i]);
-	}
-
-	for(size_t i=0;i<contextNumber;i++){
-		contextsUsed.freqs[i] = 0;
-	}
-	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
-		double regions[contextNumber];
-		for(size_t pred=0;pred<contextNumber;pred++){
-			regions[pred] = regionalEntropy(
-				final_bytes,
-				costTables[pred],
-				i,
-				width,
-				height,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-		}
-		double best = regions[0];
-		entropyImage[i] = 0;
-		for(size_t pred=1;pred<contextNumber;pred++){
-			if(regions[pred] < best){
-				best = regions[pred];
-				entropyImage[i] = pred;
-			}
-		}
-		contextsUsed.freqs[entropyImage[i]]++;
-	}
-	for(size_t i=0;i<contextNumber;i++){
-		printf("entr %d: %d\n",(int)i,(int)contextsUsed.freqs[i]);
-	}
-
-	for(size_t context = 0;context < contextNumber;context++){
-		for(size_t i=0;i<256;i++){
-			stats[context].freqs[i] = 0;
-		}
-	}
-
-	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropyImage[tileIndexFromPixel(
-			i,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		)];
-		stats[cntr].freqs[final_bytes[i]]++;
-	}
-	for(size_t i=0;i<contextNumber;i++){
-		delete[] costTables[i];
-		costTables[i] = entropyLookup(stats[i]);
-	}
-
-	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
-		double regions[predictorCount];
-		for(size_t pred=0;pred<predictorCount;pred++){
-			regions[pred] = regionalEntropy(
-				filtered_bytes[pred],
-				costTables[entropyImage[i]],//assumes predictor block size is equal to entropy block size
-				i,
-				width,
-				height,
-				predictorWidth_block,
-				predictorHeight_block
-			);
-		}
-		double best = regions[0];
-		predictorImage[i] = 0;
-		for(size_t pred=1;pred<predictorCount;pred++){
-			if(regions[pred] < best){
-				best = regions[pred];
-				predictorImage[i] = pred;
-			}
-		}
-	}
-	for(size_t i=0;i<contextNumber;i++){
-		delete[] costTables[i];
-	}
-	predictorsUsed.count_freqs(predictorImage, predictorWidth*predictorHeight);
-
-	for(size_t i=0;i<predictorCount;i++){
-		printf("pred %d: %d\n",(int)i,(int)predictorsUsed.freqs[i]);
-	}
-	printf("merging filtered bitplanes again\n");
-	for(size_t i=0;i<width*height;i++){
-		final_bytes[i] = filtered_bytes[predictorImage[tileIndexFromPixel(
-			i,
-			width,
-			predictorWidth,
-			predictorWidth_block,
-			predictorHeight_block
-		)]][i];
-	}
-	for(size_t i=0;i<predictorCount;i++){
-		delete[] filtered_bytes[i];
-	}
-
-	encode_ranged_simple2(
-		predictorImage,
-		predictorCount,
-		predictorWidth,
-		predictorHeight,
-		outPointer
-	);
-	delete[] predictorImage;
-
-	printf("gathering final stat tables\n");
-	for(size_t context = 0;context < contextNumber;context++){
-		for(size_t i=0;i<256;i++){
-			stats[context].freqs[i] = 0;
-		}
-	}
-	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropyImage[tileIndexFromPixel(
-			i,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		)];
-		stats[cntr].freqs[final_bytes[i]]++;
-	}
-
-	*(outPointer++) = contextNumber - 1;//number of contexts
-
-	printf("encoding entropy image\n");
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropyImage,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-
-	printf("writing frequency tables\n");
-	BitWriter tableEncode;
-	SymbolStats table[contextNumber];
-	for(size_t context = 0;context < contextNumber;context++){
-		table[context] = encode_freqTable(stats[context],tableEncode, range);
-	}
-	tableEncode.conclude();
-	printf("frequency tables written\n");
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	entropyCoding_map(
-		final_bytes,
-		width,
-		height,
-		table,
-		entropyImage,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	delete[] entropyImage;
-	delete[] final_bytes;
-}
-
-
 void encode_optimiser2(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -1268,34 +920,33 @@ void encode_optimiser2(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
+	*(outPointer++) = 0b00000110;//use prediction and entropy coding with map
 
 	uint8_t predictorCount = speed*2;
-	if(predictorCount > 14){
-		predictorCount = 14;
+	if(predictorCount > 13){
+		predictorCount = 13;
 	}
-	uint8_t predictorSelection[14] = {
+	uint16_t predictorSelection[13] = {
 		0,//ffv1
-		0b01010100,//avg L-T
-		0b01010000,//(1,1,-1,0)
-		0b11010001,//(3,1,-1,1)
+		0b0001000111010000,//avg L-T
+		0b0001000111000000,//(1,1,-1,0)
+		0b0011000111000001,//(3,1,-1,1)
 
-		0b01110000,//(1,3,-1,0)
-		0b11000010,//(3,0,-1,2)
+		0b0001001111000000,//(1,3,-1,0)
+		0b0011000011000010,//(3,0,-1,2)
 		0b10010001,//(2,1,-1,1)
 		0b11100000,//(3,2,-1,0)
-		0b11000001,//(3,0,-1,1)
-		0b10010000,//(2,1,-1,0)
-		0b01100000,//(1,2,-1,0)
-		0b01000100,//(1,0,0,0)
-		6,//median
-		//7,//semi-paeth
-		0b00010100//(0,1,0,0)
+		0b0011000011000001,//(3,0,-1,1)
+		0b0010000111000000,//(2,1,-1,0)
+		0b0001001011000000,//(1,2,-1,0)
+		0b0001000011010000,//(1,0,0,0)
+		0b0000000111010000//(0,1,0,0)
 	};
 
-	*(outPointer++) = 255 - predictorCount;
-	for(size_t i=0;i<predictorCount;i++){
-		*(outPointer++) = predictorSelection[i];
+	*(outPointer++) = predictorCount - 1;
+	for(size_t i=1;i<predictorCount;i++){
+		*(outPointer++) = predictorSelection[i] >> 8;
+		*(outPointer++) = predictorSelection[i] % 256;
 	}
 
 	uint32_t predictorWidth_block = 8;
