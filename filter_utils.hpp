@@ -1,30 +1,6 @@
 #ifndef FILTER_UTILS_HEADER
 #define FILTER_UTILS_HEADER
 
-uint8_t median3(uint8_t a, uint8_t b, uint8_t c){
-	if(a > b){
-		if(b > c){
-			return b;
-		}
-		else if(c > a){
-			return a;
-		}
-		else{
-			return c;
-		}
-	}
-	else{
-		if(b < c){
-			return b;
-		}
-		else if(c > a){
-			return c;
-		}
-		else{
-			return a;
-		}
-	}
-}
 uint8_t ffv1(uint8_t L,uint8_t T,uint8_t TL){
 	uint8_t min = L;
 	uint8_t max = T;
@@ -39,29 +15,6 @@ uint8_t ffv1(uint8_t L,uint8_t T,uint8_t TL){
 		return max;
 	}
 	return max - (TL - min);
-}
-
-uint8_t semi_paeth(uint8_t L,uint8_t T,uint8_t TL){
-	uint8_t min = L;
-	uint8_t max = T;
-	if(L > T){
-		min = T;
-		max = L;
-	}
-	uint8_t grad;
-	if(TL >= max){
-		return min;
-	}
-	if(TL <= min){
-		return max;
-	}
-	if(
-		(TL - min)
-		< (max - TL)
-	){
-		return max;
-	}
-	return min;
 }
 
 uint8_t clamp(int a){
@@ -100,45 +53,26 @@ uint8_t clamp(int a,uint8_t lower,uint8_t upper){
 	}
 }
 
-uint8_t is_valid_predictor(uint8_t predictor){
+uint8_t is_valid_predictor(uint16_t predictor){
 	if(predictor == 0){
 		return 1;//ffv1
 	}
-	else if(predictor == 6){
-		return 1;//median
-	}
-	else if(predictor == 7){
-		return 1;//semi-paeth
-	}
 	else{
-		int a = (predictor & 0b11000000) >> 6;
-		int b = (predictor & 0b00110000) >> 4;
-		int c = (int)((predictor & 0b00001100) >> 2) - 1;
-		int d = (predictor & 0b00000011);
+		int a = (predictor & 0b1111000000000000) >> 12;
+		int b = (predictor & 0b0000111100000000) >> 8;
+		int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+		int d = (predictor & 0b0000000000001111);
 		int sum = a + b + c + d;
 		if(sum < 1){
 			return 0;
 		}
 		else if(
-			(
-				(a == 0 && b == 0 && c == 0)
-				&& (d == 2 || d == 3)
-			)
-			||
-			(
-				(a == 0 && b == 0 && d == 0)
-				&& (c == 2)
-			)
-			||
-			(
-				(a == 0 && c == 0 && d == 0)
-				&& (b == 2 || b == 3)
-			)
-			||
-			(
-				(b == 0 && c == 0 && d == 0)
-				&& (a == 2 || a == 3)
-			)
+			(a%2 + b%2 + c%2 + d%2) == 0
+			|| (a%3 + b%3 + c%3 + d%3) == 0
+			|| (a%5 + b%5 + c%5 + d%5) == 0
+			|| (a%7 + b%7 + c%7 + d%7) == 0
+			|| (a%11 + b%11 + c%11 + d%11) == 0
+			|| (a%13 + b%13 + c%13 + d%13) == 0
 		){
 			return 0;
 		}
