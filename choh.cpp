@@ -367,6 +367,16 @@ double estimateEntropy(uint8_t* in_bytes, size_t size){
 	return sum;
 }
 
+double estimateEntropy_freq(SymbolStats frequencies, size_t size){
+	double sum = 0;
+	for(size_t i=0;i<256;i++){
+		if(frequencies.freqs[i]){
+			sum += -std::log2((double)frequencies.freqs[i]/(double)size) * (double)frequencies.freqs[i];
+		}
+	}
+	return sum;
+}
+
 size_t estimateLayer(uint8_t* in_bytes, uint32_t range, size_t length){
 	size_t estimate = 0;
 	SymbolStats stats;
@@ -2234,6 +2244,82 @@ void predictor_research2(
 
 }
 
+void three_research(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	uint8_t* filtered_bytes2 = filter_all_generic(in_bytes, width, height,2,1,-1,1);
+	for(size_t part=0;part<256;part++){
+		uint8_t LEFT = 0;
+
+		SymbolStats stats;
+		for(size_t i=0;i<256;i++){
+			stats.freqs[i] = 0;
+		}
+		int sum1 = 0;
+		int sum2 = 0;
+		int count1 = 0;
+		int count2 = 0;
+		for(size_t i = 0;i<width*height;i++){
+			LEFT = 0;
+			if(i > 0){
+				LEFT = in_bytes[i - 1];
+			}
+			if(part > LEFT){
+				if(filtered_bytes[i] > 127){
+					sum1 += (int)filtered_bytes[i] - 256;
+				}
+				else{
+					sum1 += (int)filtered_bytes[i];
+				}
+				count1++;
+			}
+			else{
+				if(filtered_bytes[i] > 127){
+					sum2 += (int)filtered_bytes[i] - 256;
+				}
+				else{
+					sum2 += (int)filtered_bytes[i];
+				}
+				count2++;
+			}
+		}
+		printf("partition %d: %f %f\n",(int)part,((double)sum1)/(count1),((double)sum2)/(count2));
+	}
+	delete[] filtered_bytes;
+	delete[] filtered_bytes2;
+}
+
+void entropy_research(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	SymbolStats stats;
+	stats.count_freqs(filtered_bytes,width*height);
+	stats.normalize_freqs(1 << 16);
+	size_t bits = 0;
+	size_t bits2 = 0;
+	for(size_t i=0;i<256;i++){
+		printf("%d: %d\n",(int)i,(int)stats.freqs[i]);
+		if(stats.freqs[i]){
+			bits += 4;
+			bits += log2_plus(stats.freqs[i]) - 1;
+
+			bits2 += 4;
+			bits2 += (log2_plus(stats.freqs[i])/2) - 1;
+		}
+	}
+	printf("bits: %d\n",(int)bits);
+	printf("bits2: %d\n",(int)bits2);
+	delete[] filtered_bytes;
+}
+
 void predictor_research3(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -2270,23 +2356,47 @@ void predictor_research3(
 
 	uint8_t* filter2;
 
-	size_t round = 7;
+//worst case 1440x1080, 8x8 cost:
+/*
+0: 0
+1: 24300 | 24300
+2: 14215 | 38515
+3: 10085
+4:  7823
+5:  6392
+6:  5404
+7:  4681
+8:  4129
+9:  3694
+10: 3341
+11: 3050
+12: 2806 
+*/
+
+	size_t round = 12;
 	int predictor[][4] = {
-		{24,16,-15,8},
-		{23,12,-17,5},
-		{3,3,-1,1},
-		{22,11,-7,4},
-		{12,23,-11,1},
-		{23,10,-11,1},
-		{23,21,-16,13}
+		{11, 6, -7,5},//183274.483153
+		{15,14, -1,1},// 71415.464089
+		{15, 6, -7,2},// 34923.060674
+		{ 2, 4, -1,0},// 26264.419989
+		{13, 6,  1,0},// 19419.688109
+		{10,14, -8,3},// 18110.861009
+		{14, 7,-10,3},// 15032.618385
+		{ 8, 5, -5,7},// 10782.373917
+		{15, 7, -5,4},//  8500.182849
+		{ 1, 1,  1,0},//  8008.845159
+		{11,15, -5,0},//  7018.909845
+		{11,15,-11,0} //  6697.589226
 	};
 
+	for(size_t loop=0;loop < 1;loop++){
 	for(size_t r=0;r<round;r++){
 		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 			predictorImage[i] = 0;
 		}
 
 		filter2 = filter_all_generic(in_bytes, width, height,predictor[r][0],predictor[r][1],predictor[r][2],predictor[r][3]);
+		double saved = 0;
 		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 			double cost = regionalEntropy(
 				filter2,
@@ -2298,10 +2408,12 @@ void predictor_research3(
 				predictorHeight_block
 			);
 			if(cost < predictorImageCost[i]){
+				saved += predictorImageCost[i] - cost;
 				predictorImage[i] = 1;
 				predictorImage_cum[i] = r + 1;
 			}
 		}
+		printf("%dsaved %d: %f\n",(int)loop,(int)r,saved);
 
 		for(size_t i=0;i<width*height;i++){
 			uint8_t index = predictorImage[tileIndexFromPixel(
@@ -2334,13 +2446,14 @@ void predictor_research3(
 			);
 		}
 	}
+	}
 
 	double bestSum = 0;
 	//for(size_t pred=1;pred<256;pred++){
-	for(int a=0;a<25;a++){
-	for(int b=0;b<25;b++){
-	for(int c=-20;c<3;c++){
-	for(int d=0;d<20;d++){
+	for(int a=0;a<16;a++){
+	for(int b=0;b<16;b++){
+	for(int c=-13;c<3;c++){
+	for(int d=0;d<8;d++){
 		/*if(!is_valid_predictor(pred)){
 			continue;
 		}*/
@@ -2413,6 +2526,2557 @@ void predictor_research3(
 	delete[] costTable;
 }
 
+
+void predictor_research4(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
+	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
+	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	SymbolStats defaultFreqs;
+	defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+	double* costTable = entropyLookup(defaultFreqs,width*height);
+	double* predictorImageCost = new double[predictorWidth*predictorHeight];
+	uint16_t* predictorImage_cum = new uint16_t[predictorWidth*predictorHeight];
+
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictorImageCost[i] = regionalEntropy(
+			filtered_bytes,
+			costTable,
+			i,
+			width,
+			height,
+			predictorWidth_block,
+			predictorHeight_block
+		);
+		predictorImage_cum[i] = 0;
+	}
+
+	size_t table[1 << 16];
+	table[0] = predictorWidth*predictorHeight;
+	for(size_t i=1;i<(1<<16);i++){
+		table[i] = 0;
+	}
+
+	double bestSum = 0;
+	//for(size_t pred=1;pred<256;pred++){
+	for(int a=0;a<16;a++){
+	for(int b=0;b<16;b++){
+	for(int c=-13;c<3;c++){
+	for(int d=0;d<8;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+		double sum = 0;
+		size_t flipped = 0;
+
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImageCost[i]){
+				sum += predictorImageCost[i] - cost;
+				flipped++;
+			}
+		}
+
+		double cost_per_flip = -std::log2((double)flipped/(double)(predictorWidth*predictorHeight));
+		sum = 0;
+		flipped = 0;
+
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			double native_per_flip = -std::log2((double)table[predictorImage_cum[i]]/(double)(predictorWidth*predictorHeight));
+			if(cost + cost_per_flip - native_per_flip < predictorImageCost[i]){
+				sum += predictorImageCost[i] - (cost + cost_per_flip - native_per_flip);
+				flipped++;
+			}
+		}
+
+		cost_per_flip = -std::log2((double)flipped/(double)(predictorWidth*predictorHeight));
+
+		if(sum - (16 + 5) > 80){//16 is rougly the cost of adding yet another predictor, 5 is rougly the frequency table cost
+			//only if we save at least 10 bytes.
+			sum = -(16 + 5);
+			flipped = 0;
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				double cost = regionalEntropy(
+					semi_filter,
+					costTable,
+					i,
+					width,
+					height,
+					predictorWidth_block,
+					predictorHeight_block
+				);
+				double native_per_flip = -std::log2((double)table[predictorImage_cum[i]]/(double)(predictorWidth*predictorHeight));
+				if(cost + cost_per_flip - native_per_flip < predictorImageCost[i]){
+					sum += predictorImageCost[i] - (cost + cost_per_flip - native_per_flip);
+					predictorImageCost[i] = cost;
+					table[predictorImage_cum[i]]--;
+					table[laff]++;
+					predictorImage_cum[i] = laff;
+					flipped++;
+				}
+			}
+
+			printf("predictor (%d,%d,%d,%d): %f,  %d\n",a,b,c,d,sum,(int)flipped);
+		}
+/*
+		for(size_t i=0;i<width*height;i++){
+			uint16_t index = predictorImage_cum[tileIndexFromPixel(
+				i,
+				width,
+				predictorWidth,
+				predictorWidth_block,
+				predictorHeight_block
+			)];
+			if(index == laff){
+				filtered_bytes[i] = semi_filter[i];
+			}
+		}
+*/
+		delete[] semi_filter;
+
+	}
+	}
+	}
+	}
+
+	for(int a=0;a<16;a++){
+	for(int b=0;b<16;b++){
+	for(int c=-13;c<3;c++){
+	for(int d=0;d<8;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+		double cost_per_flip = -std::log2((double)table[laff]/(double)(predictorWidth*predictorHeight));
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			double native_per_flip = -std::log2((double)table[predictorImage_cum[i]]/(double)(predictorWidth*predictorHeight));
+			if(cost + cost_per_flip - native_per_flip < predictorImageCost[i]){
+				predictorImageCost[i] = cost;
+				table[predictorImage_cum[i]]--;
+				table[laff]++;
+				predictorImage_cum[i] = laff;
+			}
+		}
+/*
+		for(size_t i=0;i<width*height;i++){
+			uint16_t index = predictorImage_cum[tileIndexFromPixel(
+				i,
+				width,
+				predictorWidth,
+				predictorWidth_block,
+				predictorHeight_block
+			)];
+			if(index == laff){
+				filtered_bytes[i] = semi_filter[i];
+			}
+		}
+*/
+		delete[] semi_filter;
+
+	}
+	}
+	}
+	}
+
+	printf("---summary---\n");
+	printf("default: %d\n",(int)table[0]);
+	table[0] = predictorWidth*predictorHeight;
+	for(size_t i=1;i<(1<<16);i++){
+		if(table[i] > 2){
+			int a = (i & 0b1111000000000000) >> 12;
+			int b = (i & 0b0000111100000000) >> 8;
+			int c = ((i & 0b0000000011110000) >> 4) - 13;
+			int d = (i & 0b0000000000001111);
+			printf("(%d,%d,%d,%d): %d\n",a,b,c,d,(int)table[i]);
+		}
+	}
+
+
+	delete[] filtered_bytes;
+	delete[] predictorImageCost;
+	delete[] predictorImage_cum;
+	delete[] costTable;
+}
+
+
+void predictor_research5(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height
+){
+	uint32_t predictorWidth_block = 8;
+	uint32_t predictorHeight_block = 8;
+	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
+	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+
+	uint8_t* filtered_bytes = filter_all(in_bytes, range, width, height, 0);
+	SymbolStats defaultFreqs;
+	defaultFreqs.count_freqs(filtered_bytes, width*height);
+
+	double* costTable = entropyLookup(defaultFreqs,width*height);
+	double* predictorImageCost = new double[predictorWidth*predictorHeight];
+	double* predictorImageCost_beta = new double[predictorWidth*predictorHeight];
+	double* predictorImageCost_gamma = new double[predictorWidth*predictorHeight];
+	uint16_t* predictorImage_cum = new uint16_t[predictorWidth*predictorHeight];
+
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictorImageCost[i] = regionalEntropy(
+			filtered_bytes,
+			costTable,
+			i,
+			width,
+			height,
+			predictorWidth_block,
+			predictorHeight_block
+		);
+		predictorImageCost_beta[i] = predictorImageCost[i];
+		predictorImageCost_gamma[i] = predictorImageCost[i];
+		predictorImage_cum[i] = 0;
+	}
+
+	size_t table[1 << 16];
+	table[0] = predictorWidth*predictorHeight;
+	for(size_t i=1;i<(1<<16);i++){
+		table[i] = 0;
+	}
+
+	int a_limit = 12;
+	int b_limit = 12;
+	int c_limit_low = -9;
+	int c_limit_high = 3;
+	int d_limit = 7;
+
+	double bestSum = 0;
+	//for(size_t pred=1;pred<256;pred++){
+	for(int a=0;a<a_limit;a++){
+	for(int b=0;b<b_limit;b++){
+	for(int c=c_limit_low;c<c_limit_high;c++){
+	for(int d=0;d<d_limit;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		if(
+			(a % 2 == 0)
+			&& (b % 2 == 0)
+			&& (c % 2 == 0)
+			&& (d % 2 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 3 == 0)
+			&& (b % 3 == 0)
+			&& (c % 3 == 0)
+			&& (d % 3 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 5 == 0)
+			&& (b % 5 == 0)
+			&& (c % 5 == 0)
+			&& (d % 5 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 7 == 0)
+			&& (b % 7 == 0)
+			&& (c % 7 == 0)
+			&& (d % 7 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 11 == 0)
+			&& (b % 11 == 0)
+			&& (c % 11 == 0)
+			&& (d % 11 == 0)
+		){
+			continue;
+		}
+		printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+		size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImageCost_beta[i]){
+				predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+				predictorImageCost_beta[i] = cost;
+				table[laff]++;
+				table[predictorImage_cum[i]]--;
+				predictorImage_cum[i] = laff;
+			}
+			else if(cost < predictorImageCost_gamma[i]){
+				predictorImageCost_gamma[i] = cost;
+			}
+		}
+		delete[] semi_filter;
+
+	}
+	}
+	}
+	}
+
+	double achievement[1 << 16];
+	for(size_t i=0;i<(1<<16);i++){
+		achievement[i] = 0;
+	}
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+	}
+	for(size_t i=0;i<(1<<16);i++){
+		if(achievement[i]){
+			printf("achieve: %f\n",achievement[i]);
+		}
+	}
+	
+
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictorImageCost_beta[i] = predictorImageCost[i];
+		predictorImageCost_gamma[i] = predictorImageCost[i];
+		predictorImage_cum[i] = 0;
+	}
+
+	size_t table2[1 << 16];
+	table2[0] = predictorWidth*predictorHeight;
+	for(size_t i=1;i<(1<<16);i++){
+		table2[i] = 0;
+	}
+
+	for(int a=0;a<a_limit;a++){
+	for(int b=0;b<b_limit;b++){
+	for(int c=c_limit_low;c<c_limit_high;c++){
+	for(int d=0;d<d_limit;d++){
+		/*if(!is_valid_predictor(pred)){
+			continue;
+		}*/
+		if(a + b + c + d < 1){
+			continue;
+		}
+		if(
+			(a % 2 == 0)
+			&& (b % 2 == 0)
+			&& (c % 2 == 0)
+			&& (d % 2 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 3 == 0)
+			&& (b % 3 == 0)
+			&& (c % 3 == 0)
+			&& (d % 3 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 5 == 0)
+			&& (b % 5 == 0)
+			&& (c % 5 == 0)
+			&& (d % 5 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 7 == 0)
+			&& (b % 7 == 0)
+			&& (c % 7 == 0)
+			&& (d % 7 == 0)
+		){
+			continue;
+		}
+		if(
+			(a % 11 == 0)
+			&& (b % 11 == 0)
+			&& (c % 11 == 0)
+			&& (d % 11 == 0)
+		){
+			continue;
+		}
+		size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		if(achievement[laff] < 4){
+			continue;
+		}
+		printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+		uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			double cost = regionalEntropy(
+				semi_filter,
+				costTable,
+				i,
+				width,
+				height,
+				predictorWidth_block,
+				predictorHeight_block
+			);
+			if(cost < predictorImageCost_beta[i]){
+				predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+				predictorImageCost_beta[i] = cost;
+				table2[laff]++;
+				table2[predictorImage_cum[i]]--;
+				predictorImage_cum[i] = laff;
+			}
+			else if(cost < predictorImageCost_gamma[i]){
+				predictorImageCost_gamma[i] = cost;
+			}
+		}
+		delete[] semi_filter;
+
+	}
+	}
+	}
+	}
+
+	for(size_t i=0;i<(1<<16);i++){
+		achievement[i] = 0;
+	}
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+	}
+	for(size_t i=0;i<(1<<16);i++){
+		if(achievement[i]){
+			printf("achieve2: %f\n",achievement[i]);
+		}
+	}
+
+//remove later
+
+	
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				/*if(!is_valid_predictor(pred)){
+					continue;
+				}*/
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 8){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+	
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 12){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 16){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 20){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 24){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 28){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 32){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 40){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 48){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 56){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 64){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 80){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 96){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 112){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 128){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 144){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 160){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 176){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//
+
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				predictorImageCost_beta[i] = predictorImageCost[i];
+				predictorImageCost_gamma[i] = predictorImageCost[i];
+				predictorImage_cum[i] = 0;
+			}
+
+			table2[0] = predictorWidth*predictorHeight;
+			for(size_t i=1;i<(1<<16);i++){
+				table2[i] = 0;
+			}
+
+			for(int a=0;a<a_limit;a++){
+			for(int b=0;b<b_limit;b++){
+			for(int c=c_limit_low;c<c_limit_high;c++){
+			for(int d=0;d<d_limit;d++){
+				if(a + b + c + d < 1){
+					continue;
+				}
+				if(
+					(a % 2 == 0)
+					&& (b % 2 == 0)
+					&& (c % 2 == 0)
+					&& (d % 2 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 3 == 0)
+					&& (b % 3 == 0)
+					&& (c % 3 == 0)
+					&& (d % 3 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 5 == 0)
+					&& (b % 5 == 0)
+					&& (c % 5 == 0)
+					&& (d % 5 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 7 == 0)
+					&& (b % 7 == 0)
+					&& (c % 7 == 0)
+					&& (d % 7 == 0)
+				){
+					continue;
+				}
+				if(
+					(a % 11 == 0)
+					&& (b % 11 == 0)
+					&& (c % 11 == 0)
+					&& (d % 11 == 0)
+				){
+					continue;
+				}
+				size_t laff = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+				if(achievement[laff] < 192){
+					continue;
+				}
+				printf("predictor (%d,%d,%d,%d)\n",a,b,c,d);
+				uint8_t* semi_filter = filter_all_generic(in_bytes, width, height,a,b,c,d);
+
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					double cost = regionalEntropy(
+						semi_filter,
+						costTable,
+						i,
+						width,
+						height,
+						predictorWidth_block,
+						predictorHeight_block
+					);
+					if(cost < predictorImageCost_beta[i]){
+						predictorImageCost_gamma[i] = predictorImageCost_beta[i];
+						predictorImageCost_beta[i] = cost;
+						table2[laff]++;
+						table2[predictorImage_cum[i]]--;
+						predictorImage_cum[i] = laff;
+					}
+					else if(cost < predictorImageCost_gamma[i]){
+						predictorImageCost_gamma[i] = cost;
+					}
+				}
+				delete[] semi_filter;
+
+			}
+			}
+			}
+			}
+
+			for(size_t i=0;i<(1<<16);i++){
+				achievement[i] = 0;
+			}
+			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+				achievement[predictorImage_cum[i]] += predictorImageCost_gamma[i] - predictorImageCost_beta[i];
+			}
+			for(size_t i=0;i<(1<<16);i++){
+				if(achievement[i]){
+					printf("achieve3: %f\n",achievement[i]);
+				}
+			}
+
+//end remove later
+
+	double diff = 0;
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		diff += predictorImageCost[i] - predictorImageCost_beta[i];
+	}
+	diff = diff/(predictorWidth*predictorHeight);
+	printf("avg: %f\n",diff);
+
+
+	double wafflecost = 0;
+	double overhead = 0;
+	for(size_t i=0;i<(1<<16);i++){
+		if(table2[i]){
+			wafflecost += -std::log2((double)table2[i]/(double)(predictorWidth*predictorHeight)) * table2[i];
+			overhead += std::log2((double)(a_limit * b_limit * (c_limit_high - c_limit_low) * d_limit)) + 6;
+		}
+	}
+	wafflecost = wafflecost/(predictorWidth*predictorHeight);
+	overhead = overhead/(predictorWidth*predictorHeight);
+	printf("waffle: %f\n",wafflecost);
+	printf("overhead: %f\n",overhead);
+	printf("profit: %f\n",diff - wafflecost - overhead);
+
+	size_t used = 0;
+	size_t used1 = 0;
+	size_t used2 = 0;
+	for(size_t i=0;i<(1<<16);i++){
+		if(table2[i]){
+			used++;
+		}
+		if(table2[i] > 1){
+			used1++;
+		}
+		if(table2[i] > 2){
+			used2++;
+		}
+	}
+	printf("used: %d\n",(int)used);
+	printf("used > 1: %d\n",(int)used1);
+	printf("used > 2: %d\n",(int)used2);
+
+	delete[] filtered_bytes;
+	delete[] predictorImageCost;
+	delete[] predictorImageCost_beta;
+	delete[] predictorImageCost_gamma;
+	delete[] predictorImage_cum;
+	delete[] costTable;
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -2479,6 +5143,18 @@ int main(int argc, char *argv[]){
 	}
 	else if(speed == 696){
 		predictor_research3(grey,256,width,height);
+	}
+	else if(speed == 969){
+		predictor_research4(grey,256,width,height);
+	}
+	else if(speed == 970){
+		predictor_research5(grey,256,width,height);
+	}
+	else if(speed == 512){
+		three_research(grey,256,width,height);
+	}
+	else if(speed == 768){
+		entropy_research(grey,256,width,height);
 	}
 	else if(speed == 0){
 		encode_grey_8bit_entropyMap_ffv1(grey,width,height,outPointer);

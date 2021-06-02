@@ -1,6 +1,58 @@
+
 This is an experiment in lossless image compression.
 
 No attempt is made to made a fully featured image format. If this scheme is to have a real world application, it should be embedded in some suitable container format.
+
+--- SIMPLIFIED
+
+8bit greyscale only, implied range 256
+
+WIDTH (varint)
+HEIGHT (varint)
+compression method:
+bit 0: reserved
+bit 1: reserved
+bit 2: reserved
+bit 3: reserved
+bit 4: reserved
+bit 5: use multiple predictors
+bit 6: use multiple entropy coding tables
+bit 7: use LZ
+
+if bit 5:
+	1 byte: number of extra predictors
+	[0-255] pairs of bytes, pointing out linear combination predictors
+	[predictor image, using same format, using infered range]
+
+if bit 6:
+	1 byte: number of entropy context minus 1
+	[1-256] tables
+	[entropy image, using same format, using infered range]
+else:
+	1 table
+
+if bit 7:
+	TODO
+
+IMAGEDATA
+
+///tables:
+
+bits 0-3: shifting
+bits 4-7: mode
+	MODE 0: flat table
+	MODE 1-10: laplace
+	MODE 11: zero modelling only
+	MODE 12: zero modelling + 2bit magnitude
+	MODE 13: zero modelling + 3bit magnitude
+	MODE 14: zero modelling + 4bit magnitude
+	MODE 15: zero modelling + 4bit magnitude + all extrabits
+
+zero modelling:
+	ceil(log2(ceil(n/ceil(log2(n))))) bits number of changes
+	if maxchanges: bitmask
+	[0-many] changes
+
 
 ---
 
@@ -56,6 +108,26 @@ bit 7; signals if the image data is entropy coded
 
 Remark: some combinations are not valid:
 if entropy coding is not used, PREDICTION and ENTROPY_MAP should be set to zero.
+
+---
+encoding of frequency tables
+
+Two parts, zero modelling and magnitude coding
+
+Bucketing factor:
+1,2,4,8,16,32,64,128,256
+
+magnitude magnitude bits
+0,2,3,4
+
+bitfill mode
+top-half, all
+...
+first byte
+00000mmb
+  second byte
+  bucketing
+1lllllll
 
 
 TODO complete this
