@@ -20,6 +20,8 @@
 #include "laplace.hpp"
 #include "numerics.hpp"
 #include "bitwriter.hpp"
+#include "table_encode.hpp"
+#include "entropy_estimation.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -67,96 +69,8 @@ uint8_t* EntropyEncoder::conclude(size_t* streamSize){
 	return out;
 }
 
-SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
-	//current behaviour: always use accurate 4bit magnitude coding, even if less accurate tables are sometimes more compact
-
-	//printf("first in buffer %d %d\n",(int)sink.buffer[0],(int)sink.length);
-
-
-	size_t sum = 0;
-	for(size_t i=0;i<range;i++){//technically, there should be no frequencies above the range
-		sum += freqs.freqs[i];
-	}
-	SymbolStats newFreqs;
-	if(sum == 0){//dumb things can happen
-		//write a flat table, in case this gets used
-		sink.writeBits(0,8);
-		SymbolStats newFreqs;
-		for(size_t i=0;i<256;i++){
-			if(i < range){
-				newFreqs.freqs[i] = 1;
-			}
-			else{
-				newFreqs.freqs[i] = 0;
-			}
-		}
-		newFreqs.normalize_freqs(1 << 16);
-		return newFreqs;
-	}
-	if(sum > (1 << 16)){
-		freqs.normalize_freqs(1 << 16);
-	}
-	for(size_t i=0;i<256;i++){
-		newFreqs.freqs[i] = freqs.freqs[i];
-	}
-	sink.writeBits(0,4);//no blocking
-	sink.writeBits(15,4);//mode 15
-
-	size_t zero_pointer_length = log2_plus(range - 1);
-	size_t zero_count_bits = log2_plus(range / zero_pointer_length - 1);
-	size_t zero_count = 0;
-	size_t changes[1 << zero_count_bits];
-	bool running = true;
-	for(size_t i=0;i<range;i++){
-		if((bool)newFreqs.freqs[i] != running){
-			running = (bool)newFreqs.freqs[i];
-			changes[zero_count++] = i;
-			if(zero_count == (1 << zero_count_bits) - 1){
-				break;
-			}
-		}
-	}
-	//printf("  zero pointer info: %d,%d\n",(int)zero_pointer_length,(int)zero_count_bits);
-	//printf("  zero count: %d\n",(int)zero_count);
-	if(zero_count == (1 << zero_count_bits) - 1){
-		sink.writeBits((1 << zero_count_bits) - 1,zero_count_bits);
-		for(size_t i=0;i<range;i++){
-			if(newFreqs.freqs[i]){
-				sink.writeBits(1,1);
-			}
-			else{
-				sink.writeBits(0,1);
-			}
-		}
-	}
-	else{
-		sink.writeBits(zero_count,zero_count_bits);
-		for(size_t i=0;i<zero_count;i++){
-			sink.writeBits(changes[i],zero_pointer_length);
-		}
-	}
-
-	for(size_t i=0;i<range;i++){
-		if(newFreqs.freqs[i]){
-			uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
-			sink.writeBits(magnitude,4);
-			uint16_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
-			if(magnitude > 8){
-				sink.writeBits(extraBits >> 8,magnitude - 8);
-				sink.writeBits(extraBits % 256,8);
-			}
-			else{
-				sink.writeBits(extraBits,magnitude);
-			}
-		}
-	}
-	newFreqs.normalize_freqs(1 << 16);
-	return newFreqs;
-}
-
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
-void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
@@ -169,7 +83,6 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 		trailing[i] = miniBuffer[i];
 	}
 	encode_ffv1(in_bytes,range,width,height,miniBuffer[0]);
-	//encode_singlePredictor(in_bytes,range,width,height,miniBuffer[0]);
 	//encode_left(in_bytes,range,width,height,miniBuffer[2]);
 
 	uint8_t bestIndex = 0;
@@ -210,133 +123,6 @@ void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 		entropy.encodeSymbol(esyms,filtered_bytes[index]);
 	}
 	delete[] filtered_bytes;
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-
-double estimateEntropy(uint8_t* in_bytes, size_t size){
-	uint8_t frequencies[size];
-	for(size_t i=0;i<256;i++){
-		frequencies[i] = 0;
-	}
-	for(size_t i=0;i<size;i++){
-		frequencies[in_bytes[i]]++;
-	}
-	double sum = 0;
-	for(size_t i=0;i<256;i++){
-		if(frequencies[i]){
-			sum += -std::log2((double)frequencies[i]/(double)size) * (double)frequencies[i];
-		}
-	}
-	return sum;
-}
-
-double estimateEntropy_freq(SymbolStats frequencies, size_t size){
-	double sum = 0;
-	for(size_t i=0;i<256;i++){
-		if(frequencies.freqs[i]){
-			sum += -std::log2((double)frequencies.freqs[i]/(double)size) * (double)frequencies.freqs[i];
-		}
-	}
-	return sum;
-}
-
-size_t estimateLayer(uint8_t* in_bytes, uint32_t range, size_t length){
-	size_t estimate = 0;
-	SymbolStats stats;
-	stats.count_freqs(in_bytes, length);
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
-	tableEncode.conclude();
-	estimate += tableEncode.length;
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=length;index--;){
-		entropy.encodeSymbol(esyms,in_bytes[index]);
-	}
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	delete[] buffer;
-	estimate += streamSize;
-	return estimate;
-}
-
-void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	*(outPointer++) = 0b00001001;//use prediction and entropy coding
-
-
-	uint8_t predictorCount = 14;
-	uint8_t predictorSelection[predictorCount] = {
-		0,//ffv1
-		0b01010100,//avg L-T
-		0b01010000,//(1,1,-1,0)
-		0b11010001,//(3,1,-1,1)
-
-		0b01110000,//(1,3,-1,0)
-		0b11000010,//(3,0,-1,2)
-		0b10010001,//(2,1,-1,1)
-		0b11100000,//(3,2,-1,0)
-		0b11000001,//(3,0,-1,1)
-		0b10010000,//(2,1,-1,0)
-		0b01100000,//(1,2,-1,0)
-		0b01000100,//(1,0,0,0)
-		6,//median
-		0b00010100//(0,1,0,0)
-	};
-	uint8_t *filtered_bytes[predictorCount];
-	size_t estimates[predictorCount];
-
-	for(size_t i=0;i<predictorCount;i++){
-		filtered_bytes[i] = filter_all(in_bytes, range, width, height, predictorSelection[i]);
-		estimates[i] = estimateLayer(filtered_bytes[i], range, width*height);
-		printf("esti: %d\n",(int)estimates[i]);
-	}
-	uint8_t bestIndex = 0;
-	size_t best = estimates[0];
-	for(size_t i=1;i<predictorCount;i++){
-		if(estimates[i] < best){
-			best = estimates[i];
-			bestIndex = i;
-		}
-	}
-
-	printf("Predictor selected: %d (%d)\n",(int)bestIndex,(int)predictorSelection[bestIndex]);
-	*(outPointer++) = predictorSelection[bestIndex];
-
-	SymbolStats stats;
-	stats.count_freqs(filtered_bytes[bestIndex], width*height);
-
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
-	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[bestIndex][index]);
-	}
-	for(size_t i=0;i<predictorCount;i++){
-		delete[] filtered_bytes[i];
-	}
 
 	size_t streamSize;
 	uint8_t* buffer = entropy.conclude(&streamSize);
@@ -660,69 +446,6 @@ void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,u
 		*(outPointer++) = buffer[i];
 	}
 	delete[] buffer;
-}
-
-double* entropyLookup(SymbolStats stats,size_t total){
-	double* table = new double[256];
-	for(size_t i=0;i<256;i++){
-		if(stats.freqs[i] == 0){
-			table[i] = -std::log2(1/(double)total);
-		}
-		else{
-			table[i] = -std::log2(stats.freqs[i]/(double)total);
-		}
-	}
-	return table;
-}
-
-double* entropyLookup(SymbolStats stats){
-	double* table = new double[256];
-	size_t total = 0;
-	for(size_t i=0;i<256;i++){
-		total += stats.freqs[i];
-	}
-	if(total == 0){
-		for(size_t i=0;i<256;i++){
-			table[i] = 0;;
-		}
-		return table;
-	}
-	for(size_t i=0;i<256;i++){
-		if(stats.freqs[i] == 0){
-			table[i] = -std::log2(1/(double)total);
-		}
-		else{
-			table[i] = -std::log2(stats.freqs[i]/(double)total);
-		}
-	}
-	return table;
-}
-
-double regionalEntropy(
-	uint8_t* in_bytes,
-	double* entropyTable,
-	size_t tileIndex,
-	uint32_t width,
-	uint32_t height,
-	uint32_t b_width_block,
-	uint32_t b_height_block
-){
-	uint32_t b_width = (width + b_width_block - 1)/b_width_block;
-	double sum = 0;
-	for(size_t y=0;y<b_height_block;y++){
-		uint32_t y_pos = (tileIndex / b_width)*b_height_block + y;
-		if(y >= height){
-			continue;
-		}
-		for(size_t x=0;x<b_width_block;x++){
-			uint32_t x_pos = (tileIndex % b_width)*b_width_block + x;
-			if(x >= width){
-				continue;
-			}
-			sum += entropyTable[in_bytes[y_pos * width + x_pos]];
-		}
-	}
-	return sum;
 }
 
 void encode_fewPass(
