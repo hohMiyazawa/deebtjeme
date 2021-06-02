@@ -7,6 +7,7 @@
 #include "symbolstats.hpp"
 
 SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
+	printf("  table range: %d\n",(int)range);
 	SymbolStats stats;
 	blocking = reader.readBits(4);
 	uint8_t mode = reader.readBits(4);
@@ -14,6 +15,7 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 	if(blocking){
 		true_range = (range + (1 << (blocking - 1)) - 1) >> blocking;
 	}
+	printf("  table mode: %d\n",(int)mode);
 	if(mode == 0){
 		for(size_t i=0;i<256;i++){
 			if(i < range){
@@ -32,6 +34,7 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 		size_t zero_pointer_length = log2_plus(range - 1);
 		size_t zero_count_bits = log2_plus(range / zero_pointer_length);
 		size_t zero_count = reader.readBits(zero_count_bits);
+		printf("  zero pointer info: %d,%d\n",(int)zero_pointer_length,(int)zero_count_bits);
 		for(size_t i=0;i<256;i++){
 			stats.freqs[i] = 0;
 		}
@@ -56,6 +59,7 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 				stats.freqs[i] = running;
 			}
 		}
+		printf("  zeroes mapped\n");
 		if(mode == 11){
 			//nothing more to read
 		}

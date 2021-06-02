@@ -39,12 +39,15 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint32_t predictorWidth = 1;
 	uint32_t predictorHeight = 1;
 	if(PREDICTION_MAP){
+		printf("  has predicion map\n");
 		predictorCount = (*(fileIndex++)) + 1;
 		if(predictorCount > 1){
 			for(size_t i=1;i<predictorCount;i++){
-				predictors[i] = ((*(fileIndex++)) << 8) + *(fileIndex++);
+				uint16_t value = ((*(fileIndex++)) << 8);
+				value += *(fileIndex++);
+				predictors[i] = value;
 			}
-			printf("  %d extra predictors\n",(int)predictorCount);
+			printf("  %d extra predictors\n",(int)predictorCount - 1);
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
@@ -64,6 +67,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint32_t entropyWidth_block;
 	uint32_t entropyHeight_block;
 	if(ENTROPY_MAP){
+		printf("  has entropy map\n");
 		entropyContexts = *(fileIndex++) + 1;
 		if(entropyContexts > 1){
 			printf("  %d entropy contexts\n",(int)entropyContexts);
@@ -80,6 +84,8 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		panic("LZ decoding not yet implemented!\n");
 	}
 
+	printf("  decoding tables\n");
+
 	BitReader reader(&fileIndex);
 	SymbolStats tables[entropyContexts];
 	uint8_t blocking[entropyContexts];
@@ -89,6 +95,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			panic("entropy blocking not yet implemented!\n");
 		}
 	}
+	printf("  decoding tables completed\n");
 
 	uint8_t* bitmap = new uint8_t[width*height];
 	if(
