@@ -54,11 +54,14 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			printf("---\n");
 			uint8_t* predictorImage_data = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
 			printf("--- end predictor image\n");
+			predictorImage = new uint16_t[predictorWidth*predictorHeight];
 			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 				predictorImage[i] = predictors[predictorImage_data[i]];
 			}
+			delete[] predictorImage_data;
 		}
 	}
+	printf(" starting entropy\n");
 
 	uint8_t entropyContexts = 1;
 	uint8_t* entropyImage;

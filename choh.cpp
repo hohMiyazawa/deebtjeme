@@ -103,18 +103,21 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 	sink.writeBits(15,4);//mode 15
 
 	size_t zero_pointer_length = log2_plus(range - 1);
-	size_t zero_count_bits = log2_plus(range / zero_pointer_length);
+	size_t zero_count_bits = log2_plus(range / zero_pointer_length - 1);
 	size_t zero_count = 0;
 	size_t changes[1 << zero_count_bits];
 	bool running = true;
 	for(size_t i=0;i<range;i++){
 		if((bool)newFreqs.freqs[i] != running){
+			running = (bool)newFreqs.freqs[i];
 			changes[zero_count++] = i;
 			if(zero_count == (1 << zero_count_bits) - 1){
 				break;
 			}
 		}
 	}
+	//printf("  zero pointer info: %d,%d\n",(int)zero_pointer_length,(int)zero_count_bits);
+	//printf("  zero count: %d\n",(int)zero_count);
 	if(zero_count == (1 << zero_count_bits) - 1){
 		sink.writeBits((1 << zero_count_bits) - 1,zero_count_bits);
 		for(size_t i=0;i<range;i++){
