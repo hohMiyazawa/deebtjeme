@@ -96,7 +96,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 	){
-		printf("ransdec\n");
+		printf("ransdec simple\n");
 
 		RansDecSymbol dsyms[256];
 		for(size_t i=0;i<256;i++){

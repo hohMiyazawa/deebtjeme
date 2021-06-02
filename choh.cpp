@@ -137,7 +137,7 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 		if(newFreqs.freqs[i]){
 			uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
 			sink.writeBits(magnitude,4);
-			uint8_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
+			uint16_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
 			if(magnitude > 8){
 				sink.writeBits(extraBits >> 8,magnitude - 8);
 				sink.writeBits(extraBits % 256,8);
@@ -151,36 +151,6 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 	return newFreqs;
 }
 
-void encode_ranged_table(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000001;//use only entropy coding
-	SymbolStats stats;
-	stats.count_freqs(in_bytes, width*height);
-
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
-	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,in_bytes[index]);
-	}
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
@@ -188,15 +158,14 @@ void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uin
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 2;
+	uint8_t alternates = 1;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing[alternates];
 	for(size_t i=0;i<alternates;i++){
 		miniBuffer[i] = new uint8_t[safety_margin];
 		trailing[i] = miniBuffer[i];
 	}
-	encode_ranged_table(in_bytes,range,width,height,miniBuffer[0]);
-	encode_singlePredictor(in_bytes,range,width,height,miniBuffer[1]);
+	encode_singlePredictor(in_bytes,range,width,height,miniBuffer[0]);
 	//encode_left(in_bytes,range,width,height,miniBuffer[2]);
 	//encode_ffv1(in_bytes,range,width,height,miniBuffer[3]);
 
@@ -388,11 +357,7 @@ void encode_singlePredictor(uint8_t* in_bytes, uint32_t range,uint32_t width,uin
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	*(outPointer++) = 0b00001001;//use prediction and entropy coding
-
-	*(outPointer++) = 0;//ffv1 predictor
-
+	*(outPointer++) = 0b00000000;
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	SymbolStats stats;
@@ -2035,6 +2000,9 @@ int main(int argc, char *argv[]){
 
 	if(speed == 0){
 		encode_static_ffv1(grey, 256,width,height,outPointer);
+	}
+	else if(speed == 1){
+		encode_ffv1(grey, 256,width,height,outPointer);
 	}
 	else if(speed < 3){
 		encode_fewPass(grey, 256,width,height,outPointer, speed);

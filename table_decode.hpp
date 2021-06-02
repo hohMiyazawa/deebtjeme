@@ -99,6 +99,7 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 				}
 			}
 		}
+		stats.normalize_freqs(1 << 16);
 	}
 	return stats;
 }
