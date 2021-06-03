@@ -71,10 +71,13 @@ void research_optimiser_entropyOnly(
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
+	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
 	for(size_t context = 0;context < contextNumber;context++){
+		SymbolStats stats;
+		statistics[context] = stats;
 		for(size_t i=0;i<256;i++){
 			statistics[context].freqs[i] = 0;
 		}
@@ -104,21 +107,6 @@ void research_optimiser_entropyOnly(
 		);
 	}
 ///encode data
-	for(size_t context = 0;context < contextNumber;context++){
-		for(size_t i=0;i<256;i++){
-			statistics[context].freqs[i] = 0;
-		}
-	}
-	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropy_image[tileIndexFromPixel(
-			i,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		)];
-		statistics[cntr].freqs[filtered_bytes[i]]++;
-	}
 
 	*(outPointer++) = contextNumber - 1;//number of contexts
 
@@ -159,6 +147,7 @@ void research_optimiser_entropyOnly(
 	);
 
 	delete[] statistics;
+	delete[] filtered_bytes;
 	delete[] entropy_image;
 }
 

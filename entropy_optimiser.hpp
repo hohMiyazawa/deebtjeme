@@ -14,7 +14,7 @@ uint8_t entropy_map_initial(
 	uint32_t range,
 	uint32_t width,
 	uint32_t height,
-	uint8_t* entropy_image,
+	uint8_t*& entropy_image,
 	uint32_t& entropyWidth,
 	uint32_t& entropyHeight
 ){
@@ -83,7 +83,7 @@ uint32_t entropy_redistribution_pass(
 	uint32_t range,
 	uint32_t width,
 	uint32_t height,
-	uint8_t* entropy_image,
+	uint8_t*& entropy_image,
 	uint32_t contexts,
 	uint32_t entropy_width,
 	uint32_t entropy_height,
@@ -129,6 +129,22 @@ uint32_t entropy_redistribution_pass(
 //free memory
 	for(size_t i=0;i<contexts;i++){
 		delete[] costTables[i];
+	}
+//update stats
+	for(size_t context = 0;context < contexts;context++){
+		for(size_t i=0;i<256;i++){
+			entropy_stats[context].freqs[i] = 0;
+		}
+	}
+	for(size_t i=0;i<width*height;i++){
+		uint8_t cntr = entropy_image[tileIndexFromPixel(
+			i,
+			width,
+			entropy_width,
+			entropy_width_block,
+			entropy_height_block
+		)];
+		entropy_stats[cntr].freqs[in_bytes[i]]++;
 	}
 //shrink symbol stats available
 	uint32_t index = 0;
