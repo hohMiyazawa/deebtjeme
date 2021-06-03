@@ -237,9 +237,11 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& LZ == 0
 	){
 		printf("ransdec\n");
-		RansDecSymbol dsyms[256];
-		for(size_t i=0;i<256;i++){
-			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
+		RansDecSymbol dsyms[entropyContexts][256];
+		for(size_t context=0;context < entropyContexts;context++){
+			for(size_t i=0;i<256;i++){
+				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
+			}
 		}
 
 		RansState rans;
@@ -249,14 +251,22 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			uint32_t cumFreq = RansDecGet(&rans, 16);
 			uint8_t s;
 
+			size_t tileIndex = tileIndexFromPixel(
+				i,
+				width,
+				entropyWidth,
+				entropyWidth_block,
+				entropyHeight_block
+			);
+
 			for(size_t j=0;j<256;j++){
-				if(tables[0].cum_freqs[j + 1] > cumFreq){
+				if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
 					s = j;
 					break;
 				}
 			}
 			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
 		unfilter_all_ffv1(bitmap, range, width, height);
 	}
