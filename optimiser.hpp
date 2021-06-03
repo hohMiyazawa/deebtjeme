@@ -3,6 +3,7 @@
 
 #include "symbolstats.hpp"
 #include "entropy_optimiser.hpp"
+#include "predictor_optimiser.hpp"
 #include "entropy_coding.hpp"
 #include "table_encode.hpp"
 #include "2dutils.hpp"
