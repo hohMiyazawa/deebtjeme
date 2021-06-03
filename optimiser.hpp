@@ -93,6 +93,7 @@ void research_optimiser_entropyOnly(
 		statistics[cntr].freqs[filtered_bytes[i]]++;
 	}
 
+	printf("performing %d entropy passes\n",(int)speed);
 	for(size_t i=0;i<speed;i++){
 		contextNumber = entropy_redistribution_pass(
 			filtered_bytes,
@@ -128,6 +129,7 @@ void research_optimiser_entropyOnly(
 	for(size_t context = 0;context < contextNumber;context++){
 		table[context] = encode_freqTable(statistics[context],tableEncode, range);
 	}
+	delete[] statistics;
 	tableEncode.conclude();
 	for(size_t i=0;i<tableEncode.length;i++){
 		*(outPointer++) = tableEncode.buffer[i];
@@ -146,7 +148,6 @@ void research_optimiser_entropyOnly(
 		outPointer
 	);
 
-	delete[] statistics;
 	delete[] filtered_bytes;
 	delete[] entropy_image;
 }

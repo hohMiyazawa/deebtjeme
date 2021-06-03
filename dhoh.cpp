@@ -48,12 +48,13 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 				predictors[i] = value;
 			}
 			printf("  %d extra predictors\n",(int)predictorCount - 1);
+			uint8_t* trailing = fileIndex;
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			printf("---\n");
 			uint8_t* predictorImage_data = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
-			printf("--- end predictor image\n");
+			printf("  predictor image size: %d bytes\n",(int)(fileIndex - trailing));
 			predictorImage = new uint16_t[predictorWidth*predictorHeight];
 			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 				predictorImage[i] = predictors[predictorImage_data[i]];
@@ -74,12 +75,14 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		entropyContexts = *(fileIndex++) + 1;
 		if(entropyContexts > 1){
 			printf("  %d entropy contexts\n",(int)entropyContexts);
+			uint8_t* trailing = fileIndex;
 			entropyWidth = readVarint(fileIndex) + 1;
 			entropyHeight = readVarint(fileIndex) + 1;
 			entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 			entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
 			printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 			entropyImage = read_ranged_greyscale(fileIndex,entropyContexts,entropyWidth,entropyHeight);
+			printf("  entropy image size: %d bytes\n",(int)(fileIndex - trailing));
 		}
 	}
 
@@ -87,7 +90,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		panic("LZ decoding not yet implemented!\n");
 	}
 
-	printf("  decoding tables\n");
+	uint8_t* trailing = fileIndex;
 
 	BitReader reader(&fileIndex);
 	SymbolStats tables[entropyContexts];
@@ -98,7 +101,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			panic("entropy blocking not yet implemented!\n");
 		}
 	}
-	printf("  decoding tables completed\n");
+	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
 
 	uint8_t* bitmap = new uint8_t[width*height];
 	if(

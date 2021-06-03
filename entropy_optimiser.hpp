@@ -148,10 +148,15 @@ uint32_t entropy_redistribution_pass(
 	}
 //shrink symbol stats available
 	uint32_t index = 0;
+	uint8_t mapping[contexts];
 	for(size_t i=0;i<contexts;i++){
+		mapping[i] = index;
 		if(contextsUsed[i]){
 			entropy_stats[index++] = entropy_stats[i];
 		}
+	}
+	for(size_t i=0;i<entropy_width*entropy_height;i++){
+		entropy_image[i] = mapping[entropy_image[i]];
 	}
 	return index;//new number of contexts
 }

@@ -977,12 +977,13 @@ int main(int argc, char *argv[]){
 	else if(speed < 3){
 		encode_fewPass(grey, 256,width,height,outPointer, speed);
 	}
-	else if(speed > 69){
+	else if(speed >= 69){
 		research_optimiser_entropyOnly(grey, 256,width,height,outPointer, speed - 69);
 	}
 	else{
 		encode_optimiser2(grey, 256,width,height,outPointer, speed);
 	}
+	delete[] grey;
 
 	
 	printf("file size %d\n",(int)(outPointer - out_buf));
