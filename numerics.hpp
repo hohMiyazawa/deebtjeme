@@ -36,4 +36,10 @@ uint8_t sub_mod(uint8_t a, uint8_t b, uint32_t modulo){
 	}
 }
 
+static int compare (const void * a, const void * b){
+	if (*(double*)a > *(double*)b) return 1;
+	else if (*(double*)a < *(double*)b) return -1;
+	else return 0;  
+}
+
 #endif // NUMERICS_HEADER

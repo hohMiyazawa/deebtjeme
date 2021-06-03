@@ -4,6 +4,7 @@
 #include "symbolstats.hpp"
 #include "entropy_estimation.hpp"
 #include "table_encode.hpp"
+#include "numerics.hpp"
 
 /*
 	heuristic for entropy mapping
@@ -13,13 +14,15 @@ uint8_t entropy_map_initial(
 	uint32_t range,
 	uint32_t width,
 	uint32_t height,
-	uint8_t* entropy_image
+	uint8_t* entropy_image,
+	uint32_t& entropyWidth,
+	uint32_t& entropyHeight
 ){
 	uint32_t entropyWidth_block  = 8;
 	uint32_t entropyHeight_block = 8;
 
-	uint32_t entropyWidth  = (width + 7)/8;
-	uint32_t entropyHeight = (height + 7)/8;
+	entropyWidth  = (width + 7)/8;
+	entropyHeight = (height + 7)/8;
 
 	uint8_t contextNumber;
 	if((width + height + 255)/256 > 255){
@@ -30,15 +33,15 @@ uint8_t entropy_map_initial(
 	}
 
 	SymbolStats defaultFreqs;
-	defaultFreqs.count_freqs(final_bytes, width*height);
+	defaultFreqs.count_freqs(in_bytes, width*height);
 
-	costTable = entropyLookup(defaultFreqs,width*height);
+	double* costTable = entropyLookup(defaultFreqs,width*height);
 
 	double entropyMap[entropyWidth*entropyHeight];
 	double sortedEntropies[entropyWidth*entropyHeight];
 	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
 		double region = regionalEntropy(
-			final_bytes,
+			in_bytes,
 			costTable,
 			i,
 			width,
@@ -62,7 +65,7 @@ uint8_t entropy_map_initial(
 	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
 		for(size_t j=0;j<contextNumber;j++){
 			if(entropyMap[i] <= pivots[j]){
-				entropyImage[i] = j;
+				entropy_image[i] = j;
 				break;
 			}
 		}
@@ -102,7 +105,7 @@ uint32_t entropy_redistribution_pass(
 	}
 	for(size_t i=0;i<entropy_width*entropy_height;i++){
 		double regions[contexts];
-		for(size_t pred=0;pred<contextNumber;pred++){
+		for(size_t pred=0;pred<contexts;pred++){
 			regions[pred] = regionalEntropy(
 				in_bytes,
 				costTables[pred],
@@ -115,13 +118,13 @@ uint32_t entropy_redistribution_pass(
 		}
 		double best = regions[0];
 		entropy_image[i] = 0;
-		for(size_t pred=1;pred<contextNumber;pred++){
+		for(size_t pred=1;pred<contexts;pred++){
 			if(regions[pred] < best){
 				best = regions[pred];
-				entropyImage[i] = pred;
+				entropy_image[i] = pred;
 			}
 		}
-		contextsUsed[entropyImage[i]]++;
+		contextsUsed[entropy_image[i]]++;
 	}
 //free memory
 	for(size_t i=0;i<contexts;i++){
@@ -131,7 +134,7 @@ uint32_t entropy_redistribution_pass(
 	uint32_t index = 0;
 	for(size_t i=0;i<contexts;i++){
 		if(contextsUsed[i]){
-			SymbolStats[index++] = SymbolStats[i];
+			entropy_stats[index++] = entropy_stats[i];
 		}
 	}
 	return index;//new number of contexts
