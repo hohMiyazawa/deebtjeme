@@ -99,6 +99,19 @@ uint32_t add_predictor_maybe(
 					blocks++;
 					saved += native - (alternate + cost_per_occurence);
 					predictor_image[i] = predictor_count;
+					for(size_t y = 0;y < predictor_height_block;y++){
+						size_t y_pos = (i / predictor_width) * predictor_height_block + y;
+						if(y_pos >= height){
+							break;
+						}
+						for(size_t x = 0;x < predictor_width_block;x++){
+							size_t x_pos = (i % predictor_width) * predictor_width_block + x;
+							if(x_pos >= width){
+								continue;
+							}
+							filtered_bytes[y_pos * width + x_pos] = filter2[y_pos * width + x_pos];
+						}
+					}
 				}
 			}
 		}
@@ -114,5 +127,6 @@ uint32_t add_predictor_maybe(
 		delete[] costTables[i];
 	}
 	delete[] filter2;
+	return predictor_count;
 }
 #endif //PREDICTOR_OPTIMISER
