@@ -17,6 +17,17 @@ uint8_t ffv1(uint8_t L,uint8_t T,uint8_t TL){
 	return max - (TL - min);
 }
 
+uint8_t grad(uint8_t L,uint8_t T,uint8_t TL){
+	int grad = (int)L + (int)T - (int)TL;
+	if(grad < 0){
+		return 0;
+	}
+	if(grad > 255){
+		return 255;
+	}
+	return (uint8_t)grad;
+}
+
 uint8_t clamp(int a){
 	if(a < 0){
 		return 0;

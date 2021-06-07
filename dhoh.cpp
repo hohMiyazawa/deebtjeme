@@ -286,20 +286,11 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 
 }
 
-uint8_t* bitmap_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
-	uint8_t* bitmap_expanded = new uint8_t[width*height*4];
-	for(size_t i=0;i<width*height;i++){
-		bitmap_expanded[i*4 + 0] = bitmap[i];
-		bitmap_expanded[i*4 + 1] = bitmap[i];
-		bitmap_expanded[i*4 + 2] = bitmap[i];
-		bitmap_expanded[i*4 + 3] = 255;
-	}
-	delete[] bitmap;
-	return bitmap_expanded;
-}
-
 uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height){
-	return bitmap_expander(read_ranged_greyscale(fileIndex,256,width,height),width,height);
+	uint8_t* normal = read_ranged_greyscale(fileIndex,256,width,height);
+	uint8_t* expanded = bitmap_expander(normal,width,height);
+	delete[] normal;
+	return expanded;
 }
 
 int main(int argc, char *argv[]){

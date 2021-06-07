@@ -884,6 +884,30 @@ void encode_optimiser2(
 			stats[context].freqs[i] = 0;
 		}
 	}
+/* progressive research
+*/
+	for(size_t i = 1;i<width*height;i++){
+		size_t y = i / width;
+		size_t x = i % width;
+		if(y % 128 == 0){
+			final_bytes[i] = sub_mod(in_bytes[i],in_bytes[i - 1],range);
+		}
+		else if(x % 128 == 0){
+			final_bytes[i] = sub_mod(in_bytes[i],in_bytes[i - width],range);
+		}
+	}
+/*
+	for(size_t i = 2;i<width*height;i++){
+		size_t y = i / width;
+		size_t x = i % width;
+		if(y % 32 == 0){
+			final_bytes[i] = sub_mod(in_bytes[i],(4*(int)in_bytes[i - 1] - (int)in_bytes[i - 2])/3,range);
+		}
+		else if(x % 32 == 0){
+			final_bytes[i] = sub_mod(in_bytes[i],in_bytes[i - width],range);
+		}
+	}
+*/
 	for(size_t i=0;i<width*height;i++){
 		uint8_t cntr = entropyImage[tileIndexFromPixel(
 			i,
@@ -936,6 +960,192 @@ void encode_optimiser2(
 	delete[] final_bytes;
 }
 
+
+void research_progressive(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+){
+
+	size_t xblock = 4;
+	size_t yblock = 4;
+	size_t sent_lines = 1;
+	/*
+	for(size_t y=0;y<height;y++){
+		for(size_t x=0;x<width;x++){
+			if(
+				(x % xblock) && (y % yblock)
+			){
+				in_bytes[y*width + x] = ffv1(
+					in_bytes[y*width + x - 1],
+					in_bytes[(y-1)*width + x],
+					in_bytes[(y-1)*width + x - 1]
+				);
+			}
+		}
+	}
+	*/
+	for(size_t y=0;y<height;y += yblock){
+		for(size_t x=0;x<width;x += xblock){
+if(
+	y + yblock >= height
+	|| x + xblock >= width
+){
+	for(size_t y_off = 1;y_off + y < height;y_off++){
+		if(y_off < sent_lines){
+		}
+		else{
+			for(size_t x_off = 1;x_off + x < width;x_off++){
+				in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+					in_bytes[(y + y_off)*width + x + x_off - 1],
+					in_bytes[(y + y_off - 1)*width + x + x_off],
+					in_bytes[(y + y_off - 1)*width + x + x_off - 1]
+				);
+			}
+		}
+	}
+}
+else{
+
+for(size_t y_off = sent_lines;y_off <= (yblock - ((yblock - sent_lines)/2));y_off++){
+	for(size_t x_off = 1;x_off <= (xblock/2);x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off - 1],
+			in_bytes[(y + y_off - 1)*width + x + x_off],
+			in_bytes[(y + y_off - 1)*width + x + x_off - 1]
+		);
+	}
+	for(size_t x_off = xblock - 1;x_off > (xblock/2);x_off--){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off + 1],
+			in_bytes[(y + y_off - 1)*width + x + x_off],
+			in_bytes[(y + y_off - 1)*width + x + x_off + 1]
+		);
+	}
+}
+for(size_t y_off = yblock - 1;y_off > (yblock - ((yblock - sent_lines)/2));y_off--){
+	if(y_off < sent_lines){
+	}
+	else{
+	for(size_t x_off = 1;x_off <= (xblock/2);x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off - 1],
+			in_bytes[(y + y_off + 1)*width + x + x_off],
+			in_bytes[(y + y_off + 1)*width + x + x_off - 1]
+		);
+	}
+	for(size_t x_off = xblock - 1;x_off > (xblock/2);x_off--){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off + 1],
+			in_bytes[(y + y_off + 1)*width + x + x_off],
+			in_bytes[(y + y_off + 1)*width + x + x_off + 1]
+		);
+	}
+	}
+}
+
+/*
+for(size_t y_off = 1;y_off < yblock/2;y_off++){
+	for(size_t x_off = y_off;x_off < xblock - y_off;x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = (
+			((int)in_bytes[(y + y_off - 1)*width + x + x_off - 1])
+			+ ((int)in_bytes[(y + y_off - 1)*width + x + x_off])
+			+ ((int)in_bytes[(y + y_off - 1)*width + x + x_off + 1])
+			+ 1
+		)/3;
+	}
+}
+for(size_t y_off = yblock - 1;y_off >= yblock/2;y_off--){
+	for(size_t x_off = yblock - y_off;x_off < xblock + y_off - yblock;x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = (
+			((int)in_bytes[(y + y_off + 1)*width + x + x_off - 1])
+			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off])
+			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off + 1])
+			+ 1
+		)/3;
+	}
+}
+for(size_t x_off = 1;x_off < xblock/2;x_off++){
+	for(size_t y_off = x_off;y_off < yblock - x_off;y_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = (
+			((int)in_bytes[(y + y_off - 1)*width + x + x_off - 1])
+			+ ((int)in_bytes[(y + y_off)*width + x + x_off - 1])
+			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off - 1])
+			+ 1
+		)/3;
+	}
+}
+for(size_t x_off = xblock - 1;x_off >= xblock/2;x_off--){
+	for(size_t y_off = xblock - x_off;y_off < yblock + x_off - xblock;y_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = (
+			((int)in_bytes[(y + y_off - 1)*width + x + x_off + 1])
+			+ ((int)in_bytes[(y + y_off)*width + x + x_off + 1])
+			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off + 1])
+			+ 1
+		)/3;
+	}
+}
+*/
+/*
+	for(size_t y_off = 1;y_off < yblock;y_off++){
+		for(size_t x_off = 1;x_off < xblock;x_off++){
+			if(x_off + y_off < xblock){
+				continue;
+			}
+			if(x_off + y_off > xblock + xblock/2){
+				continue;
+			}
+			in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+				in_bytes[(y + y_off)*width + x + x_off - 1],
+				in_bytes[(y + y_off - 1)*width + x + x_off],
+				in_bytes[(y + y_off - 1)*width + x + x_off - 1]
+			);
+		}
+	}
+	for(size_t y_off = yblock;y_off --> 1;){
+		for(size_t x_off = xblock;x_off --> 1;){
+			if(x_off + y_off <= xblock + xblock/2){
+				continue;
+			}
+			in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+				in_bytes[(y + y_off)*width + x + x_off + 1],
+				in_bytes[(y + y_off + 1)*width + x + x_off],
+				in_bytes[(y + y_off + 1)*width + x + x_off + 1]
+			);
+		}
+	}
+*/
+/*
+	for(size_t y_off = 1;y_off < yblock;y_off++){
+		for(size_t x_off = 1;x_off < xblock;x_off++){
+			in_bytes[(y + y_off)*width + x + x_off] = uint8_t((
+				  ((int)in_bytes[y*width + x + x_off]) * (yblock - y_off)
+				+ ((int)in_bytes[(y + yblock)*width + x + x_off]) * y_off
+				+ ((int)in_bytes[(y + y_off)*width + x]) * (xblock - x_off)
+				+ ((int)in_bytes[(y + y_off)*width + x + xblock]) * x_off
+			)/(xblock + yblock));
+		}
+	}
+*/
+}
+		}
+	}
+
+	uint8_t* expanded = bitmap_expander(in_bytes,width,height);
+	std::vector<unsigned char> image;
+	image.resize(width * height * 4);
+	for(size_t i=0;i<width*height*4;i++){
+		image[i] = expanded[i];
+	}
+	delete[] expanded;
+
+	encodeOneStep("snoop.png", image, width, height);
+	printf("test\n");
+}
+
 int main(int argc, char *argv[]){
 	if(argc < 4){
 		printf("not enough arguments\n");
@@ -976,6 +1186,9 @@ int main(int argc, char *argv[]){
 	}
 	else if(speed < 3){
 		encode_fewPass(grey, 256,width,height,outPointer, speed);
+	}
+	else if(speed == 420){
+		research_progressive(grey, 256,width,height,outPointer, speed);
 	}
 	else if(speed >= 69){
 		research_optimiser_entropyOnly(grey, 256,width,height,outPointer, speed - 69);
