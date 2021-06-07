@@ -13,9 +13,10 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	printf("research: ranged simple 2 start\n");
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 1;
+	uint8_t alternates = 2;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing[alternates];
 	for(size_t i=0;i<alternates;i++){
@@ -23,7 +24,9 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 		trailing[i] = miniBuffer[i];
 	}
 	encode_ffv1(in_bytes,range,width,height,miniBuffer[0]);
-	//encode_left(in_bytes,range,width,height,miniBuffer[2]);
+	encode_left(in_bytes,range,width,height,miniBuffer[1]);
+
+	printf("research: ranged simple 2 merging\n");
 
 	uint8_t bestIndex = 0;
 	size_t best = miniBuffer[0] - trailing[0];
@@ -161,7 +164,8 @@ void research_optimiser(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000011;//use entropy coding with a map
+	printf("research: started\n");
+	*(outPointer++) = 0b00000110;//use both map features
 
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
@@ -218,12 +222,15 @@ void research_optimiser(
 			statistics
 		);
 	}
+	printf("research: entropy passes done\n");
 /// predictors?
 	uint16_t* predictors = new uint16_t[256];
 	uint8_t* predictor_image;
 
 	uint32_t predictorWidth;
 	uint32_t predictorHeight;
+
+	printf("research: setting initial predictor layout\n");
 
 	uint8_t predictorCount = predictor_map_initial(
 		filtered_bytes,
@@ -235,11 +242,15 @@ void research_optimiser(
 		predictorHeight
 	);
 
+	printf("research: finished initial predictor layout\n");
+
 	size_t available_predictors = 1;
 
 	uint16_t fine_selection[available_predictors] = {
 		0b0001000011010000
 	};
+
+	printf("research: starting predictor passes\n");
 
 	for(size_t i=0;i<speed;i++){
 		if(speed >= available_predictors){
@@ -265,7 +276,12 @@ void research_optimiser(
 		);
 	}
 
+	printf("research: finished prediction passes\n");
+
 ///encode data
+
+	printf("research: writing predictors\n");
+
 	uint8_t* trailing = outPointer;
 	*(outPointer++) = predictorCount - 1;
 	for(size_t i=1;i<predictorCount;i++){
@@ -273,16 +289,21 @@ void research_optimiser(
 		*(outPointer++) = predictors[i] % 256;
 	}
 
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-	encode_ranged_simple2(
-		predictor_image,
-		predictorCount,
-		predictorWidth,
-		predictorHeight,
-		outPointer
-	);
-	printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
+	printf("research: writing predictor image\n");
+
+	if(predictorCount > 1){
+		writeVarint((uint32_t)(predictorWidth - 1), outPointer);
+		writeVarint((uint32_t)(predictorHeight - 1),outPointer);
+		encode_ranged_simple2(
+			predictor_image,
+			predictorCount,
+			predictorWidth,
+			predictorHeight,
+			outPointer
+		);
+		printf("research: done writing predictor image\n");
+		printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
+	}
 
 	*(outPointer++) = contextNumber - 1;//number of contexts
 

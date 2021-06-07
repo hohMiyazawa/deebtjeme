@@ -93,9 +93,18 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
-	*(outPointer++) = 0b00001001;//use prediction and entropy coding
+	*(outPointer++) = 0b00000100;
 
-	*(outPointer++) = 68;//left predictor
+	*(outPointer++) = 1;//one extra predictor, the left one
+	*(outPointer++) = 0b00010000;//left predictor upper
+	*(outPointer++) = 0b11010000;//left predictor lower
+
+	uint8_t* prediction_image = new uint8_t[1];
+	prediction_image[0] = 1;
+
+	encode_static_ffv1(prediction_image,2,1,1,outPointer);
+
+	delete[] prediction_image;
 
 	uint8_t* filtered_bytes = filter_all_left(in_bytes, range, width, height);
 
@@ -126,94 +135,6 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 		*(outPointer++) = buffer[i];
 	}
 	delete[] buffer;
-}
-
-void encode_grey_8bit_entropyMap_ffv1(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	uint32_t entropyWidth  = (width)/128;
-	uint32_t entropyHeight = (height)/128;
-	if(entropyWidth == 0){
-		entropyWidth = 1;
-	}
-	if(entropyHeight == 0){
-		entropyHeight = 1;
-	}
-	if(entropyWidth * entropyHeight == 1){
-		encode_ffv1(in_bytes, 256,width,height,outPointer);
-		return;
-	}
-	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
-	uint32_t entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy map %d x %d\n",(int)entropyWidth,(int)entropyHeight);
-	printf("block size %d x %d\n",(int)entropyWidth_block,(int)entropyHeight_block);
-
-	*(outPointer++) = 0b00001101;//use prediction and entropy coding with map
-
-	*(outPointer++) = 0;//ffv1 predictor
-
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, 256, width, height);
-
-	SymbolStats stats[entropyWidth*entropyHeight];
-	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		for(size_t i=0;i<256;i++){
-			stats[context].freqs[i] = 0;
-		}
-	}
-	for(size_t i=0;i<width*height;i++){
-		stats[tileIndexFromPixel(
-			i,
-			width,
-			entropyWidth,
-			entropyWidth_block,
-			entropyHeight_block
-		)].freqs[filtered_bytes[i]]++;
-	}
-
-	*(outPointer++) = entropyWidth*entropyHeight - 1;//number of contexts
-
-	uint8_t* entropyImage = new uint8_t[entropyWidth*entropyHeight];
-	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
-		entropyImage[i] = i;//all contexts are unique
-	}
-
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropyImage,
-		entropyWidth*entropyHeight,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	delete[] entropyImage;//don't need it, since all the contexts are unique
-	/*printf("  cbuffer content %d\n",(int)(*(outPointer-3)));
-	printf("  cbuffer content %d\n",(int)(*(outPointer-2)));
-	printf("  cbuffer content %d\n",(int)(*(outPointer-1)));*/
-
-	BitWriter tableEncode;
-	SymbolStats table[entropyWidth*entropyHeight];
-	for(size_t context = 0;context < entropyWidth*entropyHeight;context++){
-		table[context] = encode_freqTable(stats[context],tableEncode,256);
-	}
-	tableEncode.conclude();
-	//printf("  buffer content %d\n",(int)tableEncode.buffer[tableEncode.length - 2]);
-	//printf("  buffer content %d\n",(int)tableEncode.buffer[tableEncode.length - 1]);
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	entropyCoding_map(
-		filtered_bytes,
-		width,
-		height,
-		table,
-		entropyWidth*entropyHeight,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-
-	delete[] filtered_bytes;
 }
 
 void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -1187,8 +1108,11 @@ int main(int argc, char *argv[]){
 	else if(speed < 3){
 		encode_fewPass(grey, 256,width,height,outPointer, speed);
 	}
-	else if(speed == 420){
+	/*else if(speed == 420){
 		research_progressive(grey, 256,width,height,outPointer, speed);
+	}*/
+	else if(speed >= 420){
+		research_optimiser(grey, 256,width,height,outPointer, speed - 420);
 	}
 	else if(speed >= 69){
 		research_optimiser_entropyOnly(grey, 256,width,height,outPointer, speed - 69);

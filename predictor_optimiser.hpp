@@ -24,7 +24,7 @@ uint8_t predictor_map_initial(
 		predictor_image[i] = 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 uint32_t add_predictor_maybe(
