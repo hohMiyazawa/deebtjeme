@@ -885,7 +885,6 @@ void encode_optimiser2(
 		}
 	}
 /* progressive research
-*/
 	for(size_t i = 1;i<width*height;i++){
 		size_t y = i / width;
 		size_t x = i % width;
@@ -896,6 +895,7 @@ void encode_optimiser2(
 			final_bytes[i] = sub_mod(in_bytes[i],in_bytes[i - width],range);
 		}
 	}
+*/
 /*
 	for(size_t i = 2;i<width*height;i++){
 		size_t y = i / width;

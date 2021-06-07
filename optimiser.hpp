@@ -153,4 +153,179 @@ void research_optimiser_entropyOnly(
 	delete[] entropy_image;
 }
 
+void research_optimiser(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+){
+	*(outPointer++) = 0b00000011;//use entropy coding with a map
+
+	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
+
+	uint8_t* entropy_image;
+
+	uint32_t entropyWidth;
+	uint32_t entropyHeight;
+
+	uint8_t contextNumber = entropy_map_initial(
+		filtered_bytes,
+		range,
+		width,
+		height,
+		entropy_image,
+		entropyWidth,
+		entropyHeight
+	);
+
+	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
+	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+
+	SymbolStats* statistics = new SymbolStats[contextNumber];
+	
+	for(size_t context = 0;context < contextNumber;context++){
+		SymbolStats stats;
+		statistics[context] = stats;
+		for(size_t i=0;i<256;i++){
+			statistics[context].freqs[i] = 0;
+		}
+	}
+	for(size_t i=0;i<width*height;i++){
+		uint8_t cntr = entropy_image[tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		)];
+		statistics[cntr].freqs[filtered_bytes[i]]++;
+	}
+
+	printf("performing %d entropy passes\n",(int)speed);
+	for(size_t i=0;i<speed;i++){
+		contextNumber = entropy_redistribution_pass(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics
+		);
+	}
+/// predictors?
+	uint16_t* predictors = new uint16_t[256];
+	uint8_t* predictor_image;
+
+	uint32_t predictorWidth;
+	uint32_t predictorHeight;
+
+	uint8_t predictorCount = predictor_map_initial(
+		filtered_bytes,
+		range,
+		width,
+		height,
+		predictor_image,
+		predictorWidth,
+		predictorHeight
+	);
+
+	size_t available_predictors = 1;
+
+	uint16_t fine_selection[available_predictors] = {
+		0b0001000011010000
+	};
+
+	for(size_t i=0;i<speed;i++){
+		if(speed >= available_predictors){
+			break;
+		}
+		predictorCount = add_predictor_maybe(
+			in_bytes,
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics,
+			predictors,
+			predictor_image,
+			predictorCount,
+			predictorWidth,
+			predictorHeight,
+			fine_selection[speed]
+		);
+	}
+
+///encode data
+	uint8_t* trailing = outPointer;
+	*(outPointer++) = predictorCount - 1;
+	for(size_t i=1;i<predictorCount;i++){
+		*(outPointer++) = predictors[i] >> 8;
+		*(outPointer++) = predictors[i] % 256;
+	}
+
+	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
+	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
+	encode_ranged_simple2(
+		predictor_image,
+		predictorCount,
+		predictorWidth,
+		predictorHeight,
+		outPointer
+	);
+	printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
+
+	*(outPointer++) = contextNumber - 1;//number of contexts
+
+	trailing = outPointer;
+	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
+	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
+	encode_ranged_simple2(
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
+	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
+
+	trailing = outPointer;
+	BitWriter tableEncode;
+	SymbolStats table[contextNumber];
+	for(size_t context = 0;context < contextNumber;context++){
+		table[context] = encode_freqTable(statistics[context],tableEncode, range);
+	}
+	delete[] statistics;
+	tableEncode.conclude();
+	for(size_t i=0;i<tableEncode.length;i++){
+		*(outPointer++) = tableEncode.buffer[i];
+	}
+	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
+
+	entropyCoding_map(
+		filtered_bytes,
+		width,
+		height,
+		table,
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
+
+	delete[] filtered_bytes;
+	delete[] entropy_image;
+	delete[] predictor_image;
+	delete[] predictors;
+}
 #endif //OPTIMISER

@@ -1,6 +1,32 @@
 #ifndef PREDICTOR_OPTIMISER_HEADER
 #define PREDICTOR_OPTIMISER_HEADER
 
+/*
+	heuristic for predictor mapping
+*/
+uint8_t predictor_map_initial(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& predictor_image,
+	uint32_t& predictorWidth,
+	uint32_t& predictorHeight
+){
+	uint32_t predictorWidth_block  = 8;
+	uint32_t predictorHeight_block = 8;
+
+	predictorWidth  = (width + predictorWidth_block - 1)/predictorWidth_block;
+	predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
+
+	predictor_image = new uint8_t[predictorWidth*predictorHeight];
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		predictor_image[i] = 0;
+	}
+
+	return 0;
+}
+
 uint32_t add_predictor_maybe(
 	uint8_t* in_bytes,
 	uint8_t* filtered_bytes,
