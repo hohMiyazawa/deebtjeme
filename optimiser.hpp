@@ -13,7 +13,6 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	printf("research: ranged simple 2 start\n");
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
 	uint8_t alternates = 2;
@@ -25,8 +24,6 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	}
 	encode_ffv1(in_bytes,range,width,height,miniBuffer[0]);
 	encode_left(in_bytes,range,width,height,miniBuffer[1]);
-
-	printf("research: ranged simple 2 merging\n");
 
 	uint8_t bestIndex = 0;
 	size_t best = miniBuffer[0] - trailing[0];
@@ -164,7 +161,6 @@ void research_optimiser(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	printf("research: started\n");
 	*(outPointer++) = 0b00000110;//use both map features
 
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
@@ -222,7 +218,6 @@ void research_optimiser(
 			statistics
 		);
 	}
-	printf("research: entropy passes done\n");
 /// predictors?
 	uint16_t* predictors = new uint16_t[256];
 	uint8_t* predictor_image;
@@ -242,18 +237,26 @@ void research_optimiser(
 		predictorHeight
 	);
 
-	printf("research: finished initial predictor layout\n");
-
-	size_t available_predictors = 1;
+	size_t available_predictors = 12;
 
 	uint16_t fine_selection[available_predictors] = {
-		0b0001000011010000
+		0b0010000111000001,//(2,1,-1,1)
+		0b0001000111010000,//avg L-T
+		0b0001000111000000,//(1,1,-1,0)
+		0b0011000111000001,//(3,1,-1,1)
+		0b0001001111000000,//(1,3,-1,0)
+		0b0011000011000010,//(3,0,-1,2)
+		0b0011001011000000,//(3,2,-1,0)
+		0b0011000011000001,//(3,0,-1,1)
+		0b0010000111000000,//(2,1,-1,0)
+		0b0001001011000000,//(1,2,-1,0)
+		0b0001000011010000,//(1,0,0,0)
+		0b0000000111010000//(0,1,0,0)
 	};
 
-	printf("research: starting predictor passes\n");
-
+	printf("testing %d alternate predictors\n",(int)speed);
 	for(size_t i=0;i<speed;i++){
-		if(speed >= available_predictors){
+		if(i >= available_predictors){
 			break;
 		}
 		predictorCount = add_predictor_maybe(
@@ -272,11 +275,26 @@ void research_optimiser(
 			predictorCount,
 			predictorWidth,
 			predictorHeight,
-			fine_selection[speed]
+			fine_selection[i]
 		);
 	}
+	printf("%d predictors used\n",(int)predictorCount);
 
-	printf("research: finished prediction passes\n");
+	//perform some entropy passes, to get stat tables up to date.
+	printf("performing %d entropy passes\n",(int)speed);
+	for(size_t i=0;i<speed + 1;i++){
+		contextNumber = entropy_redistribution_pass(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics
+		);
+	}
 
 ///encode data
 
@@ -289,9 +307,8 @@ void research_optimiser(
 		*(outPointer++) = predictors[i] % 256;
 	}
 
-	printf("research: writing predictor image\n");
-
 	if(predictorCount > 1){
+		printf("research: writing predictor image\n");
 		writeVarint((uint32_t)(predictorWidth - 1), outPointer);
 		writeVarint((uint32_t)(predictorHeight - 1),outPointer);
 		encode_ranged_simple2(
@@ -301,7 +318,6 @@ void research_optimiser(
 			predictorHeight,
 			outPointer
 		);
-		printf("research: done writing predictor image\n");
 		printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
 	}
 
