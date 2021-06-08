@@ -105,8 +105,8 @@ uint32_t add_predictor_maybe(
 	else{
 		//nonaligned block? how to deal with that?
 	}
-	printf("maybe: %d %f\n",(int)blocks,saved);
 	if(blocks && saved > 80){
+		printf("maybe: %d %f\n",(int)blocks,saved);
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height));
 		saved = 0;
 		blocks = 0;

@@ -302,12 +302,26 @@ void research_optimiser(
 		);
 	}
 
-	for(int d=0;d<4;d++){
-	for(int b=0;b<6;b++){
-	for(int c=-4;c<3;c++){
-	for(int a=0;a<6;a++){
+	int a_lim = 6;
+	int b_lim = 6;
+	int c_lim = -4;
+	int d_lim = 4;
+	if(speed >= 10){
+		a_lim++;
+		b_lim++;
+		c_lim--;
+		d_lim++;
+	}
+
+	for(int d=0;d<d_lim;d++){
+	for(int b=0;b<b_lim;b++){
+	for(int c=c_lim;c<3;c++){
+	for(int a=0;a<a_lim;a++){
 		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
 		if(!is_valid_predictor(custom_pred)){
+			continue;
+		}
+		if(a == 0 && b == 0 && c < 0){//TR - TL are bad, so don't waste time on them
 			continue;
 		}
 		//printf("trying (%d,%d,%d,%d)\n",a,b,c,d);
