@@ -292,7 +292,7 @@ void research_optimiser(
 		if(!is_valid_predictor(custom_pred)){
 			continue;
 		}
-		printf("trying (%d,%d,%d,%d)\n",a,b,c,d);
+		//printf("trying (%d,%d,%d,%d)\n",a,b,c,d);
 		predictorCount = add_predictor_maybe(
 			in_bytes,
 			filtered_bytes,
@@ -334,8 +334,8 @@ void research_optimiser(
 			);
 		}
 
-		printf("shuffling predictors around\n");
-		predictorCount = predictor_redistribution_pass(
+		//printf("shuffling predictors around\n");
+		double saved = predictor_redistribution_pass(
 			in_bytes,
 			filtered_bytes,
 			range,
@@ -352,6 +352,10 @@ void research_optimiser(
 			predictorWidth,
 			predictorHeight
 		);
+		printf("saved: %f bits\n",saved);
+		if(saved < 8){//early escape
+			break;
+		}
 	}
 
 	//perform a entropy pass, to get stat tables up to date.

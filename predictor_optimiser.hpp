@@ -168,7 +168,7 @@ uint32_t add_predictor_maybe(
 	return predictor_count;
 }
 
-uint32_t predictor_redistribution_pass(
+double predictor_redistribution_pass(
 	uint8_t* in_bytes,
 	uint8_t* filtered_bytes,
 	uint32_t range,
@@ -190,14 +190,12 @@ uint32_t predictor_redistribution_pass(
 	uint32_t entropy_width_block  = (width + entropy_width - 1)/entropy_width;
 	uint32_t entropy_height_block = (height + entropy_height - 1)/entropy_height;
 
-	printf("shuffling: creating stats tables\n");
 	double* costTables[contexts];
 
 	for(size_t i=0;i<contexts;i++){
 		costTables[i] = entropyLookup(entropy_stats[i]);
 	}
 
-	printf("shuffling: counting predictor usage\n");
 
 	size_t used_count[predictor_count];
 	for(size_t i=0;i<predictor_count;i++){
@@ -207,7 +205,7 @@ uint32_t predictor_redistribution_pass(
 		used_count[predictor_image[i]]++;
 	}
 
-	printf("shuffling: shuffling layers\n");
+	double pass_saved = 0;
 
 	for(size_t pred=0;pred<predictor_count;pred++){
 		uint8_t* filter2 = filter_all(in_bytes, range, width, height, predictors[pred]);
@@ -265,7 +263,7 @@ uint32_t predictor_redistribution_pass(
 			//nonaligned block? how to deal with that?
 		}
 
-		printf("saved %d: %f\n",(int)pred,saved);
+		pass_saved += saved;
 
 		delete[] filter2;
 		
@@ -275,7 +273,7 @@ uint32_t predictor_redistribution_pass(
 		delete[] costTables[i];
 	}
 
-	return predictor_count;
+	return pass_saved;
 }
 
 #endif //PREDICTOR_OPTIMISER
