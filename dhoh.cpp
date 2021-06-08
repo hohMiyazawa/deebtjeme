@@ -50,10 +50,10 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			uint8_t* trailing = fileIndex;
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
-			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			printf("---\n");
+			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			uint8_t* predictorImage_data = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
-			printf("  predictor image size: %d bytes\n",(int)(fileIndex - trailing));
+			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
 			predictorImage = new uint16_t[predictorWidth*predictorHeight];
 			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 				predictorImage[i] = predictors[predictorImage_data[i]];
@@ -79,9 +79,10 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			entropyHeight = readVarint(fileIndex) + 1;
 			entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 			entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+			printf("---\n");
 			printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 			entropyImage = read_ranged_greyscale(fileIndex,entropyContexts,entropyWidth,entropyHeight);
-			printf("  entropy image size: %d bytes\n",(int)(fileIndex - trailing));
+			printf("---entropy image size: %d bytes\n",(int)(fileIndex - trailing));
 		}
 	}
 
@@ -108,7 +109,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 	){
-		printf("ransdec simple\n");
+		printf("ransdec ffv1\n");
 
 		RansDecSymbol dsyms[256];
 		for(size_t i=0;i<256;i++){
@@ -138,7 +139,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& ENTROPY_MAP == 1
 		&& LZ == 0
 	){
-		printf("ransdec\n");
+		printf("ransdec both\n");
 
 		RansDecSymbol dsyms[entropyContexts][256];
 		for(size_t context=0;context < entropyContexts;context++){
@@ -198,7 +199,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 	){
-		printf("ransdec\n");
+		printf("ransdec prediction only\n");
 		RansDecSymbol dsyms[256];
 		for(size_t i=0;i<256;i++){
 			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
@@ -220,22 +221,33 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			bitmap[i] = s;
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
 		}
-		unfilter_all(
-			bitmap,
-			range,
-			width,
-			height,
-			predictorImage,
-			predictorWidth,
-			predictorHeight
-		);
+		if(predictorCount == 1){
+			unfilter_all(
+				bitmap,
+				range,
+				width,
+				height,
+				predictors[0]
+			);
+		}
+		else{
+			unfilter_all(
+				bitmap,
+				range,
+				width,
+				height,
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
+		}
 	}
 	else if(
 		PREDICTION_MAP == 0
 		&& ENTROPY_MAP == 1
 		&& LZ == 0
 	){
-		printf("ransdec\n");
+		printf("ransdec entropy only\n");
 		RansDecSymbol dsyms[entropyContexts][256];
 		for(size_t context=0;context < entropyContexts;context++){
 			for(size_t i=0;i<256;i++){
