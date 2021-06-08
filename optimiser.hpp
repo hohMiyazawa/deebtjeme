@@ -235,6 +235,7 @@ void research_optimiser(
 		range,
 		width,
 		height,
+		predictors,
 		predictor_image,
 		predictorWidth,
 		predictorHeight
@@ -317,8 +318,6 @@ void research_optimiser(
 		predictorWidth,
 		predictorHeight
 	);
-
-
 
 	//perform some entropy passes, to get stat tables up to date.
 	printf("performing %d entropy passes\n",(int)speed + 1);

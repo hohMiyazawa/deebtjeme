@@ -9,6 +9,7 @@ uint8_t predictor_map_initial(
 	uint32_t range,
 	uint32_t width,
 	uint32_t height,
+	uint16_t*& predictors,
 	uint8_t*& predictor_image,
 	uint32_t& predictorWidth,
 	uint32_t& predictorHeight
@@ -23,6 +24,7 @@ uint8_t predictor_map_initial(
 	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 		predictor_image[i] = 0;
 	}
+	predictors[0] = 0;
 
 	return 1;
 }
