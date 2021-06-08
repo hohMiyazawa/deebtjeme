@@ -51,7 +51,10 @@ void research_optimiser_entropyOnly(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000010;//use entropy coding with a map
+	*(outPointer++) = 0b00000110;//use entropy coding with a map
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
 
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
