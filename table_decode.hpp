@@ -67,7 +67,10 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 			for(size_t i=0;i<true_range;i++){
 				if(stats.freqs[i]){
 					uint8_t magnitude = reader.readBits(2);
-					uint8_t extrabits = (magnitude + 1) / 2 - 1;
+					uint8_t extrabits = (magnitude + 1) / 2;
+					if(extrabits){
+						extrabits--;
+					}
 					stats.freqs[i] = (1 << magnitude) + (reader.readBits(extrabits) << (magnitude - extrabits));
 				}
 			}
@@ -76,7 +79,10 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 			for(size_t i=0;i<true_range;i++){
 				if(stats.freqs[i]){
 					uint8_t magnitude = reader.readBits(3);
-					uint8_t extrabits = (magnitude + 1) / 2 - 1;
+					uint8_t extrabits = (magnitude + 1) / 2;
+					if(extrabits){
+						extrabits--;
+					}
 					stats.freqs[i] = (1 << magnitude)+ (reader.readBits(extrabits) << (magnitude - extrabits));
 				}
 			}
@@ -85,7 +91,10 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
 			for(size_t i=0;i<true_range;i++){
 				if(stats.freqs[i]){
 					uint8_t magnitude = reader.readBits(4);
-					uint8_t extrabits = (magnitude + 1) / 2 - 1;
+					uint8_t extrabits = (magnitude + 1) / 2;
+					if(extrabits){
+						extrabits--;
+					}
 					stats.freqs[i] = (1 << magnitude) + (reader.readBits(extrabits) << (magnitude - extrabits));
 				}
 			}
