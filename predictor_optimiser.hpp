@@ -184,13 +184,90 @@ uint32_t predictor_redistribution_pass(
 	uint32_t entropy_width_block  = (width + entropy_width - 1)/entropy_width;
 	uint32_t entropy_height_block = (height + entropy_height - 1)/entropy_height;
 
+	printf("shuffling: creating stats tables\n");
 	double* costTables[contexts];
 
 	for(size_t i=0;i<contexts;i++){
 		costTables[i] = entropyLookup(entropy_stats[i]);
 	}
 
-	
+	printf("shuffling: counting predictor usage\n");
+
+	size_t used_count[predictor_count];
+	for(size_t i=0;i<predictor_count;i++){
+		used_count[i] = 0;
+	}
+	for(size_t i=0;i<predictor_width*predictor_height;i++){
+		used_count[predictor_image[i]]++;
+	}
+
+	printf("shuffling: shuffling layers\n");
+
+	for(size_t pred=0;pred<predictor_count;pred++){
+		uint8_t* filter2 = filter_all(in_bytes, range, width, height, predictors[pred]);
+
+		double cost_per_occurence = -std::log2((double)(used_count[pred])/((double(predictor_width*predictor_height))));
+
+		double saved = 0;
+		size_t blocks = 0;
+
+		if(
+			entropy_width == predictor_width
+			&& entropy_height == predictor_height
+		){
+			for(size_t i=0;i<predictor_width*predictor_height;i++){
+				double native = regionalEntropy(
+					filtered_bytes,
+					costTables[entropy_image[i]],
+					i,
+					width,
+					height,
+					predictor_width_block,
+					predictor_height_block
+				);
+				double native_cost_per_occurence = -std::log2((double)(used_count[predictor_image[i]])/((double(predictor_width*predictor_height))));
+				double alternate = regionalEntropy(
+					filter2,
+					costTables[entropy_image[i]],
+					i,
+					width,
+					height,
+					predictor_width_block,
+					predictor_height_block
+				);
+				if(alternate + cost_per_occurence < native + native_cost_per_occurence){
+					blocks++;
+					saved += native + native_cost_per_occurence - (alternate + cost_per_occurence);
+					predictor_image[i] = pred;
+					for(size_t y = 0;y < predictor_height_block;y++){
+						size_t y_pos = (i / predictor_width) * predictor_height_block + y;
+						if(y_pos >= height){
+							break;
+						}
+						for(size_t x = 0;x < predictor_width_block;x++){
+							size_t x_pos = (i % predictor_width) * predictor_width_block + x;
+							if(x_pos >= width){
+								continue;
+							}
+							filtered_bytes[y_pos * width + x_pos] = filter2[y_pos * width + x_pos];
+						}
+					}
+				}
+			}
+		}
+		else{
+			//nonaligned block? how to deal with that?
+		}
+
+		printf("saved %d: %f\n",(int)pred,saved);
+
+		delete[] filter2;
+		
+	}
+//free memory
+	for(size_t i=0;i<contexts;i++){
+		delete[] costTables[i];
+	}
 
 	return predictor_count;
 }

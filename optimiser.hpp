@@ -259,7 +259,7 @@ void research_optimiser(
 	};
 
 	printf("testing %d alternate predictors\n",(int)speed);
-	for(size_t i=0;i<speed;i++){
+	for(size_t i=1;i<speed;i++){
 		if(i >= available_predictors){
 			break;
 		}
@@ -284,8 +284,44 @@ void research_optimiser(
 	}
 	printf("%d predictors used\n",(int)predictorCount);
 
-	//perform some entropy passes, to get stat tables up to date.
 	printf("performing %d entropy passes\n",(int)speed);
+	for(size_t i=0;i<speed;i++){
+		contextNumber = entropy_redistribution_pass(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics
+		);
+	}
+
+	printf("shuffling predictors around\n");
+	predictorCount = predictor_redistribution_pass(
+		in_bytes,
+		filtered_bytes,
+		range,
+		width,
+		height,
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		statistics,
+		predictors,
+		predictor_image,
+		predictorCount,
+		predictorWidth,
+		predictorHeight
+	);
+
+
+
+	//perform some entropy passes, to get stat tables up to date.
+	printf("performing %d entropy passes\n",(int)speed + 1);
 	for(size_t i=0;i<speed + 1;i++){
 		contextNumber = entropy_redistribution_pass(
 			filtered_bytes,

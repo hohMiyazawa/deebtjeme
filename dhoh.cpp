@@ -38,7 +38,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 	uint32_t predictorWidth = 1;
 	uint32_t predictorHeight = 1;
 	if(PREDICTION_MAP){
-		printf("  uses predicion\n");
+		printf("  uses prediction\n");
 		predictorCount = (*(fileIndex++)) + 1;
 		for(size_t i=0;i<predictorCount;i++){
 			uint16_t value = ((*(fileIndex++)) << 8);

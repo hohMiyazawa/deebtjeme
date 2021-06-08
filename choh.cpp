@@ -105,13 +105,6 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	*(outPointer++) = 0b00010000;//left predictor upper
 	*(outPointer++) = 0b11010000;//left predictor lower
 
-	uint8_t* prediction_image = new uint8_t[1];
-	prediction_image[0] = 1;
-
-	encode_static_ffv1(prediction_image,2,1,1,outPointer);
-
-	delete[] prediction_image;
-
 	uint8_t* filtered_bytes = filter_all_left(in_bytes, range, width, height);
 
 	SymbolStats stats;
