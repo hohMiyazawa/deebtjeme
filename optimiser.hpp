@@ -14,7 +14,7 @@
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 4;
+	uint8_t alternates = 5;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing_end[alternates];
 	uint8_t* trailing[alternates];
@@ -27,6 +27,7 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	encode_ffv1(in_bytes,range,width,height,trailing[1]);
 	encode_left(in_bytes,range,width,height,trailing[2]);
 	encode_top(in_bytes,range,width,height,trailing[3]);
+	encode_quad(in_bytes,range,width,height,trailing[4]);
 	//research_optimiser_entropyOnly(in_bytes,range,width,height,miniBuffer[2],1);
 	for(size_t i=0;i<alternates;i++){
 		size_t diff = trailing_end[i] - trailing[i];
@@ -311,6 +312,12 @@ void research_optimiser(
 		b_lim++;
 		c_lim--;
 		d_lim++;
+	}
+	if(speed >= 50){
+		a_lim = 16;
+		b_lim = 16;
+		c_lim = -13;
+		d_lim = 12;
 	}
 
 	for(int d=0;d<d_lim;d++){
