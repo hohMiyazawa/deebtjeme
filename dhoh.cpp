@@ -33,21 +33,20 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 		panic("reserved bit set! not a valid hoh file\n");
 	}
 	uint16_t predictors[256];
-	predictors[0] = 0;
-	size_t predictorCount = 1;
+	size_t predictorCount = 0;
 	uint16_t* predictorImage;
 	uint32_t predictorWidth = 1;
 	uint32_t predictorHeight = 1;
 	if(PREDICTION_MAP){
-		printf("  has predicion map\n");
+		printf("  uses predicion\n");
 		predictorCount = (*(fileIndex++)) + 1;
+		for(size_t i=0;i<predictorCount;i++){
+			uint16_t value = ((*(fileIndex++)) << 8);
+			value += *(fileIndex++);
+			predictors[i] = value;
+		}
+		printf("  %d predictors\n",(int)predictorCount);
 		if(predictorCount > 1){
-			for(size_t i=1;i<predictorCount;i++){
-				uint16_t value = ((*(fileIndex++)) << 8);
-				value += *(fileIndex++);
-				predictors[i] = value;
-			}
-			printf("  %d extra predictors\n",(int)predictorCount - 1);
 			uint8_t* trailing = fileIndex;
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
@@ -105,7 +104,7 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 
 	uint8_t* bitmap = new uint8_t[width*height];
 	if(
-		PREDICTION_MAP == 0 && predictorCount == 1 && predictors[0] == 0
+		PREDICTION_MAP == 1 && predictorCount == 1 && predictors[0] == 0
 		&& ENTROPY_MAP == 0
 		&& LZ == 0
 	){
@@ -268,7 +267,6 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			bitmap[i] = s;
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
-		unfilter_all_ffv1(bitmap, range, width, height);
 	}
 	else{
 		printf("missing decoder functionallity! writing black image\n");

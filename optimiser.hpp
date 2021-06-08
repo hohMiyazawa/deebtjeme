@@ -237,9 +237,10 @@ void research_optimiser(
 		predictorHeight
 	);
 
-	size_t available_predictors = 12;
+	size_t available_predictors = 13;
 
 	uint16_t fine_selection[available_predictors] = {
+		0,//ffv1
 		0b0010000111000001,//(2,1,-1,1)
 		0b0001000111010000,//avg L-T
 		0b0001000111000000,//(1,1,-1,0)
@@ -302,7 +303,7 @@ void research_optimiser(
 
 	uint8_t* trailing = outPointer;
 	*(outPointer++) = predictorCount - 1;
-	for(size_t i=1;i<predictorCount;i++){
+	for(size_t i=0;i<predictorCount;i++){
 		*(outPointer++) = predictors[i] >> 8;
 		*(outPointer++) = predictors[i] % 256;
 	}

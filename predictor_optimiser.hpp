@@ -45,6 +45,11 @@ uint32_t add_predictor_maybe(
 	uint32_t predictor_height,
 	uint16_t predictor
 ){
+	for(size_t i=0;i<predictor_count;i++){
+		if(predictors[i] == predictor){
+			return predictor_count;
+		}
+	}
 	uint32_t predictor_width_block  = (width + predictor_width - 1)/predictor_width;
 	uint32_t predictor_height_block = (height + predictor_height - 1)/predictor_height;
 	uint32_t entropy_width_block  = (width + entropy_width - 1)/entropy_width;
@@ -156,4 +161,38 @@ uint32_t add_predictor_maybe(
 	delete[] filter2;
 	return predictor_count;
 }
+
+uint32_t predictor_redistribution_pass(
+	uint8_t* in_bytes,
+	uint8_t* filtered_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& entropy_image,
+	uint32_t contexts,
+	uint32_t entropy_width,
+	uint32_t entropy_height,
+	SymbolStats* entropy_stats,
+	uint16_t*& predictors,
+	uint8_t*& predictor_image,
+	uint32_t predictor_count,
+	uint32_t predictor_width,
+	uint32_t predictor_height
+){
+	uint32_t predictor_width_block  = (width + predictor_width - 1)/predictor_width;
+	uint32_t predictor_height_block = (height + predictor_height - 1)/predictor_height;
+	uint32_t entropy_width_block  = (width + entropy_width - 1)/entropy_width;
+	uint32_t entropy_height_block = (height + entropy_height - 1)/entropy_height;
+
+	double* costTables[contexts];
+
+	for(size_t i=0;i<contexts;i++){
+		costTables[i] = entropyLookup(entropy_stats[i]);
+	}
+
+	
+
+	return predictor_count;
+}
+
 #endif //PREDICTOR_OPTIMISER

@@ -15,12 +15,12 @@ bit 1: reserved
 bit 2: reserved
 bit 3: reserved
 bit 4: reserved
-bit 5: use multiple predictors
+bit 5: use prediction
 bit 6: use multiple entropy coding tables
 bit 7: use LZ
 
 if bit 5:
-	1 byte: number of extra predictors
+	1 byte: number of predictors minus 1
 	[0-255] pairs of bytes, pointing out linear combination predictors
 	[predictor image, using same format, using infered range]
 

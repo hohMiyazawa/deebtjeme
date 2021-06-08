@@ -31,7 +31,10 @@ void print_usage(){
 
 void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
-	*(outPointer++) = 0b00000000;//use no advanced features
+	*(outPointer++) = 0b00000100;
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
 
 	*(outPointer++) = 0b00001000;//use table number 8
 
@@ -59,7 +62,10 @@ void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000000;
+	*(outPointer++) = 0b00000100;
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
+	*(outPointer++) = 0;
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	SymbolStats stats;
@@ -95,7 +101,7 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 
 	*(outPointer++) = 0b00000100;
 
-	*(outPointer++) = 1;//one extra predictor, the left one
+	*(outPointer++) = 0;
 	*(outPointer++) = 0b00010000;//left predictor upper
 	*(outPointer++) = 0b11010000;//left predictor lower
 
@@ -137,81 +143,6 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	delete[] buffer;
 }
 
-void encode_grey_predictorMap(uint8_t* in_bytes,uint32_t width,uint32_t height,uint8_t*& outPointer){
-
-	*(outPointer++) = 0b00001001;//use prediction and entropy coding
-
-	*(outPointer++) = 253;//use two predictors
-	*(outPointer++) = 0;//ffv1
-	*(outPointer++) = 68;//left
-
-	uint32_t predictorWidth = 2;
-	uint32_t predictorHeight = 1;
-	uint32_t predictorWidth_block = (width + 1)/predictorWidth;
-	uint32_t predictorHeight_block = height;
-	uint8_t* predictorImage = new uint8_t[predictorWidth*predictorHeight];
-	predictorImage[0] = 0;
-	predictorImage[1] = 1;
-
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-	encode_ranged_simple2(
-		predictorImage,
-		predictorWidth*predictorHeight,
-		predictorWidth,
-		predictorHeight,
-		outPointer
-	);
-	delete[] predictorImage;//don't need it, since all the contexts are unique
-
-	uint8_t* filtered_bytes1 = filter_all_ffv1(in_bytes, 256, width, height);
-	uint8_t* filtered_bytes2 = filter_all_left(in_bytes, 256, width, height);
-
-	SymbolStats stats;
-	for(size_t i=0;i<256;i++){
-		stats.freqs[i] = 0;
-	}
-	for(size_t i=0;i<width*height;i++){
-		if((i % width)/ predictorWidth_block){
-			stats.freqs[filtered_bytes2[i]]++;
-		}
-		else{
-			stats.freqs[filtered_bytes1[i]]++;
-		}
-	}
-
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,256);
-	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		if((index % width)/ predictorWidth_block){
-			entropy.encodeSymbol(esyms,filtered_bytes2[index]);
-		}
-		else{
-			entropy.encodeSymbol(esyms,filtered_bytes1[index]);
-		}
-	}
-	delete[] filtered_bytes1;
-	delete[] filtered_bytes2;
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-
 void encode_fewPass(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -242,7 +173,7 @@ void encode_fewPass(
 	};
 
 	*(outPointer++) = predictorCount - 1;
-	for(size_t i=1;i<predictorCount;i++){
+	for(size_t i=0;i<predictorCount;i++){
 		*(outPointer++) = predictorSelection[i] >> 8;
 		*(outPointer++) = predictorSelection[i] % 256;
 	}
@@ -424,7 +355,7 @@ void encode_optimiser2(
 	};
 
 	*(outPointer++) = predictorCount - 1;
-	for(size_t i=1;i<predictorCount;i++){
+	for(size_t i=0;i<predictorCount;i++){
 		*(outPointer++) = predictorSelection[i] >> 8;
 		*(outPointer++) = predictorSelection[i] % 256;
 	}
@@ -967,90 +898,6 @@ for(size_t y_off = yblock - 1;y_off > (yblock - ((yblock - sent_lines)/2));y_off
 	}
 	}
 }
-
-/*
-for(size_t y_off = 1;y_off < yblock/2;y_off++){
-	for(size_t x_off = y_off;x_off < xblock - y_off;x_off++){
-		in_bytes[(y + y_off)*width + x + x_off] = (
-			((int)in_bytes[(y + y_off - 1)*width + x + x_off - 1])
-			+ ((int)in_bytes[(y + y_off - 1)*width + x + x_off])
-			+ ((int)in_bytes[(y + y_off - 1)*width + x + x_off + 1])
-			+ 1
-		)/3;
-	}
-}
-for(size_t y_off = yblock - 1;y_off >= yblock/2;y_off--){
-	for(size_t x_off = yblock - y_off;x_off < xblock + y_off - yblock;x_off++){
-		in_bytes[(y + y_off)*width + x + x_off] = (
-			((int)in_bytes[(y + y_off + 1)*width + x + x_off - 1])
-			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off])
-			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off + 1])
-			+ 1
-		)/3;
-	}
-}
-for(size_t x_off = 1;x_off < xblock/2;x_off++){
-	for(size_t y_off = x_off;y_off < yblock - x_off;y_off++){
-		in_bytes[(y + y_off)*width + x + x_off] = (
-			((int)in_bytes[(y + y_off - 1)*width + x + x_off - 1])
-			+ ((int)in_bytes[(y + y_off)*width + x + x_off - 1])
-			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off - 1])
-			+ 1
-		)/3;
-	}
-}
-for(size_t x_off = xblock - 1;x_off >= xblock/2;x_off--){
-	for(size_t y_off = xblock - x_off;y_off < yblock + x_off - xblock;y_off++){
-		in_bytes[(y + y_off)*width + x + x_off] = (
-			((int)in_bytes[(y + y_off - 1)*width + x + x_off + 1])
-			+ ((int)in_bytes[(y + y_off)*width + x + x_off + 1])
-			+ ((int)in_bytes[(y + y_off + 1)*width + x + x_off + 1])
-			+ 1
-		)/3;
-	}
-}
-*/
-/*
-	for(size_t y_off = 1;y_off < yblock;y_off++){
-		for(size_t x_off = 1;x_off < xblock;x_off++){
-			if(x_off + y_off < xblock){
-				continue;
-			}
-			if(x_off + y_off > xblock + xblock/2){
-				continue;
-			}
-			in_bytes[(y + y_off)*width + x + x_off] = ffv1(
-				in_bytes[(y + y_off)*width + x + x_off - 1],
-				in_bytes[(y + y_off - 1)*width + x + x_off],
-				in_bytes[(y + y_off - 1)*width + x + x_off - 1]
-			);
-		}
-	}
-	for(size_t y_off = yblock;y_off --> 1;){
-		for(size_t x_off = xblock;x_off --> 1;){
-			if(x_off + y_off <= xblock + xblock/2){
-				continue;
-			}
-			in_bytes[(y + y_off)*width + x + x_off] = ffv1(
-				in_bytes[(y + y_off)*width + x + x_off + 1],
-				in_bytes[(y + y_off + 1)*width + x + x_off],
-				in_bytes[(y + y_off + 1)*width + x + x_off + 1]
-			);
-		}
-	}
-*/
-/*
-	for(size_t y_off = 1;y_off < yblock;y_off++){
-		for(size_t x_off = 1;x_off < xblock;x_off++){
-			in_bytes[(y + y_off)*width + x + x_off] = uint8_t((
-				  ((int)in_bytes[y*width + x + x_off]) * (yblock - y_off)
-				+ ((int)in_bytes[(y + yblock)*width + x + x_off]) * y_off
-				+ ((int)in_bytes[(y + y_off)*width + x]) * (xblock - x_off)
-				+ ((int)in_bytes[(y + y_off)*width + x + xblock]) * x_off
-			)/(xblock + yblock));
-		}
-	}
-*/
 }
 		}
 	}
