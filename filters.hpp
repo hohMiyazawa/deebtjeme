@@ -88,17 +88,32 @@ uint8_t* filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t width, uint
 	return filtered;
 }
 
-uint8_t* filter_all_top(uint8_t* in_bytes, uint32_t width, uint32_t height){
+uint8_t* filter_all_top(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
 	uint8_t* filtered = new uint8_t[width * height];
 
 	filtered[0] = in_bytes[0];//TL prediction
-	for(size_t i=1;i<width;i++){
-		filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
-	}
-	for(size_t y=1;y<height;y++){
-		filtered[y * width] = in_bytes[y * width] - in_bytes[(y-1) * width];//left edge is always top-predicted
+	if(range == 256){
 		for(size_t i=1;i<width;i++){
-			filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[(y-1) * width + i];
+			filtered[i] = in_bytes[i] - in_bytes[i - 1];//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			for(size_t i=0;i<width;i++){
+				filtered[(y * width) + i] = in_bytes[y * width + i] - in_bytes[(y-1) * width + i];
+			}
+		}
+	}
+	else{
+		for(size_t i=1;i<width;i++){
+			filtered[i] = sub_mod(in_bytes[i],in_bytes[i - 1],range);//top edge is always left-predicted
+		}
+		for(size_t y=1;y<height;y++){
+			for(size_t i=0;i<width;i++){
+				filtered[(y * width) + i] = sub_mod(
+					in_bytes[y * width + i],
+					in_bytes[(y-1) * width + i],
+					range
+				);
+			}
 		}
 	}
 	return filtered;

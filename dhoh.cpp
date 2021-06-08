@@ -280,6 +280,34 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
 		}
 	}
+	else if(
+		PREDICTION_MAP == 0
+		&& ENTROPY_MAP == 0
+		&& LZ == 0
+	){
+		printf("ransdec entropy only no map\n");
+		RansDecSymbol dsyms[256];
+		for(size_t i=0;i<256;i++){
+			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+
+			for(size_t j=0;j<256;j++){
+				if(tables[0].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+		}
+	}
 	else{
 		printf("missing decoder functionallity! writing black image\n");
 		for(size_t i=0;i<width*height;i++){

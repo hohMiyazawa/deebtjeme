@@ -24,6 +24,7 @@
 #include "entropy_estimation.hpp"
 #include "optimiser.hpp"
 #include "entropy_coding.hpp"
+#include "simple_encoders.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -41,79 +42,6 @@ void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	SymbolStats table = laplace(8,range);
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
-	}
-	delete[] filtered_bytes;
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-
-void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
-
-	SymbolStats stats;
-	stats.count_freqs(filtered_bytes, width*height);
-
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
-	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-
-	RansEncSymbol esyms[256];
-
-	for(size_t i=0; i < 256; i++) {
-		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
-	}
-	EntropyEncoder entropy;
-	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
-	}
-	delete[] filtered_bytes;
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
-}
-
-void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0b00010000;//left predictor upper
-	*(outPointer++) = 0b11010000;//left predictor lower
-
-	uint8_t* filtered_bytes = filter_all_left(in_bytes, range, width, height);
-
-	SymbolStats stats;
-	stats.count_freqs(filtered_bytes, width*height);
-
-	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
-	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	RansEncSymbol esyms[256];
 

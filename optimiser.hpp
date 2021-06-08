@@ -2,28 +2,34 @@
 #define OPTIMISER_HEADER
 
 #include "symbolstats.hpp"
+#include "rans_byte.h"
 #include "entropy_optimiser.hpp"
 #include "predictor_optimiser.hpp"
 #include "entropy_coding.hpp"
 #include "table_encode.hpp"
 #include "2dutils.hpp"
 #include "bitwriter.hpp"
-
-void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
-void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer);
+#include "simple_encoders.hpp"
 
 void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 2;
+	uint8_t alternates = 4;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing[alternates];
 	for(size_t i=0;i<alternates;i++){
 		miniBuffer[i] = new uint8_t[safety_margin];
 		trailing[i] = miniBuffer[i];
 	}
-	encode_ffv1(in_bytes,range,width,height,miniBuffer[0]);
-	encode_left(in_bytes,range,width,height,miniBuffer[1]);
+	encode_entropy(in_bytes,range,width,height,miniBuffer[0]);
+	encode_ffv1(in_bytes,range,width,height,miniBuffer[1]);
+	encode_left(in_bytes,range,width,height,miniBuffer[2]);
+	encode_top(in_bytes,range,width,height,miniBuffer[3]);
+	//research_optimiser_entropyOnly(in_bytes,range,width,height,miniBuffer[2],1);
+	for(size_t i=0;i<alternates;i++){
+		size_t diff = miniBuffer[i] - trailing[i];
+		printf("type %d: %d\n",(int)i,(int)diff);
+	}
 
 	uint8_t bestIndex = 0;
 	size_t best = miniBuffer[0] - trailing[0];
@@ -51,11 +57,6 @@ void research_optimiser_entropyOnly(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000110;//use entropy coding with a map
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
@@ -113,19 +114,33 @@ void research_optimiser_entropyOnly(
 	}
 ///encode data
 
-	*(outPointer++) = contextNumber - 1;//number of contexts
+	uint8_t* trailing;
+	if(contextNumber == 1){
+		*(outPointer++) = 0b00000100;
+		*(outPointer++) = 0;
+		*(outPointer++) = 0;
+		*(outPointer++) = 0;
+	}
+	else{
+		*(outPointer++) = 0b00000110;//use entropy coding with a map
+		*(outPointer++) = 0;
+		*(outPointer++) = 0;
+		*(outPointer++) = 0;
 
-	uint8_t* trailing = outPointer;
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
+		*(outPointer++) = contextNumber - 1;//number of contexts
+
+		trailing = outPointer;
+		writeVarint((uint32_t)(entropyWidth - 1), outPointer);
+		writeVarint((uint32_t)(entropyHeight - 1),outPointer);
+		encode_ranged_simple2(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
+	}
 
 	trailing = outPointer;
 	BitWriter tableEncode;
