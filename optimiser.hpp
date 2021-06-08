@@ -283,11 +283,18 @@ void research_optimiser(
 			fine_selection[i]
 		);
 	}
-	printf("%d predictors used\n",(int)predictorCount);
 
-	printf("performing %d entropy passes\n",(int)speed);
-	for(size_t i=0;i<speed;i++){
-		contextNumber = entropy_redistribution_pass(
+	for(int d=0;d<3;d++){
+	for(int b=0;b<5;b++){
+	for(int c=-3;c<3;c++){
+	for(int a=0;a<5;a++){
+		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		if(!is_valid_predictor(custom_pred)){
+			continue;
+		}
+		printf("trying (%d,%d,%d,%d)\n",a,b,c,d);
+		predictorCount = add_predictor_maybe(
+			in_bytes,
 			filtered_bytes,
 			range,
 			width,
@@ -296,13 +303,59 @@ void research_optimiser(
 			contextNumber,
 			entropyWidth,
 			entropyHeight,
-			statistics
+			statistics,
+			predictors,
+			predictor_image,
+			predictorCount,
+			predictorWidth,
+			predictorHeight,
+			custom_pred
+		);
+	}
+	}
+	}
+	}
+
+	printf("%d predictors used\n",(int)predictorCount);
+
+	printf("performing %d refinement passes\n",(int)speed);
+	for(size_t i=0;i<speed;i++){
+		for(size_t entro=0;entro < 5;entro++){
+			contextNumber = entropy_redistribution_pass(
+				filtered_bytes,
+				range,
+				width,
+				height,
+				entropy_image,
+				contextNumber,
+				entropyWidth,
+				entropyHeight,
+				statistics
+			);
+		}
+
+		printf("shuffling predictors around\n");
+		predictorCount = predictor_redistribution_pass(
+			in_bytes,
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics,
+			predictors,
+			predictor_image,
+			predictorCount,
+			predictorWidth,
+			predictorHeight
 		);
 	}
 
-	printf("shuffling predictors around\n");
-	predictorCount = predictor_redistribution_pass(
-		in_bytes,
+	//perform a entropy pass, to get stat tables up to date.
+	contextNumber = entropy_redistribution_pass(
 		filtered_bytes,
 		range,
 		width,
@@ -311,29 +364,8 @@ void research_optimiser(
 		contextNumber,
 		entropyWidth,
 		entropyHeight,
-		statistics,
-		predictors,
-		predictor_image,
-		predictorCount,
-		predictorWidth,
-		predictorHeight
+		statistics
 	);
-
-	//perform some entropy passes, to get stat tables up to date.
-	printf("performing %d entropy passes\n",(int)speed + 1);
-	for(size_t i=0;i<speed + 1;i++){
-		contextNumber = entropy_redistribution_pass(
-			filtered_bytes,
-			range,
-			width,
-			height,
-			entropy_image,
-			contextNumber,
-			entropyWidth,
-			entropyHeight,
-			statistics
-		);
-	}
 
 ///encode data
 

@@ -47,6 +47,10 @@ uint32_t add_predictor_maybe(
 	uint32_t predictor_height,
 	uint16_t predictor
 ){
+	if(predictor_count >= 255){
+		printf("too many predictors, try trimming\n");
+		return predictor_count;
+	}
 	for(size_t i=0;i<predictor_count;i++){
 		if(predictors[i] == predictor){
 			return predictor_count;
