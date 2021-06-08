@@ -1,3 +1,19 @@
+I update my research code more frequently than this document
+
+What's written below is incomplete, and often incorrect.
+
+
+
+
+
+
+
+
+
+
+
+
+---
 
 This is an experiment in lossless image compression.
 

@@ -284,10 +284,10 @@ void research_optimiser(
 		);
 	}
 
-	for(int d=0;d<3;d++){
-	for(int b=0;b<5;b++){
-	for(int c=-3;c<3;c++){
-	for(int a=0;a<5;a++){
+	for(int d=0;d<4;d++){
+	for(int b=0;b<6;b++){
+	for(int c=-4;c<3;c++){
+	for(int a=0;a<6;a++){
 		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
 		if(!is_valid_predictor(custom_pred)){
 			continue;
