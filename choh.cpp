@@ -32,12 +32,6 @@ void print_usage(){
 
 void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-
-	*(outPointer++) = 0b00001000;//use table number 8
 
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
@@ -48,18 +42,21 @@ void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	for(size_t i=0; i < 256; i++) {
 		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
 	}
-	EntropyEncoder entropy;
+
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms + filtered_bytes[index]);
 	}
+	RansEncFlush(&rans, &outPointer);
+
 	delete[] filtered_bytes;
 
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
+	*(--outPointer) = 0b00001000;//use table number 8
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0b00000100;
 }
 
 void encode_fewPass(
@@ -70,8 +67,6 @@ void encode_fewPass(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000110;//use prediction and entropy coding with map
-
 	uint8_t predictorCount = speed*2;
 	if(predictorCount > 11){
 		predictorCount = 11;
@@ -91,18 +86,10 @@ void encode_fewPass(
 		0b0000000111010000//(0,1,0,0)
 	};
 
-	*(outPointer++) = predictorCount - 1;
-	for(size_t i=0;i<predictorCount;i++){
-		*(outPointer++) = predictorSelection[i] >> 8;
-		*(outPointer++) = predictorSelection[i] % 256;
-	}
-
 	uint32_t predictorWidth_block = 8;
 	uint32_t predictorHeight_block = 8;
 	uint32_t predictorWidth = (width + predictorWidth_block - 1)/predictorWidth_block;
 	uint32_t predictorHeight = (height + predictorHeight_block - 1)/predictorHeight_block;
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
 
 	uint8_t *filtered_bytes[predictorCount];
 
@@ -148,14 +135,6 @@ void encode_fewPass(
 
 	delete[] costTable;
 
-	encode_ranged_simple2(
-		predictorImage,
-		predictorCount,
-		predictorWidth,
-		predictorHeight,
-		outPointer
-	);
-
 	printf("merging filtered bitplanes\n");
 	for(size_t i=0;i<width*height;i++){
 		filtered_bytes[0][i] = filtered_bytes[predictorImage[tileIndexFromPixel(
@@ -169,7 +148,7 @@ void encode_fewPass(
 	for(size_t i=1;i<predictorCount;i++){
 		delete[] filtered_bytes[i];
 	}
-	delete[] predictorImage;
+
 	printf("starting entropy mapping\n");
 
 	uint32_t entropyWidth  = (width)/128;
@@ -201,23 +180,10 @@ void encode_fewPass(
 		)].freqs[filtered_bytes[0][i]]++;
 	}
 
-	*(outPointer++) = entropyWidth*entropyHeight - 1;//number of contexts
-
 	uint8_t* entropyImage = new uint8_t[entropyWidth*entropyHeight];
 	for(size_t i=0;i<entropyWidth*entropyHeight;i++){
 		entropyImage[i] = i;//all contexts are unique
 	}
-
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropyImage,
-		entropyWidth*entropyHeight,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	delete[] entropyImage;
 
 	BitWriter tableEncode;
 	SymbolStats table[entropyWidth*entropyHeight];
@@ -225,9 +191,6 @@ void encode_fewPass(
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
 	}
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	entropyCoding_map(
 		filtered_bytes[0],
@@ -239,8 +202,45 @@ void encode_fewPass(
 		entropyHeight,
 		outPointer
 	);
-
 	delete[] filtered_bytes[0];
+
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
+
+	encode_ranged_simple2(
+		entropyImage,
+		entropyWidth*entropyHeight,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
+	delete[] entropyImage;
+
+	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+
+	*(--outPointer) = entropyWidth*entropyHeight - 1;//number of contexts
+
+	encode_ranged_simple2(
+		predictorImage,
+		predictorCount,
+		predictorWidth,
+		predictorHeight,
+		outPointer
+	);
+	delete[] predictorImage;
+
+	writeVarint_reverse((uint32_t)(predictorHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(predictorWidth - 1), outPointer);
+
+	for(size_t i=predictorCount;i--;){
+		*(--outPointer) = predictorSelection[i] % 256;
+		*(--outPointer) = predictorSelection[i] >> 8;
+	}
+	*(--outPointer) = predictorCount - 1;
+
+	*(--outPointer) = 0b00000110;//use prediction and entropy coding with map
 }
 
 void encode_optimiser2(
@@ -251,8 +251,6 @@ void encode_optimiser2(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000110;//use prediction and entropy coding with map
-
 	uint8_t predictorCount = speed*2;
 	if(predictorCount > 13){
 		predictorCount = 13;
@@ -272,12 +270,6 @@ void encode_optimiser2(
 		0b0001000011010000,//(1,0,0,0)
 		0b0000000111010000//(0,1,0,0)
 	};
-
-	*(outPointer++) = predictorCount - 1;
-	for(size_t i=0;i<predictorCount;i++){
-		*(outPointer++) = predictorSelection[i] >> 8;
-		*(outPointer++) = predictorSelection[i] % 256;
-	}
 
 	uint32_t predictorWidth_block = 8;
 	uint32_t predictorHeight_block = 8;
@@ -637,19 +629,6 @@ void encode_optimiser2(
 		delete[] filtered_bytes[i];
 	}
 
-	uint8_t* trailing = outPointer;
-	writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-	writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-	encode_ranged_simple2(
-		predictorImage,
-		predictorCount,
-		predictorWidth,
-		predictorHeight,
-		outPointer
-	);
-	delete[] predictorImage;
-	printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
-
 	for(size_t context = 0;context < contextNumber;context++){
 		for(size_t i=0;i<256;i++){
 			stats[context].freqs[i] = 0;
@@ -689,32 +668,12 @@ void encode_optimiser2(
 		)];
 		stats[cntr].freqs[final_bytes[i]]++;
 	}
-
-	*(outPointer++) = contextNumber - 1;//number of contexts
-
-	trailing = outPointer;
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropyImage,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
-
-	trailing = outPointer;
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
 		table[context] = encode_freqTable(stats[context],tableEncode, range);
 	}
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
 
 	entropyCoding_map(
 		final_bytes,
@@ -727,8 +686,49 @@ void encode_optimiser2(
 		entropyHeight,
 		outPointer
 	);
-	delete[] entropyImage;
 	delete[] final_bytes;
+
+	uint8_t* trailing = outPointer;;
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+
+	trailing = outPointer;
+	encode_ranged_simple2(
+		entropyImage,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
+	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+	delete[] entropyImage;
+	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+
+	*(--outPointer) = contextNumber - 1;//number of contexts
+
+	trailing = outPointer;
+	encode_ranged_simple2(
+		predictorImage,
+		predictorCount,
+		predictorWidth,
+		predictorHeight,
+		outPointer
+	);
+	writeVarint_reverse((uint32_t)(predictorHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(predictorWidth - 1), outPointer);
+	delete[] predictorImage;
+	printf("predictor image size: %d bytes\n",(int)(trailing - outPointer));
+
+	for(size_t i=predictorCount;i--;){
+		*(--outPointer) = predictorSelection[i] % 256;
+		*(--outPointer) = predictorSelection[i] >> 8;
+	}
+	*(--outPointer) = predictorCount - 1;
+
+	*(--outPointer) = 0b00000110;//use prediction and entropy coding with map
 }
 
 
@@ -858,12 +858,10 @@ int main(int argc, char *argv[]){
 
 	printf("creating buffer\n");
 
-	uint8_t* out_buf = new uint8_t[width*height + 4096];
-	uint8_t* outPointer = out_buf;
-
-	printf("writing header\n");
-	writeVarint((uint32_t)(width - 1), outPointer);
-	writeVarint((uint32_t)(height - 1),outPointer);
+	size_t max_elements = width*height + 4096;
+	uint8_t* out_buf = new uint8_t[max_elements];
+	uint8_t* out_end = out_buf + max_elements;
+	uint8_t* outPointer = out_end;
 
 	if(speed == 0){
 		encode_static_ffv1(grey, 256,width,height,outPointer);
@@ -882,11 +880,15 @@ int main(int argc, char *argv[]){
 	}
 	delete[] grey;
 
+	printf("writing header\n");
+	writeVarint_reverse((uint32_t)(height - 1),outPointer);
+	writeVarint_reverse((uint32_t)(width - 1), outPointer);
+
 	
-	printf("file size %d\n",(int)(outPointer - out_buf));
+	printf("file size %d\n",(int)(out_end - outPointer));
 
 
-	write_file(argv[2],out_buf,outPointer - out_buf);
+	write_file(argv[2],outPointer,out_end - outPointer);
 	delete[] out_buf;
 
 	return 0;

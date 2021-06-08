@@ -4,49 +4,6 @@
 #include "rans_byte.h"
 #include "symbolstats.hpp"
 
-class EntropyEncoder{
-	public:
-		EntropyEncoder();
-		~EntropyEncoder();
-		void encodeSymbol(RansEncSymbol* magic,uint8_t byte);
-		uint8_t* conclude(size_t* streamSize);
-		void writeByte(uint8_t byte);
-	private:
-		static const size_t out_max_size = 32<<20;
-		static const size_t out_max_elems = out_max_size / sizeof(uint8_t);
-		uint8_t* out_buf;
-		uint8_t* out_end;
-		uint8_t* ptr;
-		RansState rans;
-};
-
-EntropyEncoder::EntropyEncoder(void){
-	out_buf = new uint8_t[out_max_elems];
-	out_end = out_buf + out_max_elems;
-	ptr = out_end;
-	RansEncInit(&rans);
-}
-EntropyEncoder::~EntropyEncoder(void){
-	delete[] out_buf;
-}
-void EntropyEncoder::encodeSymbol(RansEncSymbol* magic,uint8_t byte){
-	RansEncPutSymbol(&rans, &ptr, magic + byte);
-}
-void EntropyEncoder::writeByte(uint8_t byte){
-	*ptr = byte;
-	ptr--;
-}
-uint8_t* EntropyEncoder::conclude(size_t* streamSize){
-	RansEncFlush(&rans, &ptr);
-	*streamSize = out_end - ptr;
-	uint8_t* out = new uint8_t[*streamSize];
-	for(size_t i=0;i<*streamSize;i++){
-		out[i] = ptr[i];
-	}
-	return out;
-}
-
-
 void entropyCoding_map(
 	uint8_t* filtered_bytes,
 	uint32_t width,
@@ -68,7 +25,8 @@ void entropyCoding_map(
 	}
 	printf("starting entropy coding\n");
 
-	EntropyEncoder entropy;
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
 		size_t tileIndex = tileIndexFromPixel(
 			index,
@@ -77,15 +35,9 @@ void entropyCoding_map(
 			entropyWidth_block,
 			entropyHeight_block
 		);
-		entropy.encodeSymbol(esyms[tileIndex],filtered_bytes[index]);//index == context here, but that's not generally true. Use a map lookup!
+		RansEncPutSymbol(&rans, &outPointer, esyms[tileIndex] + filtered_bytes[index]);//index == context here, but that's not generally true. Use a map lookup!
 	}
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
+	RansEncFlush(&rans, &outPointer);
 }
 
 void entropyCoding_map(
@@ -110,7 +62,8 @@ void entropyCoding_map(
 	}
 	printf("starting entropy coding\n");
 
-	EntropyEncoder entropy;
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
 		size_t tileIndex = tileIndexFromPixel(
 			index,
@@ -119,15 +72,9 @@ void entropyCoding_map(
 			entropyWidth_block,
 			entropyHeight_block
 		);
-		entropy.encodeSymbol(esyms[entropyImage[tileIndex]],filtered_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropyImage[tileIndex]] + filtered_bytes[index]);
 	}
-
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
+	RansEncFlush(&rans, &outPointer);
 }
 
 #endif //ENTROPY_CODING

@@ -50,4 +50,28 @@ void writeVarint(uint32_t value,uint8_t*& outPointer){
 	}
 }
 
+//rANS style backwards buffer writing
+void writeVarint_reverse(uint32_t value,uint8_t*& outPointer){
+	assert(value < (1 << 28));
+	if(value < 128){
+		*(--outPointer) = (uint8_t)value;
+	}
+	else if(value < (1<<14)){
+		*(--outPointer) = (uint8_t)(value >> 7);
+		*(--outPointer) = (uint8_t)((value % 128) + 128);
+	}
+	else if(value < (1<<21)){
+		*(--outPointer) = (uint8_t)(value >> 14);
+		*(--outPointer) = (uint8_t)(((value >> 7) % 128) + 128);
+		*(--outPointer) = (uint8_t)((value % 128) + 128);
+
+	}
+	else{
+		*(--outPointer) = (uint8_t)(value >> 21);
+		*(--outPointer) = (uint8_t)(((value >> 14) % 128) + 128);
+		*(--outPointer) = (uint8_t)(((value >> 7) % 128) + 128);
+		*(--outPointer) = (uint8_t)((value % 128) + 128);
+	}
+}
+
 #endif //VARINT_HEADER

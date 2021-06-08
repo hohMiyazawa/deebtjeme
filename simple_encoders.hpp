@@ -6,41 +6,34 @@
 #include "entropy_coding.hpp"
 
 void encode_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000000;
-
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, width*height);
 
 	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	RansEncSymbol esyms[256];
 
 	for(size_t i=0; i < 256; i++) {
 		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
 	}
-	EntropyEncoder entropy;
+
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,in_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms + in_bytes[index]);
+	}
+	RansEncFlush(&rans, &outPointer);
+
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
 	}
 
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
-	}
-	delete[] buffer;
+	*(--outPointer) = 0b00000000;
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0;
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	SymbolStats stats;
@@ -49,35 +42,32 @@ void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	RansEncSymbol esyms[256];
 
 	for(size_t i=0; i < 256; i++) {
 		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
 	}
-	EntropyEncoder entropy;
+
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms + filtered_bytes[index]);
 	}
+	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
 	}
-	delete[] buffer;
+
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0b00000100;
 }
 
 void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0b00010000;//left predictor upper
-	*(outPointer++) = 0b11010000;//left predictor lower
-
 	uint8_t* filtered_bytes = filter_all_left(in_bytes, range, width, height);
 
 	SymbolStats stats;
@@ -86,35 +76,32 @@ void encode_left(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	RansEncSymbol esyms[256];
 
 	for(size_t i=0; i < 256; i++) {
 		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
 	}
-	EntropyEncoder entropy;
+
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms + filtered_bytes[index]);
 	}
+	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
 	}
-	delete[] buffer;
+
+	*(--outPointer) = 0b11010000;
+	*(--outPointer) = 0b00010000;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0b00000100;
 }
 
 void encode_top(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	*(outPointer++) = 0b00000100;
-	*(outPointer++) = 0;
-	*(outPointer++) = 0b00000001;//top predictor upper
-	*(outPointer++) = 0b11010000;//top predictor lower
-
 	uint8_t* filtered_bytes = filter_all_top(in_bytes, range, width, height);
 
 	SymbolStats stats;
@@ -123,27 +110,29 @@ void encode_top(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height
 	BitWriter tableEncode;
 	SymbolStats table = encode_freqTable(stats,tableEncode,range);
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
 
 	RansEncSymbol esyms[256];
 
 	for(size_t i=0; i < 256; i++) {
 		RansEncSymbolInit(&esyms[i], table.cum_freqs[i], table.freqs[i], 16);
 	}
-	EntropyEncoder entropy;
+
+	RansState rans;
+	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		entropy.encodeSymbol(esyms,filtered_bytes[index]);
+		RansEncPutSymbol(&rans, &outPointer, esyms + filtered_bytes[index]);
 	}
+	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	size_t streamSize;
-	uint8_t* buffer = entropy.conclude(&streamSize);
-	for(size_t i=0;i<streamSize;i++){
-		*(outPointer++) = buffer[i];
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
 	}
-	delete[] buffer;
+
+	*(--outPointer) = 0b11010000;
+	*(--outPointer) = 0b00000001;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0b00000100;
 }
 
 

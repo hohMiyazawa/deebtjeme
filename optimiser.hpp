@@ -16,36 +16,38 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 
 	uint8_t alternates = 4;
 	uint8_t* miniBuffer[alternates];
+	uint8_t* trailing_end[alternates];
 	uint8_t* trailing[alternates];
 	for(size_t i=0;i<alternates;i++){
 		miniBuffer[i] = new uint8_t[safety_margin];
-		trailing[i] = miniBuffer[i];
+		trailing_end[i] = miniBuffer[i] + safety_margin;
+		trailing[i] = trailing_end[i];
 	}
-	encode_entropy(in_bytes,range,width,height,miniBuffer[0]);
-	encode_ffv1(in_bytes,range,width,height,miniBuffer[1]);
-	encode_left(in_bytes,range,width,height,miniBuffer[2]);
-	encode_top(in_bytes,range,width,height,miniBuffer[3]);
+	encode_entropy(in_bytes,range,width,height,trailing[0]);
+	encode_ffv1(in_bytes,range,width,height,trailing[1]);
+	encode_left(in_bytes,range,width,height,trailing[2]);
+	encode_top(in_bytes,range,width,height,trailing[3]);
 	//research_optimiser_entropyOnly(in_bytes,range,width,height,miniBuffer[2],1);
 	for(size_t i=0;i<alternates;i++){
-		size_t diff = miniBuffer[i] - trailing[i];
+		size_t diff = trailing_end[i] - trailing[i];
 		printf("type %d: %d\n",(int)i,(int)diff);
 	}
 
 	uint8_t bestIndex = 0;
 	size_t best = miniBuffer[0] - trailing[0];
 	for(size_t i=1;i<alternates;i++){
-		size_t diff = miniBuffer[i] - trailing[i];
+		size_t diff = trailing_end[i] - trailing[i];
 		if(diff < best){
 			best = diff;
 			bestIndex = i;
 		}
 	}
 	printf("best type: %d\n",(int)bestIndex);
-	for(size_t i=0;i<(miniBuffer[bestIndex] - trailing[bestIndex]);i++){
-		*(outPointer++) = trailing[bestIndex][i];
+	for(size_t i=(trailing_end[bestIndex] - trailing[bestIndex]);i--;){
+		*(--outPointer) = trailing[bestIndex][i];
 	}
 	for(size_t i=0;i<alternates;i++){
-		delete[] trailing[i];
+		delete[] miniBuffer[i];
 	}
 }
 
@@ -113,36 +115,6 @@ void research_optimiser_entropyOnly(
 		);
 	}
 ///encode data
-
-	uint8_t* trailing;
-	if(contextNumber == 1){
-		*(outPointer++) = 0b00000100;
-		*(outPointer++) = 0;
-		*(outPointer++) = 0;
-		*(outPointer++) = 0;
-	}
-	else{
-		*(outPointer++) = 0b00000110;//use entropy coding with a map
-		*(outPointer++) = 0;
-		*(outPointer++) = 0;
-		*(outPointer++) = 0;
-
-		*(outPointer++) = contextNumber - 1;//number of contexts
-
-		trailing = outPointer;
-		writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-		writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-		encode_ranged_simple2(
-			entropy_image,
-			contextNumber,
-			entropyWidth,
-			entropyHeight,
-			outPointer
-		);
-		printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
-	}
-
-	trailing = outPointer;
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -150,10 +122,6 @@ void research_optimiser_entropyOnly(
 	}
 	delete[] statistics;
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
 
 	entropyCoding_map(
 		filtered_bytes,
@@ -166,8 +134,45 @@ void research_optimiser_entropyOnly(
 		entropyHeight,
 		outPointer
 	);
-
 	delete[] filtered_bytes;
+
+	uint8_t* trailing = outPointer;
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
+	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
+
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+	*(--outPointer) = 0;
+
+	if(contextNumber == 1){
+		*(--outPointer) = 0;
+		*(--outPointer) = 0;
+		*(--outPointer) = 0;
+		*(--outPointer) = 0b00000100;
+	}
+	else{
+		trailing = outPointer;
+		encode_ranged_simple2(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+
+		*(--outPointer) = contextNumber - 1;//number of contexts
+
+		*(--outPointer) = 0;
+		*(--outPointer) = 0;
+		*(--outPointer) = 0;
+		*(--outPointer) = 0b00000110;
+	}
+
 	delete[] entropy_image;
 }
 
@@ -179,8 +184,6 @@ void research_optimiser(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	*(outPointer++) = 0b00000110;//use both map features
-
 	uint8_t* filtered_bytes = filter_all_ffv1(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
@@ -387,45 +390,6 @@ void research_optimiser(
 	);
 
 ///encode data
-
-	printf("research: writing predictors\n");
-
-	uint8_t* trailing = outPointer;
-	*(outPointer++) = predictorCount - 1;
-	for(size_t i=0;i<predictorCount;i++){
-		*(outPointer++) = predictors[i] >> 8;
-		*(outPointer++) = predictors[i] % 256;
-	}
-
-	if(predictorCount > 1){
-		printf("research: writing predictor image\n");
-		writeVarint((uint32_t)(predictorWidth - 1), outPointer);
-		writeVarint((uint32_t)(predictorHeight - 1),outPointer);
-		encode_ranged_simple2(
-			predictor_image,
-			predictorCount,
-			predictorWidth,
-			predictorHeight,
-			outPointer
-		);
-		printf("predictor image size: %d bytes\n",(int)(outPointer - trailing));
-	}
-
-	*(outPointer++) = contextNumber - 1;//number of contexts
-
-	trailing = outPointer;
-	writeVarint((uint32_t)(entropyWidth - 1), outPointer);
-	writeVarint((uint32_t)(entropyHeight - 1),outPointer);
-	encode_ranged_simple2(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	printf("entropy image size: %d bytes\n",(int)(outPointer - trailing));
-
-	trailing = outPointer;
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -433,10 +397,6 @@ void research_optimiser(
 	}
 	delete[] statistics;
 	tableEncode.conclude();
-	for(size_t i=0;i<tableEncode.length;i++){
-		*(outPointer++) = tableEncode.buffer[i];
-	}
-	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
 
 	entropyCoding_map(
 		filtered_bytes,
@@ -451,8 +411,50 @@ void research_optimiser(
 	);
 
 	delete[] filtered_bytes;
+
+	uint8_t* trailing = outPointer;
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+
+	trailing = outPointer;
+	encode_ranged_simple2(
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
 	delete[] entropy_image;
+	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+
+	*(--outPointer) = contextNumber - 1;//number of contexts
+
+	if(predictorCount > 1){
+		uint8_t* trailing = outPointer;
+		encode_ranged_simple2(
+			predictor_image,
+			predictorCount,
+			predictorWidth,
+			predictorHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(predictorHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(predictorWidth - 1), outPointer);
+		printf("predictor image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] predictor_image;
+
+	for(size_t i=predictorCount;i--;){
+		*(--outPointer) = predictors[i] % 256;
+		*(--outPointer) = predictors[i] >> 8;
+	}
 	delete[] predictors;
+	*(--outPointer) = predictorCount - 1;
+
+	*(--outPointer) = 0b00000110;//use both map features
 }
 #endif //OPTIMISER
