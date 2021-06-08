@@ -34,7 +34,7 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	}
 
 	uint8_t bestIndex = 0;
-	size_t best = miniBuffer[0] - trailing[0];
+	size_t best = trailing_end[0] - trailing[0];
 	for(size_t i=1;i<alternates;i++){
 		size_t diff = trailing_end[i] - trailing[i];
 		if(diff < best){
