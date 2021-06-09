@@ -39,7 +39,7 @@ void research_optimiser(
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	//printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
@@ -61,7 +61,7 @@ void research_optimiser(
 		statistics[cntr].freqs[filtered_bytes[i]]++;
 	}
 
-	printf("performing %d entropy passes\n",(int)speed);
+	//printf("performing %d entropy passes\n",(int)speed);
 	for(size_t i=0;i<speed;i++){
 		contextNumber = entropy_redistribution_pass(
 			filtered_bytes,
@@ -82,7 +82,7 @@ void research_optimiser(
 	uint32_t predictorWidth;
 	uint32_t predictorHeight;
 
-	printf("research: setting initial predictor layout\n");
+	//printf("research: setting initial predictor layout\n");
 
 	uint8_t predictorCount = predictor_map_initial(
 		filtered_bytes,
@@ -127,6 +127,7 @@ void research_optimiser(
 		pre_savings[i] = 0;
 		pre_blocks[i] = 0;
 	}
+	pre_blocks[0] = predictorWidth*predictorHeight;
 
 	double local_savings[predictorWidth*predictorHeight];
 	uint16_t local_predictor[predictorWidth*predictorHeight];
@@ -136,10 +137,10 @@ void research_optimiser(
 	}
 
 
-	int a_lim = 10;
-	int b_lim = 10;
-	int c_lim = -8;
-	int d_lim = 8;
+	int a_lim = 5;
+	int b_lim = 5;
+	int c_lim = -5;
+	int d_lim = 4;
 
 	size_t testing = 0;
 
@@ -148,15 +149,18 @@ void research_optimiser(
 	for(int c=c_lim;c<3;c++){
 	for(int a=0;a<a_lim;a++){
 		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		if(a == 0 && b == 0 && c == -1 && d == 00){
+			custom_pred = 0;
+		}
 		if(!is_valid_predictor(custom_pred)){
 			continue;
 		}
-		if(a == 0 && b == 0 && c < 0){//TR - TL are bad, so don't waste time on them
+		if(a == 0 && b == 0 && c < 0 && d > 0){//TR - TL are bad, so don't waste time on them
 			continue;
 		}
 ///
 		testing++;
-		printf("(%d,%d,%d,%d)\n",a,b,c,d);
+		//printf("(%d,%d,%d,%d)\n",a,b,c,d);
 		uint8_t* filter2 = filter_all(in_bytes, range, width, height, custom_pred);
 		for(size_t i=0;i<predictorWidth*predictorHeight;i++){
 			double native = regionalEntropy(
@@ -208,6 +212,7 @@ void research_optimiser(
 	}
 	}
 
+
 for(size_t loop=0;loop < 8;loop++){
 
 
@@ -233,23 +238,43 @@ for(size_t loop=0;loop < 8;loop++){
 		costTables[i] = entropyLookup(statistics[i]);
 	}
 
+	size_t post_blocks[1 << 16];
+	for(size_t i=0;i<(1 << 16);i++){
+		post_blocks[i] = 0;
+	}
+	post_blocks[0] = predictorWidth*predictorHeight;
+/*
+	double local_savings[predictorWidth*predictorHeight];
+	uint16_t local_predictor[predictorWidth*predictorHeight];
+*/
+
+	double cost_per_occurence_ffv1 = -std::log2((double)(pre_blocks[0])/((double(predictorWidth*predictorHeight))));
+
+	for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+		local_savings[i] = -cost_per_occurence_ffv1;
+		local_predictor[i] = 0;
+	}
+
 
 	for(int d=0;d<d_lim;d++){
 	for(int b=0;b<b_lim;b++){
 	for(int c=c_lim;c<3;c++){
 	for(int a=0;a<a_lim;a++){
 		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		if(a == 0 && b == 0 && c == -1 && d == 0){
+			custom_pred = 0;
+		}
 		if(!is_valid_predictor(custom_pred)){
 			continue;
 		}
-		if(a == 0 && b == 0 && c < 0){//TR - TL are bad, so don't waste time on them
+		if(a == 0 && b == 0 && c < 0 && d > 0){//TR - TL are bad, so don't waste time on them
 			continue;
 		}
 ///
-		if(pre_savings[custom_pred] < 8){
+		if(pre_blocks[custom_pred] < 4){
 			continue;
 		}
-		printf("(%d,%d,%d,%d)\n",a,b,c,d);
+		//printf("(%d,%d,%d,%d)\n",a,b,c,d);
 		uint8_t* filter2 = filter_all(in_bytes, range, width, height, custom_pred);
 		double cost_per_occurence = -std::log2((double)(pre_blocks[custom_pred])/((double(predictorWidth*predictorHeight))));
 
@@ -273,22 +298,15 @@ for(size_t loop=0;loop < 8;loop++){
 				predictor_height_block
 			);
 			//more sophisticated compare
-			double basic_gain = very_basic - alternate;
-			double cost_per_occurence_leading = -std::log2((double)(pre_blocks[local_predictor[i]])/((double(predictorWidth*predictorHeight))));
+			double basic_gain = very_basic - alternate - cost_per_occurence;
 
-			double diff = (basic_gain - cost_per_occurence) - (local_savings[i] - cost_per_occurence_leading);
 			if(
-				diff > 0
-				|| (pre_blocks[local_predictor[i]] == 1 && diff + 20 > 0)//kill these
-				|| (pre_savings[local_predictor[i]] - basic_gain < 20)//these too
+				basic_gain > local_savings[i]
 			){
-				double old_savings_here = local_savings[i];
 				local_savings[i] = basic_gain;
-				pre_savings[local_predictor[i]] -= old_savings_here;
-				pre_blocks[local_predictor[i]]--;
+				post_blocks[local_predictor[i]]--;
 				local_predictor[i] = custom_pred;
-				pre_blocks[custom_pred]++;
-				pre_savings[custom_pred] += basic_gain;
+				post_blocks[custom_pred]++;
 
 				for(size_t y = 0;y < predictor_height_block;y++){
 					size_t y_pos = (i / predictorWidth) * predictor_height_block + y;
@@ -312,26 +330,35 @@ for(size_t loop=0;loop < 8;loop++){
 	}
 	}
 	}
+
+	for(size_t i=0;i<(1 << 16);i++){
+		pre_blocks[i] = post_blocks[i];
+	}
 }
-	
+	size_t count = 0;
 	for(int d=0;d<d_lim;d++){
 	for(int b=0;b<b_lim;b++){
 	for(int c=c_lim;c<3;c++){
 	for(int a=0;a<a_lim;a++){
 		uint16_t custom_pred = (a << 12) + (b << 8) + ((c + 13) << 4) + d;
+		if(a == 0 && b == 0 && c == -1 && d == 0){
+			custom_pred = 0;
+		}
 		if(!is_valid_predictor(custom_pred)){
 			continue;
 		}
-		if(a == 0 && b == 0 && c < 0){//TR - TL are bad, so don't waste time on them
+		if(a == 0 && b == 0 && c < 0 && d > 0){//TR - TL are bad, so don't waste time on them
 			continue;
 		}
-		if(pre_savings[custom_pred] > 8){
-			printf("(%d,%d,%d,%d), %f, %d\n",a,b,c,d,pre_savings[custom_pred],(int)pre_blocks[custom_pred]);
+		if(pre_blocks[custom_pred] > 8){
+			count++;
+			printf("['(%d,%d,%d,%d)', %d],\n",a,b,c,d,(int)pre_blocks[custom_pred]);
 		}
 	}
 	}
 	}
 	}
+	//printf("count %d\n",(int)count);
 
 	for(size_t i=0;i<contextNumber;i++){
 		delete[] costTables[i];
