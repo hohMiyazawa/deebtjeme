@@ -544,6 +544,7 @@ void optimiser_speed(
 	}
 /// predictors?
 	uint16_t* predictors = new uint16_t[256];
+	uint8_t** filter_collection = new uint8_t*[256];
 	uint8_t* predictor_image;
 
 	uint32_t predictorWidth;
@@ -561,6 +562,7 @@ void optimiser_speed(
 		predictorWidth,
 		predictorHeight
 	);
+	filter_collection[0] = filter_all_ffv1(in_bytes, range, width, height);
 
 	size_t available_predictors = 64;
 
@@ -633,7 +635,7 @@ void optimiser_speed(
 
 	printf("testing %d alternate predictors\n",(int)speed);
 	for(size_t i=1;i<available_predictors;i++){
-		predictorCount = add_predictor_maybe(
+		predictorCount = add_predictor_maybe_prefiltered(
 			in_bytes,
 			filtered_bytes,
 			range,
@@ -649,7 +651,8 @@ void optimiser_speed(
 			predictorCount,
 			predictorWidth,
 			predictorHeight,
-			fine_selection[i]
+			fine_selection[i],
+			filter_collection
 		);
 	}
 
@@ -672,7 +675,7 @@ void optimiser_speed(
 		}
 
 		//printf("shuffling predictors around\n");
-		double saved = predictor_redistribution_pass(
+		double saved = predictor_redistribution_pass_prefiltered(
 			in_bytes,
 			filtered_bytes,
 			range,
@@ -687,7 +690,8 @@ void optimiser_speed(
 			predictor_image,
 			predictorCount,
 			predictorWidth,
-			predictorHeight
+			predictorHeight,
+			filter_collection
 		);
 		printf("saved: %f bits\n",saved);
 		if(saved < 8){//early escape
@@ -729,7 +733,10 @@ void optimiser_speed(
 		outPointer
 	);
 
-	delete[] filtered_bytes;
+	for(size_t i=0;i<predictorCount;i++){
+		delete[] filter_collection[i];
+	}
+	delete[] filter_collection;
 
 	uint8_t* trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
