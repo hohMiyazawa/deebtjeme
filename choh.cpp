@@ -28,7 +28,7 @@
 #include "research_optimiser.hpp"
 
 void print_usage(){
-	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
+	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
 }
 
 void encode_static_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){

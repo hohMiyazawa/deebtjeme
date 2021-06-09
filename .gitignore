@@ -1,7 +1,8 @@
 choh
 dhoh
+choh_colour
 tabletester
 *.png
-*.raw
-*.g
+*.webp
+*.jxl
 *.hoh
