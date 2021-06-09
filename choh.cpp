@@ -882,6 +882,12 @@ int main(int argc, char *argv[]){
 	else if(speed == 6){
 		optimiser_speed(grey, 256,width,height,outPointer, 10);
 	}
+	else if(speed == 7){
+		optimiser_speed2(grey, 256,width,height,outPointer, 15);
+	}
+	else if(speed == 8){
+		optimiser_speed2(grey, 256,width,height,outPointer, 20);
+	}
 	else{
 		optimiser(grey, 256,width,height,outPointer, speed);
 	}
