@@ -660,19 +660,17 @@ void optimiser_speed(
 
 	printf("performing %d refinement passes\n",(int)speed);
 	for(size_t i=0;i<speed;i++){
-		for(size_t entro=0;entro < 5;entro++){
-			contextNumber = entropy_redistribution_pass(
-				filtered_bytes,
-				range,
-				width,
-				height,
-				entropy_image,
-				contextNumber,
-				entropyWidth,
-				entropyHeight,
-				statistics
-			);
-		}
+		contextNumber = entropy_redistribution_pass(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics
+		);
 
 		//printf("shuffling predictors around\n");
 		double saved = predictor_redistribution_pass_prefiltered(
