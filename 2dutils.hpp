@@ -29,8 +29,9 @@ uint8_t* bitmap_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
 uint8_t* alpha_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
 	uint8_t* bitmap_expanded = new uint8_t[width*height*4];
 	for(size_t i=0;i<width*height;i++){
-		bitmap_expanded[i*4 + 0] = bitmap[i*3 + 0];
-		bitmap_expanded[i*4 + 1] = bitmap[i*3 + 1];
+		//note: switches GRB to RGB
+		bitmap_expanded[i*4 + 0] = bitmap[i*3 + 1];
+		bitmap_expanded[i*4 + 1] = bitmap[i*3 + 0];
 		bitmap_expanded[i*4 + 2] = bitmap[i*3 + 2];
 		bitmap_expanded[i*4 + 3] = 255;
 	}

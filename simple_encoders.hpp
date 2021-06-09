@@ -209,6 +209,8 @@ void encode_quad(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t heigh
 		outPointer
 	);
 	delete[] entropy_image;
+	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
 
 	*(--outPointer) = contextNumber - 1;
 	*(--outPointer) = 0b00000010;

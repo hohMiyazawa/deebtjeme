@@ -388,6 +388,8 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 
 	uint8_t* trailing = fileIndex;
 
+	printf("what\n");
+
 	BitReader reader(&fileIndex);
 	SymbolStats tables[entropyContexts];
 	uint8_t blocking[entropyContexts];
@@ -398,6 +400,8 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 		}
 	}
 	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
+
+	printf("what2\n");
 
 	uint8_t* bitmap = new uint8_t[width*height*3];
 
@@ -429,6 +433,67 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			}
 			bitmap[i] = s;
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+		}
+	}
+	else if(
+		PREDICTION_MAP == 0
+		&& ENTROPY_MAP == 1
+		&& LZ == 0
+	){
+		printf("ransdec entropy only\n");
+		RansDecSymbol dsyms[entropyContexts][256];
+		for(size_t context=0;context < entropyContexts;context++){
+			for(size_t i=0;i<256;i++){
+				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
+			}
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+
+			size_t tileIndex = tileIndexFromPixel(
+				i,
+				width,
+				entropyWidth,
+				entropyWidth_block,
+				entropyHeight_block
+			);
+
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
+
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 1] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 2] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
 		}
 	}
 	else{
