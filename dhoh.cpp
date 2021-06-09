@@ -388,8 +388,6 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 
 	uint8_t* trailing = fileIndex;
 
-	printf("what\n");
-
 	BitReader reader(&fileIndex);
 	SymbolStats tables[entropyContexts];
 	uint8_t blocking[entropyContexts];
@@ -400,8 +398,6 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 		}
 	}
 	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
-
-	printf("what2\n");
 
 	uint8_t* bitmap = new uint8_t[width*height*3];
 
