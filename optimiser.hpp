@@ -52,7 +52,7 @@ void encode_ranged_simple2(uint8_t* in_bytes,uint32_t range,uint32_t width,uint3
 	}
 }
 
-void research_optimiser_entropyOnly(
+void optimiser_entropyOnly(
 	uint8_t* in_bytes,
 	uint32_t range,
 	uint32_t width,
@@ -177,7 +177,7 @@ void research_optimiser_entropyOnly(
 	delete[] entropy_image;
 }
 
-void research_optimiser(
+void optimiser(
 	uint8_t* in_bytes,
 	uint32_t range,
 	uint32_t width,

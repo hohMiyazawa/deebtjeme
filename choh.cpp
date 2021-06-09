@@ -25,6 +25,7 @@
 #include "optimiser.hpp"
 #include "entropy_coding.hpp"
 #include "simple_encoders.hpp"
+#include "research_optimiser.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-4\nCurrently greyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -875,8 +876,11 @@ int main(int argc, char *argv[]){
 	else if(speed < 5){
 		encode_optimiser2(grey, 256,width,height,outPointer, speed);
 	}
+	else if(speed == 420){
+		research_optimiser(grey, 256,width,height,outPointer, 10);
+	}
 	else{
-		research_optimiser(grey, 256,width,height,outPointer, speed);
+		optimiser(grey, 256,width,height,outPointer, speed);
 	}
 	delete[] grey;
 
