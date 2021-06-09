@@ -876,8 +876,11 @@ int main(int argc, char *argv[]){
 	else if(speed < 5){
 		encode_optimiser2(grey, 256,width,height,outPointer, speed);
 	}
-	else if(speed == 420){
-		research_optimiser(grey, 256,width,height,outPointer, 10);
+	else if(speed == 5){
+		optimiser_speed(grey, 256,width,height,outPointer, 2);
+	}
+	else if(speed == 6){
+		optimiser_speed(grey, 256,width,height,outPointer, 10);
 	}
 	else{
 		optimiser(grey, 256,width,height,outPointer, speed);
