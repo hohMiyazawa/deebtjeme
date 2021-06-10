@@ -10,6 +10,7 @@
 #include "symbolstats.hpp"
 #include "filter_utils.hpp"
 #include "unfilters.hpp"
+#include "colour_unfilters.hpp"
 #include "2dutils.hpp"
 #include "varint.hpp"
 #include "lode_io.hpp"
@@ -323,9 +324,19 @@ uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,u
 
 }
 
-uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height){
+uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height,bool subGreen = false){
 	uint8_t compressionMode = *(fileIndex++);
 
+	uint8_t colour_mode = (compressionMode) >> 6;
+	if(colour_mode == 0){
+		panic("colour bit not set for colour decoding!\n");
+	}
+	else if(colour_mode == 1){
+		subGreen = false;
+	}
+	else if(colour_mode == 2){
+		subGreen = true;
+	}
 	uint8_t PREDICTION_MAP  = (compressionMode & 0b00000100) >> 2;
 	uint8_t ENTROPY_MAP = (compressionMode & 0b00000010) >> 1;
 	uint8_t LZ          = (compressionMode & 0b00000001);
@@ -492,6 +503,74 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
 		}
 	}
+	else if(
+		PREDICTION_MAP == 1 && predictorCount == 1 && predictors[0] == 0b0001000011010000
+		&& ENTROPY_MAP == 1
+		&& LZ == 0
+	){
+		printf("ransdec leftpredicted\n");
+		RansDecSymbol dsyms[entropyContexts][256];
+		for(size_t context=0;context < entropyContexts;context++){
+			for(size_t i=0;i<256;i++){
+				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
+			}
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+
+			size_t tileIndex = tileIndexFromPixel(
+				i,
+				width,
+				entropyWidth,
+				entropyWidth_block,
+				entropyHeight_block
+			);
+
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
+
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 1] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 2] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
+		}
+		if(subGreen){
+			printf("subGreen unpredicting\n");
+			colourSub_unfilter_all_left(bitmap, range, width, height);
+		}
+		else{
+			//regular unpredictor
+		}
+	}
 	else{
 		printf("missing decoder functionallity! writing black image\n");
 		for(size_t i=0;i<width*height*3;i++){
@@ -525,13 +604,16 @@ uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height){
 		return expanded;
 	}
 	else if(mode == 1){
-		uint8_t* normal = read_ranged_colour(fileIndex,256,width,height);
+		uint8_t* normal = read_ranged_colour(fileIndex,256,width,height,0);
 		uint8_t* expanded = alpha_expander(normal,width,height);
 		delete[] normal;
 		return expanded;
 	}
 	else if(mode == 2){
-		panic("sub_green decoder not implemented yet!\n");
+		uint8_t* normal = read_ranged_colour(fileIndex,256,width,height,1);
+		uint8_t* expanded = alpha_expander(normal,width,height);
+		delete[] normal;
+		return expanded;
 	}
 	else if(mode == 3){
 		panic("indexed decoder not implemented yet!\n");

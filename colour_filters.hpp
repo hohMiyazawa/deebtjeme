@@ -2,6 +2,7 @@
 #define COLOUR_FILTERS_HEADER
 
 #include "numerics.hpp"
+#include "colour_filter_utils.hpp"
 
 uint8_t* colourSub_filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
 	uint8_t* filtered = new uint8_t[width * height * 3];
@@ -58,16 +59,12 @@ uint8_t* colourSub_filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t w
 		);
 		for(size_t i=1;i<width;i++){
 			filtered[(y*width + i)*3] = sub_mod(in_bytes[(y*width + i)*3],in_bytes[(y*width + i - 1)*3],range);
-			filtered[(y*width + i)*3 + 1] = (uint8_t)(
-				(
-					
-					(
-						((int)in_bytes[(y*width + i)*3 + 1] - (int)in_bytes[(y*width + i)*3])
-						- ((int)in_bytes[(y*width + i - 1)*3 + 1] - (int)in_bytes[(y*width + i - 1)*3])
-					)
-					+ 2*range
-				) % range
-			);
+			int16_t r_L = (int16_t)in_bytes[(y * width + i - 1)*3 + 1] - (int16_t)in_bytes[(y * width + i - 1)*3];
+			int16_t r_here = (int16_t)in_bytes[(y * width + i)*3 + 1] - (int16_t)in_bytes[(y * width + i)*3];
+			filtered[(y*width + i)*3 + 1] = (
+				r_here - r_L
+				+ 2*range
+			) % range;
 			filtered[(y*width + i)*3 + 2] = (uint8_t)(
 				(
 					
@@ -82,22 +79,6 @@ uint8_t* colourSub_filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t w
 	}
 
 	return filtered;
-}
-
-int16_t ffv1(int16_t L,int16_t T,int16_t TL){
-	int16_t min = L;
-	int16_t max = T;
-	if(L > T){
-		min = T;
-		max = L;
-	}
-	if(TL >= max){
-		return min;
-	}
-	if(TL <= min){
-		return max;
-	}
-	return max - (TL - min);
 }
 
 uint8_t* colourSub_filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
