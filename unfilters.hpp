@@ -152,6 +152,9 @@ void unfilter_all(
 	if(predictor == 0){
 		unfilter_all_ffv1(in_bytes, range, width, height);
 	}
+	else if(predictor == 0b0001000011010000){
+		unfilter_all_left(in_bytes, range, width, height);
+	}
 	else{
 		for(size_t i=1;i<width;i++){
 			in_bytes[i] = add_mod(in_bytes[i],in_bytes[i - 1],range);

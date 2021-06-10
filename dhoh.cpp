@@ -504,11 +504,11 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 		}
 	}
 	else if(
-		PREDICTION_MAP == 1 && predictorCount == 1 && predictors[0] == 0b0001000011010000
+		PREDICTION_MAP == 1 && predictorCount == 1
 		&& ENTROPY_MAP == 1
 		&& LZ == 0
 	){
-		printf("ransdec leftpredicted\n");
+		printf("ransdec\n");
 		RansDecSymbol dsyms[entropyContexts][256];
 		for(size_t context=0;context < entropyContexts;context++){
 			for(size_t i=0;i<256;i++){
@@ -565,7 +565,7 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 		}
 		if(subGreen){
 			printf("subGreen unpredicting\n");
-			colourSub_unfilter_all_left(bitmap, range, width, height);
+			colourSub_unfilter_all(bitmap, range, width, height, predictors[0]);
 		}
 		else{
 			//regular unpredictor
