@@ -286,16 +286,16 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 		}
 	}
 	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropy_image[tileIndexFromPixel(
+		size_t tile_index = tileIndexFromPixel(
 			i,
 			width,
 			entropyWidth,
 			entropyWidth_block,
 			entropyHeight_block
-		)];
-		statistics[cntr*3].freqs[filtered_bytes[i*3]]++;
-		statistics[cntr*3 + 1].freqs[filtered_bytes[i*3 + 1]]++;
-		statistics[cntr*3 + 2].freqs[filtered_bytes[i*3 + 2]]++;
+		);
+		statistics[entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+		statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+		statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
 	}
 
 	BitWriter tableEncode;
@@ -317,16 +317,16 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 	RansState rans;
 	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		uint8_t cntr = entropy_image[tileIndexFromPixel(
+		size_t tile_index = tileIndexFromPixel(
 			index,
 			width,
 			entropyWidth,
 			entropyWidth_block,
 			entropyHeight_block
-		)];
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 2] + filtered_bytes[index*3 + 2]);
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 1] + filtered_bytes[index*3 + 1]);
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 0] + filtered_bytes[index*3 + 0]);
+		);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 2]] + filtered_bytes[index*3 + 2]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 1]] + filtered_bytes[index*3 + 1]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 0]] + filtered_bytes[index*3 + 0]);
 	}
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
@@ -387,16 +387,16 @@ void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32
 		}
 	}
 	for(size_t i=0;i<width*height;i++){
-		uint8_t cntr = entropy_image[tileIndexFromPixel(
+		size_t tile_index = tileIndexFromPixel(
 			i,
 			width,
 			entropyWidth,
 			entropyWidth_block,
 			entropyHeight_block
-		)];
-		statistics[cntr*3].freqs[filtered_bytes[i*3]]++;
-		statistics[cntr*3 + 1].freqs[filtered_bytes[i*3 + 1]]++;
-		statistics[cntr*3 + 2].freqs[filtered_bytes[i*3 + 2]]++;
+		);
+		statistics[entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+		statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+		statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
 	}
 
 	BitWriter tableEncode;
@@ -418,16 +418,16 @@ void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32
 	RansState rans;
 	RansEncInit(&rans);
 	for(size_t index=width*height;index--;){
-		uint8_t cntr = entropy_image[tileIndexFromPixel(
+		size_t tile_index = tileIndexFromPixel(
 			index,
 			width,
 			entropyWidth,
 			entropyWidth_block,
 			entropyHeight_block
-		)];
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 2] + filtered_bytes[index*3 + 2]);
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 1] + filtered_bytes[index*3 + 1]);
-		RansEncPutSymbol(&rans, &outPointer, esyms[cntr*3 + 0] + filtered_bytes[index*3 + 0]);
+		);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 2]] + filtered_bytes[index*3 + 2]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 1]] + filtered_bytes[index*3 + 1]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 0]] + filtered_bytes[index*3 + 0]);
 	}
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;

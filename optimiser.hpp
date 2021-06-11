@@ -141,11 +141,7 @@ void optimiser_entropyOnly(
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(outPointer - trailing));
-
-	*(--outPointer) = 0;
-	*(--outPointer) = 0;
-	*(--outPointer) = 0;
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	if(contextNumber == 1){
 		*(--outPointer) = 0;

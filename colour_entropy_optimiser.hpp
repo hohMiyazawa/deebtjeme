@@ -25,11 +25,11 @@ uint8_t colour_entropy_map_initial(
 	entropyHeight = (height + 7)/8;
 
 	uint8_t contextNumber;
-	if((width + height + 255)/256 > 255){
+	if(((width + height) + 255)/256 > 255){
 		contextNumber = 255;
 	}
 	else{
-		contextNumber = (width + height + 255)/256;
+		contextNumber = ((width + height) + 255)/256;
 	}
 
 	SymbolStats defaultFreqs;
@@ -83,7 +83,7 @@ uint8_t colour_entropy_map_initial(
 
 	double pivots[contextNumber];
 	for(size_t i=0;i<contextNumber;i++){
-		pivots[i] = sortedEntropies[(entropyWidth*entropyHeight * (i+1))/contextNumber - 1];
+		pivots[i] = sortedEntropies[(entropyWidth*entropyHeight*3 * (i+1))/contextNumber - 1];
 	}
 
 	entropy_image = new uint8_t[entropyWidth*entropyHeight*3];

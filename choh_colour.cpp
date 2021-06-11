@@ -15,9 +15,10 @@
 #include "varint.hpp"
 #include "panic.hpp"
 #include "colour_simple_encoders.hpp"
+#include "colour_optimiser.hpp"
 
 void print_usage(){
-	printf("./choh_colour infile.png outfile.hoh speed\n\nspeed must be 1 to 5\nThis is an experimental colour version and it sucks.\n");
+	printf("./choh_colour infile.png outfile.hoh speed\n\nspeed must be 1 to 7\nThis is an experimental colour version and it sucks.\n");
 }
 
 int main(int argc, char *argv[]){
@@ -69,8 +70,11 @@ int main(int argc, char *argv[]){
 	else if(speed == 6){
 		colour_encode_ffv1_4x4(alpha_stripped, 256,width,height,outPointer);
 	}
+	else if(speed == 7){
+		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 1);
+	}
 	else{
-		panic("speed must be 1 to 5!\n");
+		panic("speed must be 1 to 7!\n");
 	}
 	delete[] alpha_stripped;
 
