@@ -107,4 +107,32 @@ double regionalEntropy(
 	return sum;
 }
 
+double regionalEntropy(
+	uint8_t* in_bytes,
+	double* entropyTable,
+	size_t tileIndex,
+	uint32_t width,
+	uint32_t height,
+	uint32_t b_width_block,
+	uint32_t b_height_block,
+	uint8_t offset
+){
+	uint32_t b_width = (width + b_width_block - 1)/b_width_block;
+	double sum = 0;
+	for(size_t y=0;y<b_height_block;y++){
+		uint32_t y_pos = (tileIndex / b_width)*b_height_block + y;
+		if(y >= height){
+			continue;
+		}
+		for(size_t x=0;x<b_width_block;x++){
+			uint32_t x_pos = (tileIndex % b_width)*b_width_block + x;
+			if(x >= width){
+				continue;
+			}
+			sum += entropyTable[in_bytes[(y_pos * width + x_pos)*3 + offset]];
+		}
+	}
+	return sum;
+}
+
 #endif //ENTROPY_ESTIMATION

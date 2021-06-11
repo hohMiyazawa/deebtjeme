@@ -135,9 +135,9 @@ uint8_t* colourSub_filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t w
 			) % range
 		);
 		for(size_t i=1;i<width;i++){
-			uint8_t L = in_bytes[(y * width + i - 1)*3];
+			uint8_t L  = in_bytes[(y * width + i - 1)*3];
+			uint8_t T  = in_bytes[((y-1) * width + i)*3];
 			uint8_t TL = in_bytes[((y-1) * width + i - 1)*3];
-			uint8_t T = in_bytes[((y-1) * width + i)*3];
 			filtered[((y * width) + i)*3] = sub_mod(
 				in_bytes[((y * width) + i)*3],
 				ffv1(
