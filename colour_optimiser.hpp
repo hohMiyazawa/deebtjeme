@@ -141,6 +141,8 @@ void colour_optimiser_entropyOnly(
 	*(--outPointer) = 0b00000000;//one predictor: ffv1
 	*(--outPointer) = 0b00000000;
 	*(--outPointer) = 1 - 1;
+
+	*(--outPointer) = 0b10000110;
 }
 
 #endif //OPTIMISER
