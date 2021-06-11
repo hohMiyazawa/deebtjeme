@@ -61,11 +61,9 @@ void colour_optimiser_entropyOnly(
 		statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
 	}
 
-
-/*
 	printf("performing %d entropy passes\n",(int)speed);
 	for(size_t i=0;i<speed;i++){
-		contextNumber = entropy_redistribution_pass(
+		contextNumber = colour_entropy_redistribution_pass(
 			filtered_bytes,
 			range,
 			width,
@@ -77,7 +75,6 @@ void colour_optimiser_entropyOnly(
 			statistics
 		);
 	}
-*/
 ///encode data
 	printf("table started\n");
 	BitWriter tableEncode;

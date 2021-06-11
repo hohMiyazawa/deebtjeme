@@ -15,6 +15,8 @@ Usage:
 
 Where ``speed`` is a number in the range ``0`` to ``8`` (inclusive). increasingly slower and better compression.
 
+There's also an experimental ``choh_colour`` version, with speeds 0-7.
+
 Decoding:
 ```
 ./dhoh infile.hoh outfile.png

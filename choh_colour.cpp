@@ -18,7 +18,7 @@
 #include "colour_optimiser.hpp"
 
 void print_usage(){
-	printf("./choh_colour infile.png outfile.hoh speed\n\nspeed must be 1 to 7\nThis is an experimental colour version and it sucks.\n");
+	printf("./choh_colour infile.png outfile.hoh speed\n\nspeed is a number from 0-8\nThis is an experimental colour version.\n");
 }
 
 int main(int argc, char *argv[]){
@@ -52,29 +52,29 @@ int main(int argc, char *argv[]){
 	uint8_t* out_end = out_buf + max_elements;
 	uint8_t* outPointer = out_end;
 
-	if(speed == 1){
-		colour_encode_entropy(alpha_stripped, 256,width,height,outPointer);
-	}
-	else if(speed == 2){
+	if(speed == 0){
 		colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
 	}
-	else if(speed == 3){
-		colour_encode_left(alpha_stripped, 256,width,height,outPointer);
-	}
-	else if(speed == 4){
+	else if(speed == 1){
 		colour_encode_ffv1(alpha_stripped, 256,width,height,outPointer);
 	}
-	else if(speed == 5){
-		colour_encode_ffv1_quad(alpha_stripped, 256,width,height,outPointer);
-	}
-	else if(speed == 6){
+	else if(speed == 2){
 		colour_encode_ffv1_4x4(alpha_stripped, 256,width,height,outPointer);
 	}
-	else if(speed == 7){
+	else if(speed == 3){
 		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 1);
 	}
-	else{
-		panic("speed must be 1 to 7!\n");
+	else if(speed == 4){
+		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 5);
+	}
+	else if(speed == 5){
+		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 20);
+	}
+	else if(speed == 6){
+		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 100);
+	}
+	else if(speed == 7){
+		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 500);
 	}
 	delete[] alpha_stripped;
 
