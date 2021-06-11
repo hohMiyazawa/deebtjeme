@@ -67,14 +67,8 @@ int main(int argc, char *argv[]){
 	else if(speed == 4){
 		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 5);
 	}
-	else if(speed == 5){
-		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 20);
-	}
-	else if(speed == 6){
-		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 100);
-	}
-	else if(speed == 7){
-		colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 500);
+	else{
+		colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, speed);
 	}
 	delete[] alpha_stripped;
 

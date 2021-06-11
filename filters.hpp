@@ -145,9 +145,6 @@ uint8_t* filter_all_generic_noD(uint8_t* in_bytes, uint32_t width, uint32_t heig
 }
 
 uint8_t* filter_all_generic(uint8_t* in_bytes, uint32_t width, uint32_t height,int a,int b,int c,int d){
-	if(d == 0){
-		return filter_all_generic_noD(in_bytes, width, height, a, b, c);
-	}
 	uint8_t* filtered = new uint8_t[width * height];
 	uint8_t sum = a + b + c + d;
 	uint8_t halfsum = sum >> 1;
@@ -177,13 +174,24 @@ uint8_t* filter_all(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t 
 	if(predictor == 0){
 		return filter_all_ffv1(in_bytes, range, width, height);
 	}
+	else if(predictor == 0b0001000011010000){
+		return filter_all_left(in_bytes, range, width, height);
+	}
+	else if(predictor == 0b0000000111010000){
+		return filter_all_top(in_bytes, range, width, height);
+	}
 	else{
 		int a = (predictor & 0b1111000000000000) >> 12;
 		int b = (predictor & 0b0000111100000000) >> 8;
 		int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
 		int d = (predictor & 0b0000000000001111);
 		//printf("abcd %d %d %d %d\n",a,b,c,d);
-		return filter_all_generic(in_bytes, width, height,a,b,c,d);
+		if(d == 0){
+			return filter_all_generic_noD(in_bytes, width, height,a,b,c);
+		}
+		else{
+			return filter_all_generic(in_bytes, width, height,a,b,c,d);
+		}
 	}
 }
 #endif //FILTERS
