@@ -67,11 +67,21 @@ void colourSub_unfilter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t wid
 			int16_t r_L = (int16_t)in_bytes[(y * width + i - 1)*3 + 1] - (int16_t)in_bytes[(y * width + i - 1)*3];
 			int16_t r_T = (int16_t)in_bytes[((y-1) * width + i)*3 + 1] - (int16_t)in_bytes[((y-1) * width + i)*3];
 			int16_t r_TL= (int16_t)in_bytes[((y-1) * width + i - 1)*3 + 1] - (int16_t)in_bytes[((y-1) * width + i - 1)*3];
-			in_bytes[((y * width) + i)*3 + 1] = (in_bytes[((y * width) + i)*3 + 1] + ffv1(r_L,r_T,r_TL) + in_bytes[((y * width) + i)*3] + range) % range;
+			in_bytes[((y * width) + i)*3 + 1] = (
+				in_bytes[((y * width) + i)*3 + 1]
+				+ ffv1(r_L,r_T,r_TL)
+				+ in_bytes[((y * width) + i)*3]
+				+ range
+			) % range;
 			int16_t b_L = (int16_t)in_bytes[(y * width + i - 1)*3 + 2] - (int16_t)in_bytes[(y * width + i - 1)*3];
 			int16_t b_T = (int16_t)in_bytes[((y-1) * width + i)*3 + 2] - (int16_t)in_bytes[((y-1) * width + i)*3];
 			int16_t b_TL= (int16_t)in_bytes[((y-1) * width + i - 1)*3 + 2] - (int16_t)in_bytes[((y-1) * width + i - 1)*3];
-			in_bytes[((y * width) + i)*3 + 2] = (in_bytes[((y * width) + i)*3 + 2] + ffv1(b_L,b_T,b_TL) + in_bytes[((y * width) + i)*3] + range) % range;
+			in_bytes[((y * width) + i)*3 + 2] = (
+				in_bytes[((y * width) + i)*3 + 2]
+				+ in_bytes[((y * width) + i)*3]
+				+ ffv1(b_L,b_T,b_TL)
+				+ range
+			) % range;
 		}
 	}
 }
@@ -205,6 +215,7 @@ void colourSub_unfilter_all(
 					range
 				);
 			}
+			here = in_bytes[(y * width + i)*3];
 			//red:
 			predictor = predictor_image[tileIndex*3 + 1];
 			a = (predictor & 0b1111000000000000) >> 12;
@@ -246,7 +257,12 @@ void colourSub_unfilter_all(
 			int16_t b_TR = (int16_t)in_bytes[((y-1) * width + i + 1)*3 + 2] - TR;
 			int16_t b_here  = (int16_t)in_bytes[(y * width + i)*3 + 2];
 			if(predictor == 0){
-				in_bytes[((y * width) + i)*3 + 2] = (b_here + here + ffv1(b_L,b_T,b_TL) + range) % range;
+				in_bytes[((y * width) + i)*3 + 2] = (
+					b_here
+					+ here
+					+ ffv1(b_L,b_T,b_TL)
+					+ range
+				) % range;
 			}
 			else{
 				in_bytes[((y * width) + i)*3 + 2] = (b_here + here + i_clamp(
