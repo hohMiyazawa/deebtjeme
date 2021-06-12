@@ -17,7 +17,7 @@ int16_t ffv1(int16_t L,int16_t T,int16_t TL){
 	return max - (TL - min);
 }
 
-uint8_t clamp(int16_t a,int16_t lower,int16_t upper){
+uint8_t i_clamp(int16_t a,int16_t lower,int16_t upper){
 	if(a < lower){
 		return lower;
 	}

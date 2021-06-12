@@ -34,7 +34,7 @@ void colourSub_unfilter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t wid
 			int16_t b_L = (int16_t)in_bytes[(y * width + i - 1)*3 + 2] - (int16_t)in_bytes[(y * width + i - 1)*3];
 			in_bytes[((y * width) + i)*3 + 2] = (in_bytes[((y * width) + i)*3 + 2] + b_L + in_bytes[((y * width) + i)*3] + range) % range;
 		}
-	}
+	}	
 }
 
 void colourSub_unfilter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
@@ -207,16 +207,23 @@ void colourSub_unfilter_all(
 			}
 			//red:
 			predictor = predictor_image[tileIndex*3 + 1];
-			int16_t r_L  = (int16_t)in_bytes[(y * width + i - 1)*3 + 1] - L;
+			a = (predictor & 0b1111000000000000) >> 12;
+			b = (predictor & 0b0000111100000000) >> 8;
+			c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+			d = (predictor & 0b0000000000001111);
+
+			sum = a + b + c + d;
+			halfsum = sum >> 1;
+			int16_t r_L  = (int16_t)in_bytes[(y * width + i - 1)*3     + 1] - L;
+			int16_t r_T  = (int16_t)in_bytes[((y-1) * width + i)*3     + 1] - T;
 			int16_t r_TL = (int16_t)in_bytes[((y-1) * width + i - 1)*3 + 1] - TL;
-			int16_t r_T  = (int16_t)in_bytes[((y-1) * width + i)*3 + 1] - T;
 			int16_t r_TR = (int16_t)in_bytes[((y-1) * width + i + 1)*3 + 1] - TR;
 			int16_t r_here  = (int16_t)in_bytes[(y * width + i)*3 + 1];
 			if(predictor == 0){
 				in_bytes[((y * width) + i)*3 + 1] = (r_here + here + ffv1(r_L,r_T,r_TL) + range) % range;
 			}
 			else{
-				in_bytes[((y * width) + i)*3 + 1] = (r_here + here + clamp(
+				in_bytes[((y * width) + i)*3 + 1] = (r_here + here + i_clamp(
 					(
 						a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum
 					)/sum,
@@ -226,16 +233,23 @@ void colourSub_unfilter_all(
 			}
 			//blue:
 			predictor = predictor_image[tileIndex*3 + 2];
-			int16_t b_L  = (int16_t)in_bytes[(y * width + i - 1)*3 + 2] - L;
+			a = (predictor & 0b1111000000000000) >> 12;
+			b = (predictor & 0b0000111100000000) >> 8;
+			c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+			d = (predictor & 0b0000000000001111);
+
+			sum = a + b + c + d;
+			halfsum = sum >> 1;
+			int16_t b_L  = (int16_t)in_bytes[(y * width + i - 1)*3     + 2] - L;
+			int16_t b_T  = (int16_t)in_bytes[((y-1) * width + i)*3     + 2] - T;
 			int16_t b_TL = (int16_t)in_bytes[((y-1) * width + i - 1)*3 + 2] - TL;
-			int16_t b_T  = (int16_t)in_bytes[((y-1) * width + i)*3 + 2] - T;
 			int16_t b_TR = (int16_t)in_bytes[((y-1) * width + i + 1)*3 + 2] - TR;
 			int16_t b_here  = (int16_t)in_bytes[(y * width + i)*3 + 2];
 			if(predictor == 0){
-				in_bytes[((y * width) + i)*3 + 1] = (b_here + here + ffv1(b_L,b_T,b_TL) + range) % range;
+				in_bytes[((y * width) + i)*3 + 2] = (b_here + here + ffv1(b_L,b_T,b_TL) + range) % range;
 			}
 			else{
-				in_bytes[((y * width) + i)*3 + 1] = (b_here + here + clamp(
+				in_bytes[((y * width) + i)*3 + 2] = (b_here + here + i_clamp(
 					(
 						a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum
 					)/sum,

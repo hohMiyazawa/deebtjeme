@@ -605,10 +605,10 @@ void colour_optimiser_take2(
 		entropyHeight,
 		outPointer
 	);
-	delete[] entropy_image;
 	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
 	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
 	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	delete[] entropy_image;
 
 	*(--outPointer) = contextNumber - 1;//number of contexts
 

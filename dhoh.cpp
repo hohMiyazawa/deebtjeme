@@ -362,8 +362,8 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			uint8_t* predictorImage_data = read_ranged_colour(fileIndex,predictorCount,predictorWidth,predictorHeight);
 			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
-			predictorImage = new uint16_t[predictorWidth*predictorHeight];
-			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+			predictorImage = new uint16_t[predictorWidth*predictorHeight*3];
+			for(size_t i=0;i<predictorWidth*predictorHeight*3;i++){
 				predictorImage[i] = predictors[predictorImage_data[i]];
 			}
 			delete[] predictorImage_data;
@@ -566,6 +566,82 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 		if(subGreen){
 			printf("subGreen unpredicting\n");
 			colourSub_unfilter_all(bitmap, range, width, height, predictors[0]);
+		}
+		else{
+			//regular unpredictor
+		}
+	}
+	else if(
+		PREDICTION_MAP == 1
+		&& ENTROPY_MAP == 1
+		&& LZ == 0
+	){
+		printf("ransdec\n");
+		RansDecSymbol dsyms[entropyContexts][256];
+		for(size_t context=0;context < entropyContexts;context++){
+			for(size_t i=0;i<256;i++){
+				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
+			}
+		}
+
+		RansState rans;
+		RansDecInit(&rans, &fileIndex);
+
+		for(size_t i=0;i<width*height;i++){
+			uint32_t cumFreq = RansDecGet(&rans, 16);
+			uint8_t s;
+
+			size_t tileIndex = tileIndexFromPixel(
+				i,
+				width,
+				entropyWidth,
+				entropyWidth_block,
+				entropyHeight_block
+			);
+
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
+
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 1] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
+
+
+			cumFreq = RansDecGet(&rans, 16);
+			for(size_t j=0;j<256;j++){
+				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
+					s = j;
+					break;
+				}
+			}
+			bitmap[i*3 + 2] = s;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
+		}
+		if(subGreen){
+			printf("subGreen many unpredicting\n");
+			colourSub_unfilter_all(
+				bitmap,
+				range,
+				width,
+				height,
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
 		}
 		else{
 			//regular unpredictor

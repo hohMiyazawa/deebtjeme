@@ -236,7 +236,7 @@ uint8_t* colourSub_filter_all_generic(uint8_t* in_bytes, uint32_t range, uint32_
 			uint8_t T  = in_bytes[((y-1) * width + i)*3];
 			uint8_t TL = in_bytes[((y-1) * width + i - 1)*3];
 			uint8_t TR = in_bytes[((y-1) * width + i + 1)*3];
-			filtered[((y * width) + i)*3] = in_bytes[(y * width + i)*3] - clamp(
+			filtered[((y * width) + i)*3] = in_bytes[(y * width + i)*3] - i_clamp(
 				(
 					a*L + b*T + c*TL + d*TR + halfsum
 				)/sum,
@@ -251,12 +251,12 @@ uint8_t* colourSub_filter_all_generic(uint8_t* in_bytes, uint32_t range, uint32_
 			filtered[((y * width) + i)*3 + 1] = (uint8_t)(
 				(
 					
-					r_here - clamp(
+					r_here - i_clamp(
 						(
 							a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum
 						)/sum,
-						-2*range,
-						2*range
+						-range,
+						range
 					)
 					+ 2*range
 				) % range
@@ -269,12 +269,12 @@ uint8_t* colourSub_filter_all_generic(uint8_t* in_bytes, uint32_t range, uint32_
 			filtered[((y * width) + i)*3 + 2] = (uint8_t)(
 				(
 					
-					b_here - clamp(
+					b_here - i_clamp(
 						(
 							a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum
 						)/sum,
-						-2*range,
-						2*range
+						-range,
+						range
 					)
 					+ 2*range
 				) % range
