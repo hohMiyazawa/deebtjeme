@@ -38,4 +38,16 @@ uint8_t* alpha_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
 	return bitmap_expanded;
 }
 
+bool greyscale_test(uint8_t* RGBA,uint32_t width,uint32_t height){
+	for(size_t i=0;i<width*height;i+=4){
+		if(
+			RGBA[i] != RGBA[i+1]
+			|| RGBA[i] != RGBA[i+2]
+		){
+			return false;
+		}
+	}
+	return true;
+}
+
 #endif //DUTILS_HEADER

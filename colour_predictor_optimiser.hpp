@@ -5,18 +5,6 @@
 #include "colour_filters.hpp"
 #include "entropy_estimation.hpp"
 
-uint8_t clamp(int a,uint32_t range){
-	if(a < 0){
-		return 0;
-	}
-	else if(a > (range - 1)){
-		return (range - 1);
-	}
-	else{
-		return (uint8_t)a;
-	}
-}
-
 /*
 	heuristic for predictor mapping
 */

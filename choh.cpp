@@ -26,6 +26,8 @@
 #include "entropy_coding.hpp"
 #include "simple_encoders.hpp"
 #include "research_optimiser.hpp"
+#include "colour_simple_encoders.hpp"
+#include "colour_optimiser.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\nGreyscale only (the G component of a PNG file be used for RGB input)\n");
@@ -849,60 +851,119 @@ int main(int argc, char *argv[]){
 	uint8_t* decoded = decodeOneStep(argv[1],&width,&height);
 	printf("width : %d\n",(int)width);
 	printf("height: %d\n",(int)height);
+	bool greyscale = greyscale_test(decoded,width,height);
+	if(greyscale){
+		printf("converting to greyscale\n");
+		uint8_t* grey = new uint8_t[width*height];
+		for(size_t i=0;i<width*height;i++){
+			grey[i] = decoded[i*4 + 1];
+		}
+		delete[] decoded;
 
-	printf("converting to greyscale\n");
-	uint8_t* grey = new uint8_t[width*height];
-	for(size_t i=0;i<width*height;i++){
-		grey[i] = decoded[i*4 + 1];
-	}
-	delete[] decoded;
+		printf("creating buffer\n");
 
-	printf("creating buffer\n");
+		size_t max_elements = width*height + 4096;
+		uint8_t* out_buf = new uint8_t[max_elements];
+		uint8_t* out_end = out_buf + max_elements;
+		uint8_t* outPointer = out_end;
 
-	size_t max_elements = width*height + 4096;
-	uint8_t* out_buf = new uint8_t[max_elements];
-	uint8_t* out_end = out_buf + max_elements;
-	uint8_t* outPointer = out_end;
+		if(speed == 0){
+			encode_static_ffv1(grey, 256,width,height,outPointer);
+		}
+		else if(speed == 1){
+			encode_ffv1(grey, 256,width,height,outPointer);
+		}
+		else if(speed < 3){
+			encode_fewPass(grey, 256,width,height,outPointer, speed);
+		}
+		else if(speed < 5){
+			encode_optimiser2(grey, 256,width,height,outPointer, speed);
+		}
+		else if(speed == 5){
+			optimiser_speed(grey, 256,width,height,outPointer, 2);
+		}
+		else if(speed == 6){
+			optimiser_speed(grey, 256,width,height,outPointer, 10);
+		}
+		else if(speed == 7){
+			optimiser_speed2(grey, 256,width,height,outPointer, 15);
+		}
+		else if(speed == 8){
+			optimiser_speed2(grey, 256,width,height,outPointer, 20);
+		}
+		else{
+			optimiser(grey, 256,width,height,outPointer, speed);
+		}
+		delete[] grey;
 
-	if(speed == 0){
-		encode_static_ffv1(grey, 256,width,height,outPointer);
-	}
-	else if(speed == 1){
-		encode_ffv1(grey, 256,width,height,outPointer);
-	}
-	else if(speed < 3){
-		encode_fewPass(grey, 256,width,height,outPointer, speed);
-	}
-	else if(speed < 5){
-		encode_optimiser2(grey, 256,width,height,outPointer, speed);
-	}
-	else if(speed == 5){
-		optimiser_speed(grey, 256,width,height,outPointer, 2);
-	}
-	else if(speed == 6){
-		optimiser_speed(grey, 256,width,height,outPointer, 10);
-	}
-	else if(speed == 7){
-		optimiser_speed2(grey, 256,width,height,outPointer, 15);
-	}
-	else if(speed == 8){
-		optimiser_speed2(grey, 256,width,height,outPointer, 20);
+		printf("writing header\n");
+		writeVarint_reverse((uint32_t)(height - 1),outPointer);
+		writeVarint_reverse((uint32_t)(width - 1), outPointer);
+
+		
+		printf("file size %d\n",(int)(out_end - outPointer));
+
+
+		write_file(argv[2],outPointer,out_end - outPointer);
+		delete[] out_buf;
 	}
 	else{
-		optimiser(grey, 256,width,height,outPointer, speed);
+		uint8_t* alpha_stripped = new uint8_t[width*height*3];
+		for(size_t i=0;i<width*height;i++){
+			alpha_stripped[i*3 + 0] = decoded[i*4 + 1];
+			alpha_stripped[i*3 + 1] = decoded[i*4 + 0];
+			alpha_stripped[i*3 + 2] = decoded[i*4 + 2];
+		}
+		delete[] decoded;
+
+		printf("creating buffer\n");
+
+		size_t max_elements = (width*height + 4096)*3;
+		uint8_t* out_buf = new uint8_t[max_elements];
+		uint8_t* out_end = out_buf + max_elements;
+		uint8_t* outPointer = out_end;
+
+		if(speed == 0){
+			colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
+		}
+		else if(speed == 1){
+			colour_encode_ffv1(alpha_stripped, 256,width,height,outPointer);
+		}
+		else if(speed == 2){
+			colour_encode_ffv1_4x4(alpha_stripped, 256,width,height,outPointer);
+		}
+		else if(speed == 3){
+			colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 1);
+		}
+		else if(speed == 4){
+			colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 5);
+		}
+		else if(speed == 5){
+			colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 5);
+		}
+		else if(speed == 6){
+			colour_optimiser_take3(alpha_stripped, 256,width,height,outPointer, 6);
+		}
+		else if(speed == 7){
+			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
+		}
+		else{
+			colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
+		}
+		delete[] alpha_stripped;
+
+		printf("writing header\n");
+		writeVarint_reverse((uint32_t)(height - 1),outPointer);
+		writeVarint_reverse((uint32_t)(width - 1), outPointer);
+
+		
+		printf("file size %d\n",(int)(out_end - outPointer));
+
+
+		write_file(argv[2],outPointer,out_end - outPointer);
+		delete[] out_buf;
 	}
-	delete[] grey;
 
-	printf("writing header\n");
-	writeVarint_reverse((uint32_t)(height - 1),outPointer);
-	writeVarint_reverse((uint32_t)(width - 1), outPointer);
-
-	
-	printf("file size %d\n",(int)(out_end - outPointer));
-
-
-	write_file(argv[2],outPointer,out_end - outPointer);
-	delete[] out_buf;
 
 	return 0;
 }
