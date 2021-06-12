@@ -258,7 +258,6 @@ void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 }
 
 void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	printf("filtering colour channels...\n");
 	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
 
 	uint8_t contextNumber = 12;
@@ -357,6 +356,100 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 	*(--outPointer) = 1 - 1;
 
 	*(--outPointer) = 0b10000110;
+}
+
+void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	uint8_t contextNumber = 12;
+
+	uint8_t* entropy_image = new uint8_t[contextNumber];
+	for(size_t i=0;i<contextNumber;i++){
+		entropy_image[i] = i;
+	}
+
+	uint32_t entropyWidth = 2;
+	uint32_t entropyHeight = 2;
+
+
+	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
+	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+
+	SymbolStats* statistics = new SymbolStats[contextNumber];
+	
+	for(size_t context = 0;context < contextNumber;context++){
+		SymbolStats stats;
+		statistics[context] = stats;
+		for(size_t i=0;i<256;i++){
+			statistics[context].freqs[i] = 0;
+		}
+	}
+	for(size_t i=0;i<width*height;i++){
+		size_t tile_index = tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+		statistics[entropy_image[tile_index*3]].freqs[in_bytes[i*3]]++;
+		statistics[entropy_image[tile_index*3 + 1]].freqs[in_bytes[i*3 + 1]]++;
+		statistics[entropy_image[tile_index*3 + 2]].freqs[in_bytes[i*3 + 2]]++;
+	}
+
+	BitWriter tableEncode;
+	SymbolStats table[contextNumber];
+	for(size_t context = 0;context < contextNumber;context++){
+		table[context] = encode_freqTable(statistics[context],tableEncode, range);
+	}
+	delete[] statistics;
+	tableEncode.conclude();
+
+	RansEncSymbol esyms[contextNumber][256];
+
+	for(size_t cont=0;cont<contextNumber;cont++){
+		for(size_t i=0; i < 256; i++) {
+			RansEncSymbolInit(&esyms[cont][i], table[cont].cum_freqs[i], table[cont].freqs[i], 16);
+		}
+	}
+
+	RansState rans;
+	RansEncInit(&rans);
+	for(size_t index=width*height;index--;){
+		size_t tile_index = tileIndexFromPixel(
+			index,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 2]] + in_bytes[index*3 + 2]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 1]] + in_bytes[index*3 + 1]);
+		RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 0]] + in_bytes[index*3 + 0]);
+	}
+	RansEncFlush(&rans, &outPointer);
+
+	uint8_t* trailing = outPointer;
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+
+	trailing = outPointer;
+	colour_encode_entropy(
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		outPointer
+	);
+	delete[] entropy_image;
+	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+	writeVarint_reverse((uint32_t)(entropyHeight - 1), outPointer);
+
+	*(--outPointer) = contextNumber - 1;
+
+	*(--outPointer) = 0b01000010;
 }
 
 void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
