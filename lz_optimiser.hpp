@@ -20,6 +20,12 @@ uint32_t* lz_dist(
 		double saved = 0;
 		size_t match_length = 0;
 		size_t back_ref = 0;
+		size_t cancelled = 0;
+/*
+		if(i % width == 0){
+			printf("row %d\n",(int)(i/width));
+		}
+*/
 		for(int step_back=1;step_back < limit && i - step_back > 0;step_back++){
 			double cur_saved = 0;
 			size_t len=0;
@@ -48,10 +54,18 @@ uint32_t* lz_dist(
 				saved = cur_saved;
 				match_length = len;
 				back_ref = step_back;
+				if(len > 64){
+					break;
+				}
+			}
+			else if(len > 64){
+				//printf("test %d\n",(int)len);
+				cancelled = len;
+				break;
 			}
 		}
 		size_t y = i/width;
-		if(y){
+		if(y && !cancelled){
 		for(size_t yy=0;yy < limit && y - (yy++);){
 			double cur_saved = 0;
 			size_t len=0;
@@ -84,8 +98,8 @@ uint32_t* lz_dist(
 		}
 		}
 		if(saved == 0){
-			i++;
-			previous_match++;
+			i += 1 + cancelled;
+			previous_match += 1 + cancelled;
 		}
 		else{
 			lz_data[lz_size++] = previous_match;
