@@ -31,7 +31,7 @@ void colour_encode_entropy(uint8_t* in_bytes,size_t range,uint32_t width,uint32_
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	*(--outPointer) = 0b01000000;
 }
@@ -80,7 +80,7 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	uint8_t* entropy_image = new uint8_t[3];
@@ -95,7 +95,7 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
 
@@ -104,12 +104,12 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 }
 
 void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	printf("filtering colour channels...\n");
+	//printf("filtering colour channels...\n");
 	uint8_t* filtered_bytes = colourSub_filter_all_left(in_bytes, range, width, height);
 	SymbolStats stats_green;
 	SymbolStats stats_red;
 	SymbolStats stats_blue;
-	printf("colour channels filtered\n");
+	//printf("colour channels filtered\n");
 
 	for(size_t i=0;i<256;i++){
 		stats_green.freqs[i] = 0;
@@ -152,7 +152,7 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	uint8_t* entropy_image = new uint8_t[3];
@@ -167,7 +167,7 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
 
@@ -181,12 +181,12 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 }
 
 void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	printf("filtering colour channels...\n");
+	//printf("filtering colour channels...\n");
 	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
 	SymbolStats stats_green;
 	SymbolStats stats_red;
 	SymbolStats stats_blue;
-	printf("colour channels filtered\n");
+	//printf("colour channels filtered\n");
 
 	for(size_t i=0;i<256;i++){
 		stats_green.freqs[i] = 0;
@@ -229,7 +229,7 @@ void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	uint8_t* entropy_image = new uint8_t[3];
@@ -244,7 +244,7 @@ void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
 
@@ -273,7 +273,7 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	//printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
@@ -334,7 +334,7 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	colour_encode_entropy(
@@ -345,7 +345,7 @@ void colour_encode_ffv1_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint3
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
 	writeVarint_reverse((uint32_t)(entropyHeight - 1), outPointer);
 
@@ -372,7 +372,7 @@ void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,ui
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	//printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
@@ -432,7 +432,7 @@ void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,ui
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	colour_encode_entropy(
@@ -443,7 +443,7 @@ void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,ui
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
 	writeVarint_reverse((uint32_t)(entropyHeight - 1), outPointer);
 
@@ -453,7 +453,7 @@ void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,ui
 }
 
 void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
-	printf("filtering colour channels...\n");
+	//printf("filtering colour channels...\n");
 	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
 	uint32_t entropyWidth = 4;
 	uint32_t entropyHeight = 4;
@@ -468,7 +468,7 @@ void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	//printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
@@ -529,7 +529,7 @@ void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	colour_encode_entropy(
@@ -540,7 +540,7 @@ void colour_encode_ffv1_4x4(uint8_t* in_bytes,size_t range,uint32_t width,uint32
 		outPointer
 	);
 	delete[] entropy_image;
-	printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
 	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
 

@@ -67,7 +67,6 @@ double synthness(uint8_t* decoded,uint32_t width,uint32_t height){
 			}
 		}
 	}
-	delete[] decoded;
 
 	return (double)matches*4/(width*height);
 }
