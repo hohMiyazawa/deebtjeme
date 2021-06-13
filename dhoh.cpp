@@ -815,9 +815,10 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 				}
 				else{
 					bitmap[i*3 + 1] = (r_here + here + i_clamp(
-						(
-							a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum
-						)/sum,
+						roundDownDivide(
+							a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum,
+							sum
+						),
 						-range,
 						range
 					) + range) % range;
@@ -846,9 +847,10 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 				}
 				else{
 					bitmap[i*3 + 2] = (b_here + here + i_clamp(
-						(
-							a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum
-						)/sum,
+						roundDownDivide(
+							a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum,
+							sum
+						),
 						-range,
 						range
 					) + range) % range;

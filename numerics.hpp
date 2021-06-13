@@ -42,4 +42,13 @@ static int compare (const void * a, const void * b){
 	else return 0;  
 }
 
+inline int roundDownDivide(int a, int b){
+	if(a >= 0){
+		return a/b;
+	}
+	else{
+		return (a-b+1)/b;
+	}
+}
+
 #endif // NUMERICS_HEADER

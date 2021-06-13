@@ -18,11 +18,11 @@ int16_t ffv1(int16_t L,int16_t T,int16_t TL){
 }
 
 uint8_t i_clamp(int16_t a,int16_t lower,int16_t upper){
-	if(a < lower){
-		return lower;
+	if(a <= lower){
+		return lower + 1;
 	}
-	else if(a > upper){
-		return upper;
+	else if(a >= upper){
+		return upper - 1;
 	}
 	else{
 		return (int16_t)a;

@@ -235,9 +235,10 @@ void colourSub_unfilter_all(
 			}
 			else{
 				in_bytes[((y * width) + i)*3 + 1] = (r_here + here + i_clamp(
-					(
-						a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum
-					)/sum,
+					roundDownDivide(
+						a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum,
+						sum
+					),
 					-range,
 					range
 				) + range) % range;
@@ -266,9 +267,10 @@ void colourSub_unfilter_all(
 			}
 			else{
 				in_bytes[((y * width) + i)*3 + 2] = (b_here + here + i_clamp(
-					(
-						a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum
-					)/sum,
+					roundDownDivide(
+						a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum,
+						sum
+					),
 					-range,
 					range
 				) + range) % range;
