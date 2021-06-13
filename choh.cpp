@@ -950,6 +950,9 @@ int main(int argc, char *argv[]){
 		else if(speed == 69){
 			research_colour_writeEntImage(alpha_stripped, 256,width,height,outPointer, 7);
 		}
+		else if(speed == 420){
+			research_colour_writeLZimage(alpha_stripped, 256,width,height,outPointer, 7);
+		}
 		else{
 			colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
 		}

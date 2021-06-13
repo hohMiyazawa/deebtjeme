@@ -50,4 +50,26 @@ bool greyscale_test(uint8_t* RGBA,uint32_t width,uint32_t height){
 	return true;
 }
 
+double synthness(uint8_t* decoded,uint32_t width,uint32_t height){
+	size_t repeat = 0;
+	size_t matches = 0;
+
+	for(size_t i=1;i<width*height;i++){
+		if(
+			   decoded[i*3 + 0] == decoded[(i - 1)*3 + 0]
+			&& decoded[i*3 + 1] == decoded[(i - 1)*3 + 1]
+			&& decoded[i*3 + 2] == decoded[(i - 1)*3 + 2]
+		){
+			repeat++;
+			if(repeat == 4){
+				matches++;
+				repeat = 0;
+			}
+		}
+	}
+	delete[] decoded;
+
+	return (double)matches*4/(width*height);
+}
+
 #endif //DUTILS_HEADER
