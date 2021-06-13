@@ -345,6 +345,8 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 	uint16_t* predictorImage;
 	uint32_t predictorWidth = 1;
 	uint32_t predictorHeight = 1;
+	uint32_t predictorWidth_block;
+	uint32_t predictorHeight_block;
 	if(PREDICTION_MAP){
 		printf("  uses prediction\n");
 		predictorCount = (*(fileIndex++)) + 1;
@@ -358,6 +360,8 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			uint8_t* trailing = fileIndex;
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
+			predictorWidth_block  = (width + predictorWidth - 1)/predictorWidth;
+			predictorHeight_block = (height + predictorHeight - 1)/predictorHeight;
 			printf("---\n");
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			uint8_t* predictorImage_data = read_ranged_colour(fileIndex,predictorCount,predictorWidth,predictorHeight);
@@ -662,6 +666,7 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 
 		RansState rans;
 		RansDecInit(&rans, &fileIndex);
+		size_t lz_size = 0;
 
 		uint32_t lz_next = readVarint(fileIndex);
 
@@ -723,21 +728,132 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			}
 			bitmap[i*3 + 2] = s;
 			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
-		}
-		if(subGreen){
-			printf("subGreen many unpredicting\n");
-			colourSub_unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictorImage,
-				predictorWidth,
-				predictorHeight
-			);
-		}
-		else{
-			//regular unpredictor
+			if(i < width){
+				if(i == 0){
+					bitmap[1] = add_mod(bitmap[1],bitmap[0],range);
+					bitmap[2] = add_mod(bitmap[2],bitmap[0],range);
+				}
+				else{
+					bitmap[i*3] = add_mod(bitmap[i*3],bitmap[(i - 1)*3],range);
+					int16_t r_L = (int16_t)bitmap[(i - 1)*3 + 1] - (int16_t)bitmap[(i - 1)*3];
+					bitmap[i*3 + 1] = (bitmap[i*3 + 1] + r_L + bitmap[i*3] + range) % range;
+					int16_t b_L = (int16_t)bitmap[(i - 1)*3 + 2] - (int16_t)bitmap[(i - 1)*3];
+					bitmap[i*3 + 2] = (bitmap[i*3 + 2] + b_L + bitmap[i*3] + range) % range;
+				}
+			}
+			else if(i % width == 0){
+				bitmap[i * 3] = add_mod(bitmap[i * 3],bitmap[(i - width) * 3],range);
+				int16_t r_T = (int16_t)bitmap[(i - width) * 3 + 1] - (int16_t)bitmap[(i - width) * 3];
+				bitmap[i * 3 + 1] = (bitmap[i * 3 + 1] + r_T + bitmap[i * 3] + range) % range;
+				int16_t b_T = (int16_t)bitmap[(i - width) * 3 + 2] - (int16_t)bitmap[(i - width) * 3];
+				bitmap[i * 3 + 2] = (bitmap[i * 3 + 2] + b_T + bitmap[i * 3] + range) % range;
+			}
+			else{
+
+				size_t tileIndex = tileIndexFromPixel(
+					i,
+					width,
+					predictorWidth,
+					predictorWidth_block,
+					predictorHeight_block
+				);
+				uint16_t predictor = predictorImage[tileIndex*3];
+
+				uint8_t L =  bitmap[(i - 1)*3];
+				uint8_t TL = bitmap[(i - width - 1)*3];
+				uint8_t T =  bitmap[(i - width)*3];
+				uint8_t TR = bitmap[(i - width + 1)*3];
+				uint8_t here = bitmap[i*3];
+
+				int a = (predictor & 0b1111000000000000) >> 12;
+				int b = (predictor & 0b0000111100000000) >> 8;
+				int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+				int d = (predictor & 0b0000000000001111);
+
+				uint8_t sum = a + b + c + d;
+				uint8_t halfsum = sum >> 1;
+				if(predictor == 0){
+					bitmap[i*3] = add_mod(
+						here,
+						ffv1(
+							L,
+							T,
+							TL
+						),
+						range
+					);
+				}
+				else{
+					bitmap[i*3] = add_mod(
+						here,
+						clamp(
+							(
+								a*L + b*T + c*TL + d*TR + halfsum
+							)/sum,
+							range
+						),
+						range
+					);
+				}
+				here = bitmap[i*3];
+				//red:
+				predictor = predictorImage[tileIndex*3 + 1];
+				a = (predictor & 0b1111000000000000) >> 12;
+				b = (predictor & 0b0000111100000000) >> 8;
+				c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+				d = (predictor & 0b0000000000001111);
+
+				sum = a + b + c + d;
+				halfsum = sum >> 1;
+				int16_t r_L  =   (int16_t)bitmap[(i - 1)*3         + 1] - L;
+				int16_t r_T  =   (int16_t)bitmap[(i - width)*3     + 1] - T;
+				int16_t r_TL =   (int16_t)bitmap[(i - width - 1)*3 + 1] - TL;
+				int16_t r_TR =   (int16_t)bitmap[(i - width + 1)*3 + 1] - TR;
+				int16_t r_here = (int16_t)bitmap[i*3 + 1];
+				if(predictor == 0){
+					bitmap[i*3 + 1] = (r_here + here + ffv1(r_L,r_T,r_TL) + range) % range;
+				}
+				else{
+					bitmap[i*3 + 1] = (r_here + here + i_clamp(
+						(
+							a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum
+						)/sum,
+						-range,
+						range
+					) + range) % range;
+				}
+				//blue:
+				predictor = predictorImage[tileIndex*3 + 2];
+				a = (predictor & 0b1111000000000000) >> 12;
+				b = (predictor & 0b0000111100000000) >> 8;
+				c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+				d = (predictor & 0b0000000000001111);
+
+				sum = a + b + c + d;
+				halfsum = sum >> 1;
+				int16_t b_L  =   (int16_t)bitmap[(i - 1)*3         + 2] - L;
+				int16_t b_T  =   (int16_t)bitmap[(i - width)*3     + 2] - T;
+				int16_t b_TL =   (int16_t)bitmap[(i - width - 1)*3 + 2] - TL;
+				int16_t b_TR =   (int16_t)bitmap[(i - width + 1)*3 + 2] - TR;
+				int16_t b_here = (int16_t)bitmap[i*3 + 2];
+				if(predictor == 0){
+					bitmap[i*3 + 2] = (
+						b_here
+						+ here
+						+ ffv1(b_L,b_T,b_TL)
+						+ range
+					) % range;
+				}
+				else{
+					bitmap[i*3 + 2] = (b_here + here + i_clamp(
+						(
+							a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum
+						)/sum,
+						-range,
+						range
+					) + range) % range;
+				}
+			}
 		}
 	}
 	else{
