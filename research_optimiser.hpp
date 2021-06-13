@@ -1118,4 +1118,105 @@ void research_colour_writeLZimage(
 	delete[] finalCost;
 }
 
+void research_progressive(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+){
+
+	size_t xblock = 4;
+	size_t yblock = 4;
+	size_t sent_lines = 1;
+	/*
+	for(size_t y=0;y<height;y++){
+		for(size_t x=0;x<width;x++){
+			if(
+				(x % xblock) && (y % yblock)
+			){
+				in_bytes[y*width + x] = ffv1(
+					in_bytes[y*width + x - 1],
+					in_bytes[(y-1)*width + x],
+					in_bytes[(y-1)*width + x - 1]
+				);
+			}
+		}
+	}
+	*/
+	for(size_t y=0;y<height;y += yblock){
+		for(size_t x=0;x<width;x += xblock){
+if(
+	y + yblock >= height
+	|| x + xblock >= width
+){
+	for(size_t y_off = 1;y_off + y < height;y_off++){
+		if(y_off < sent_lines){
+		}
+		else{
+			for(size_t x_off = 1;x_off + x < width;x_off++){
+				in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+					in_bytes[(y + y_off)*width + x + x_off - 1],
+					in_bytes[(y + y_off - 1)*width + x + x_off],
+					in_bytes[(y + y_off - 1)*width + x + x_off - 1]
+				);
+			}
+		}
+	}
+}
+else{
+
+for(size_t y_off = sent_lines;y_off <= (yblock - ((yblock - sent_lines)/2));y_off++){
+	for(size_t x_off = 1;x_off <= (xblock/2);x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off - 1],
+			in_bytes[(y + y_off - 1)*width + x + x_off],
+			in_bytes[(y + y_off - 1)*width + x + x_off - 1]
+		);
+	}
+	for(size_t x_off = xblock - 1;x_off > (xblock/2);x_off--){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off + 1],
+			in_bytes[(y + y_off - 1)*width + x + x_off],
+			in_bytes[(y + y_off - 1)*width + x + x_off + 1]
+		);
+	}
+}
+for(size_t y_off = yblock - 1;y_off > (yblock - ((yblock - sent_lines)/2));y_off--){
+	if(y_off < sent_lines){
+	}
+	else{
+	for(size_t x_off = 1;x_off <= (xblock/2);x_off++){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off - 1],
+			in_bytes[(y + y_off + 1)*width + x + x_off],
+			in_bytes[(y + y_off + 1)*width + x + x_off - 1]
+		);
+	}
+	for(size_t x_off = xblock - 1;x_off > (xblock/2);x_off--){
+		in_bytes[(y + y_off)*width + x + x_off] = ffv1(
+			in_bytes[(y + y_off)*width + x + x_off + 1],
+			in_bytes[(y + y_off + 1)*width + x + x_off],
+			in_bytes[(y + y_off + 1)*width + x + x_off + 1]
+		);
+	}
+	}
+}
+}
+		}
+	}
+
+	uint8_t* expanded = bitmap_expander(in_bytes,width,height);
+	std::vector<unsigned char> image;
+	image.resize(width * height * 4);
+	for(size_t i=0;i<width*height*4;i++){
+		image[i] = expanded[i];
+	}
+	delete[] expanded;
+
+	encodeOneStep("snoop.png", image, width, height);
+	printf("test\n");
+}
+
 #endif //RESEARCH_OPTIMISER
