@@ -1949,6 +1949,40 @@ void colour_optimiser_take4_lz(
 		if(lz_size > 1){
 			printf("lz size: %d\n",(int)lz_size);
 			LZ_used = true;
+
+
+			size_t lz_point = lz_size;
+
+			uint32_t next_match = lz_data[--lz_point];
+			for(size_t index=width*height;index--;){
+				if(next_match == 0){
+					index -= lz_data[lz_point - 1];
+					--lz_point;
+					--lz_point;
+					next_match = lz_data[--lz_point];
+					continue;
+				}
+				else{
+					next_match--;
+				}
+				size_t tile_index = tileIndexFromPixel(
+					index,
+					width,
+					entropyWidth,
+					entropyWidth_block,
+					entropyHeight_block
+				);
+				statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[index*3 + 2]]++;
+				statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[index*3 + 1]]++;
+				statistics[entropy_image[tile_index*3 + 0]].freqs[filtered_bytes[index*3 + 0]]++;
+			}
+
+			BitWriter tableEncode2;
+			tableEncode = tableEncode2;
+			for(size_t context = 0;context < contextNumber;context++){
+				table[context] = encode_freqTable(statistics[context], tableEncode, range);
+			}
+			tableEncode.conclude();
 		}
 		else{
 			delete[] lz_data;
@@ -2424,6 +2458,46 @@ void colour_optimiser_take5_lz(
 		if(lz_size > 1){
 			printf("lz size: %d\n",(int)lz_size);
 			LZ_used = true;
+
+			for(size_t context = 0;context < contextNumber;context++){
+				for(size_t i=0;i<256;i++){
+					statistics[context].freqs[i] = 0;
+				}
+			}
+
+			size_t lz_point = lz_size;
+
+			uint32_t next_match = lz_data[--lz_point];
+			for(size_t index=width*height;index--;){
+				if(next_match == 0){
+					index -= lz_data[lz_point - 1];
+					--lz_point;
+					--lz_point;
+					next_match = lz_data[--lz_point];
+					continue;
+				}
+				else{
+					next_match--;
+				}
+				size_t tile_index = tileIndexFromPixel(
+					index,
+					width,
+					entropyWidth,
+					entropyWidth_block,
+					entropyHeight_block
+				);
+				statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[index*3 + 2]]++;
+				statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[index*3 + 1]]++;
+				statistics[entropy_image[tile_index*3 + 0]].freqs[filtered_bytes[index*3 + 0]]++;
+			}
+
+			BitWriter tableEncode2;
+			tableEncode = tableEncode2;
+			for(size_t context = 0;context < contextNumber;context++){
+				table[context] = encode_freqTable(statistics[context], tableEncode, range);
+			}
+			tableEncode.conclude();
+
 		}
 		else{
 			delete[] lz_data;
