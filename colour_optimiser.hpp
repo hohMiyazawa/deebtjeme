@@ -3100,14 +3100,6 @@ void colour_optimiser_take3_lz(
 		}
 	}
 
-	predictorCount = clean_pred_table(
-		predictors,
-		predictor_image,
-		predictorCount,
-		predictorWidth,
-		predictorHeight
-	);
-
 //one pass for stats tables
 	contextNumber = colour_entropy_redistribution_pass(
 		filtered_bytes,

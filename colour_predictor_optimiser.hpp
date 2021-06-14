@@ -787,7 +787,7 @@ uint32_t clean_pred_table(
 	uint32_t index = 0;
 	for(size_t i=0;i<predictor_count;i++){
 		if(used_count[i]){
-			mapping[index] = i;
+			mapping[i] = index;
 			predictors[index] = predictors[i];
 			index++;
 		}
