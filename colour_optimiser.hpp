@@ -272,18 +272,19 @@ void colour_optimiser_take0(
 		predictorHeight
 	);
 
-	size_t available_predictors = 3;
+	size_t available_predictors = 4;
 
 	uint16_t fine_selection[available_predictors] = {
 0,
 0b0011001011000001,
-0b0100000110110001
+0b0100000110110001,
+0b0100001010110001
 	};
 
-	printf("testing %d alternate predictors\n",(int)speed);
+	printf("testing %d alternate predictors\n",(int)available_predictors);
 
 	for(size_t i=1;i<available_predictors;i++){
-		predictorCount = colourSub_add_predictor_maybe(
+		predictorCount = colourSub_add_predictor_maybe_fast(
 			in_bytes,
 			filtered_bytes,
 			range,
@@ -303,20 +304,17 @@ void colour_optimiser_take0(
 		);
 	}
 
-
-	for(size_t i=0;i<speed + 1;i++){
-		contextNumber = colour_entropy_redistribution_pass(
-			filtered_bytes,
-			range,
-			width,
-			height,
-			entropy_image,
-			contextNumber,
-			entropyWidth,
-			entropyHeight,
-			statistics
-		);
-	}
+	contextNumber = colour_entropy_redistribution_pass(
+		filtered_bytes,
+		range,
+		width,
+		height,
+		entropy_image,
+		contextNumber,
+		entropyWidth,
+		entropyHeight,
+		statistics
+	);
 ///encode data
 	printf("table started\n");
 	BitWriter tableEncode;

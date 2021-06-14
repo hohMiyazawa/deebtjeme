@@ -835,7 +835,7 @@ int main(int argc, char *argv[]){
 		}
 		else if(speed == 4){
 			//colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 5);
-			colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 2);
+			colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1);
 		}
 		else if(speed == 5){
 			colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 5);
