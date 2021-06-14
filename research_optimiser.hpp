@@ -392,7 +392,8 @@ void research_colour_writeEntImage(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -747,7 +748,8 @@ void research_colour_writeLZimage(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 

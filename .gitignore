@@ -3,5 +3,7 @@ dhoh
 tabletester
 *.png
 *.webp
+*.jpeg
+*.jpg
 *.jxl
 *.hoh

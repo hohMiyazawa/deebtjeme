@@ -76,7 +76,8 @@ void colour_optimiser_entropyOnly(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -208,7 +209,8 @@ void colour_optimiser_take1(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -434,7 +436,8 @@ void colour_optimiser_take2(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -702,7 +705,8 @@ void colour_optimiser_take3(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -979,7 +983,8 @@ void colour_optimiser_take4(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -1300,7 +1305,8 @@ void colour_optimiser_take5(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -1685,7 +1691,8 @@ void colour_optimiser_take4_lz(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 
@@ -2130,7 +2137,8 @@ void colour_optimiser_take5_lz(
 		height,
 		entropy_image,
 		entropyWidth,
-		entropyHeight
+		entropyHeight,
+		0,0,0//use defaults
 	);
 	printf("contexts: %d\n",(int)contextNumber);
 

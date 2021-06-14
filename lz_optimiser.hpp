@@ -1,6 +1,8 @@
 #ifndef LZ_OPTIMISER_HEADER
 #define LZ_OPTIMISER_HEADER
 
+#include "prefix_coding.hpp"
+
 uint32_t* lz_dist(
 	uint8_t* in_bytes,
 	float* costmap,
@@ -110,6 +112,33 @@ uint32_t* lz_dist(
 		}
 	}
 	lz_data[lz_size++] = previous_match;
+/*
+	SymbolStats rr_1;
+	SymbolStats rr_2;
+	SymbolStats rr_3;
+	for(size_t i=0;i<256;i++){
+		rr_1.freqs[i] = 0;
+		rr_2.freqs[i] = 0;
+		rr_3.freqs[i] = 0;
+	}
+	double extra = 0;
+	for(size_t i=1;i<lz_size;i+=3){
+		uint8_t prefix1 = val_to_prefix(lz_data[i] + 1);
+		rr_1.freqs[prefix1]++;
+		uint8_t prefix2 = val_to_prefix(lz_data[i+1] + 1);
+		rr_2.freqs[prefix2]++;
+		uint8_t prefix3 = val_to_prefix(lz_data[i+2] + 1);
+		rr_3.freqs[prefix3]++;
+		extra += prefix_to_extra(prefix1);
+		extra += prefix_to_extra(prefix2);
+		extra += prefix_to_extra(prefix3);
+	}
+	double rr_1_ent = estimateEntropy_freq(rr_1, (lz_size - 1)/3);
+	double rr_2_ent = estimateEntropy_freq(rr_2, (lz_size - 1)/3);
+	double rr_3_ent = estimateEntropy_freq(rr_3, (lz_size - 1)/3);
+	printf("rr %f %f %f %f = %f\n",rr_1_ent,rr_2_ent,rr_3_ent,extra,(rr_1_ent+rr_2_ent+rr_3_ent+extra)/8);
+*/
+
 	return lz_data;
 }
 
