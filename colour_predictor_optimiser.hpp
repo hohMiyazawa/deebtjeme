@@ -769,6 +769,38 @@ double colourSub_predictor_redistribution_pass(
 	return pass_saved;
 }
 
+uint32_t clean_pred_table(
+	uint16_t*& predictors,
+	uint8_t*& predictor_image,
+	uint32_t predictor_count,
+	uint32_t predictor_width,
+	uint32_t predictor_height
+){
+	size_t used_count[predictor_count];
+	for(size_t i=0;i<predictor_count;i++){
+		used_count[i] = 0;
+	}
+	for(size_t i=0;i<predictor_width*predictor_height*3;i++){
+		used_count[predictor_image[i]]++;
+	}
+	uint8_t mapping[predictor_count];
+	uint32_t index = 0;
+	for(size_t i=0;i<predictor_count;i++){
+		if(used_count[i]){
+			mapping[index] = i;
+			predictors[index] = predictors[i];
+			index++;
+		}
+	}
+	if(index == predictor_count){
+		return predictor_count;
+	}
+	for(size_t i=0;i<predictor_width*predictor_height*3;i++){
+		predictor_image[i] = mapping[predictor_image[i]];
+	}
+	return index;
+}
+
 double colourSub_predictor_redistribution_pass_prefiltered(
 	uint8_t* in_bytes,
 	uint8_t* filtered_bytes,

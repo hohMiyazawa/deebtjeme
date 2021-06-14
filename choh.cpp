@@ -848,12 +848,14 @@ int main(int argc, char *argv[]){
 			//colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
 			colour_optimiser_take4_lz(alpha_stripped, 256,width,height,outPointer, 6);
 		}
+		else if(speed == 8){
+			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, 7);
+		}
 		else if(speed == 69){
 			research_colour_writeEntImage(alpha_stripped, 256,width,height,outPointer, 7);
 		}
 		else{
-			//colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
-			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
+			colour_optimiser_take6_lz(alpha_stripped, 256,width,height,outPointer, speed);
 		}
 		delete[] alpha_stripped;
 
