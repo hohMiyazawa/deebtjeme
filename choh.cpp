@@ -831,7 +831,8 @@ int main(int argc, char *argv[]){
 			colour_encode_ffv1_4x4(alpha_stripped, 256,width,height,outPointer);
 		}
 		else if(speed == 3){
-			colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 1);
+			//colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 1);
+			colour_optimiser_take0a(alpha_stripped, 256,width,height,outPointer, 1);
 		}
 		else if(speed == 4){
 			//colour_optimiser_entropyOnly(alpha_stripped, 256,width,height,outPointer, 5);
