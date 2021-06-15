@@ -5,343 +5,86 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "rans_byte.h"
 #include "file_io.hpp"
-#include "symbolstats.hpp"
-#include "filter_utils.hpp"
-#include "unfilters.hpp"
-#include "colour_unfilters.hpp"
 #include "2dutils.hpp"
 #include "varint.hpp"
 #include "lode_io.hpp"
-#include "laplace.hpp"
-#include "panic.hpp"
-#include "numerics.hpp"
-#include "bitreader.hpp"
+#include "decoders.hpp"
+#include "symbolstats.hpp"
 #include "table_decode.hpp"
 
 void print_usage(){
 	printf("./dhoh infile.hoh outfile.png\n");
 }
 
-uint8_t* read_ranged_greyscale(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height){
-	uint8_t compressionMode = *(fileIndex++);
-
-	uint8_t PREDICTION_MAP  = (compressionMode & 0b00000100) >> 2;
-	uint8_t ENTROPY_MAP = (compressionMode & 0b00000010) >> 1;
-	uint8_t LZ          = (compressionMode & 0b00000001);
-	if(compressionMode > 7){
-		panic("colour bit set! not a valid hoh file\n");
+void sanity_check(
+	bool RESERVED,
+	bool PROGRESSIVE,
+	bool HAS_COLOUR,
+	bool COLOUR_TRANSFORM,
+	bool INDEX_TRANSFORM,
+	bool PREDICTION_MAP,
+	bool ENTROPY_MAP,
+	bool LZ
+){
+	if(RESERVED){
+		panic("RESERVED bit set!\n");
 	}
-	uint16_t predictors[256];
-	size_t predictorCount = 0;
-	uint16_t* predictorImage;
-	uint32_t predictorWidth = 1;
-	uint32_t predictorHeight = 1;
-	if(PREDICTION_MAP){
-		printf("  uses prediction\n");
-		predictorCount = (*(fileIndex++)) + 1;
-		for(size_t i=0;i<predictorCount;i++){
-			uint16_t value = ((*(fileIndex++)) << 8);
-			value += *(fileIndex++);
-			predictors[i] = value;
-		}
-		printf("  %d predictors\n",(int)predictorCount);
-		if(predictorCount > 1){
-			uint8_t* trailing = fileIndex;
-			predictorWidth = readVarint(fileIndex) + 1;
-			predictorHeight = readVarint(fileIndex) + 1;
-			printf("---\n");
-			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
-			uint8_t* predictorImage_data = read_ranged_greyscale(fileIndex,predictorCount,predictorWidth,predictorHeight);
-			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
-			predictorImage = new uint16_t[predictorWidth*predictorHeight];
-			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
-				predictorImage[i] = predictors[predictorImage_data[i]];
-			}
-			delete[] predictorImage_data;
-		}
+	if(!HAS_COLOUR && COLOUR_TRANSFORM){
+		panic("Can not use colour transform for greyscale!\n");
 	}
-
-	uint8_t entropyContexts = 1;
-	uint8_t* entropyImage;
-	uint32_t entropyWidth;
-	uint32_t entropyHeight;
-	uint32_t entropyWidth_block;
-	uint32_t entropyHeight_block;
-	if(ENTROPY_MAP){
-		printf("  has entropy map\n");
-		entropyContexts = *(fileIndex++) + 1;
-		if(entropyContexts > 1){
-			printf("  %d entropy contexts\n",(int)entropyContexts);
-			uint8_t* trailing = fileIndex;
-			entropyWidth = readVarint(fileIndex) + 1;
-			entropyHeight = readVarint(fileIndex) + 1;
-			entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
-			entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
-			printf("---\n");
-			printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
-			entropyImage = read_ranged_greyscale(fileIndex,entropyContexts,entropyWidth,entropyHeight);
-			printf("---entropy image size: %d bytes\n",(int)(fileIndex - trailing));
-		}
-	}
-
-	if(LZ){
-		panic("LZ decoding not yet implemented!\n");
-	}
-
-	uint8_t* trailing = fileIndex;
-
-	BitReader reader(&fileIndex);
-	SymbolStats tables[entropyContexts];
-	uint8_t blocking[entropyContexts];
-	for(size_t i=0;i<entropyContexts;i++){
-		tables[i] = decode_freqTable(reader,range,blocking[i]);
-		if(blocking[i]){
-			panic("entropy blocking not yet implemented!\n");
-		}
-	}
-	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
-
-	uint8_t* bitmap = new uint8_t[width*height];
 	if(
-		PREDICTION_MAP == 1 && predictorCount == 1 && predictors[0] == 0
-		&& ENTROPY_MAP == 0
-		&& LZ == 0
+		!ENTROPY_MAP
+		&& (
+			COLOUR_TRANSFORM
+			|| PREDICTION_MAP
+		)
 	){
-		printf("ransdec ffv1\n");
-
-		RansDecSymbol dsyms[256];
-		for(size_t i=0;i<256;i++){
-			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-			for(size_t j=0;j<256;j++){
-				if(tables[0].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
-		}
-
-		unfilter_all_ffv1(bitmap, range, width, height);
+		panic("Nonsensical features without entropy coding!\n");
 	}
-	else if(
-		PREDICTION_MAP == 1
-		&& ENTROPY_MAP == 1
-		&& LZ == 0
-	){
-		printf("ransdec both\n");
-
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
-		}
-
-		if(predictorCount == 1){
-			unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictors[0]
-			);
-		}
-		else{
-			unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictorImage,
-				predictorWidth,
-				predictorHeight
-			);
-		}
-	}
-	else if(
-		PREDICTION_MAP == 1
-		&& ENTROPY_MAP == 0
-		&& LZ == 0
-	){
-		printf("ransdec prediction only\n");
-		RansDecSymbol dsyms[256];
-		for(size_t i=0;i<256;i++){
-			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			for(size_t j=0;j<256;j++){
-				if(tables[0].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
-		}
-		if(predictorCount == 1){
-			unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictors[0]
-			);
-		}
-		else{
-			unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictorImage,
-				predictorWidth,
-				predictorHeight
-			);
-		}
-	}
-	else if(
-		PREDICTION_MAP == 0
-		&& ENTROPY_MAP == 1
-		&& LZ == 0
-	){
-		printf("ransdec entropy only\n");
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
-		}
-	}
-	else if(
-		PREDICTION_MAP == 0
-		&& ENTROPY_MAP == 0
-		&& LZ == 0
-	){
-		printf("ransdec entropy only no map\n");
-		RansDecSymbol dsyms[256];
-		for(size_t i=0;i<256;i++){
-			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			for(size_t j=0;j<256;j++){
-				if(tables[0].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
-		}
-	}
-	else{
-		printf("missing decoder functionallity! writing black image\n");
-		for(size_t i=0;i<width*height;i++){
-			bitmap[i] = 0;
-		}
-	}
-	if(predictorCount > 1){
-		delete[] predictorImage;
-	}
-	if(entropyContexts > 1){
-		delete[] entropyImage;
-	}
-	return bitmap;
-
 }
 
-uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint32_t height,bool subGreen = false){
+uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
 	uint8_t compressionMode = *(fileIndex++);
 
-	uint8_t colour_mode = (compressionMode) >> 6;
-	if(colour_mode == 0){
-		panic("colour bit not set for colour decoding!\n");
+	bool RESERVED        = (compressionMode & 0b10000000) >> 7;
+	bool PROGRESSIVE     = (compressionMode & 0b01000000) >> 6;
+	bool HAS_COLOUR      = (compressionMode & 0b00100000) >> 5;
+	bool COLOUR_TRANSFORM= (compressionMode & 0b00010000) >> 4;
+	bool INDEX_TRANSFORM = (compressionMode & 0b00001000) >> 3;
+	bool PREDICTION_MAP  = (compressionMode & 0b00000100) >> 2;
+	bool ENTROPY_MAP     = (compressionMode & 0b00000010) >> 1;
+	bool LZ              = (compressionMode & 0b00000001) >> 0;
+
+	sanity_check(
+		RESERVED,
+		PROGRESSIVE,
+		HAS_COLOUR,
+		COLOUR_TRANSFORM,
+		INDEX_TRANSFORM,
+		PREDICTION_MAP,
+		ENTROPY_MAP,
+		LZ
+	);
+	uint32_t colourWidth = 1;
+	uint32_t colourHeight = 1;
+	uint32_t colourWidth_block;
+	uint32_t colourHeight_block;
+	uint8_t* colourImage;
+	if(COLOUR_TRANSFORM){
+		uint8_t* trailing = fileIndex;
+		colourWidth = readVarint(fileIndex) + 1;
+		colourHeight = readVarint(fileIndex) + 1;
+		colourWidth_block  = (width + colourWidth - 1)/colourWidth;
+		colourHeight_block = (height + colourHeight - 1)/colourHeight;
+		printf("---\n");
+		printf("  colour transform image %d x %d\n",(int)colourWidth,(int)colourHeight);
+		colourImage = readImage(fileIndex, 256,colourWidth,colourHeight);
+		printf("---colour transform image size: %d bytes\n",(int)(fileIndex - trailing));
 	}
-	else if(colour_mode == 1){
-		subGreen = false;
-	}
-	else if(colour_mode == 2){
-		subGreen = true;
-	}
-	uint8_t PREDICTION_MAP  = (compressionMode & 0b00000100) >> 2;
-	uint8_t ENTROPY_MAP = (compressionMode & 0b00000010) >> 1;
-	uint8_t LZ          = (compressionMode & 0b00000001);
+
 	uint16_t predictors[256];
-	size_t predictorCount = 0;
+	uint8_t predictorCount = 0;
 	uint16_t* predictorImage;
 	uint32_t predictorWidth = 1;
 	uint32_t predictorHeight = 1;
@@ -360,21 +103,40 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			uint8_t* trailing = fileIndex;
 			predictorWidth = readVarint(fileIndex) + 1;
 			predictorHeight = readVarint(fileIndex) + 1;
+			uint8_t peekMode = *fileIndex;
 			predictorWidth_block  = (width + predictorWidth - 1)/predictorWidth;
 			predictorHeight_block = (height + predictorHeight - 1)/predictorHeight;
 			printf("---\n");
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
-			uint8_t* predictorImage_data = read_ranged_colour(fileIndex,predictorCount,predictorWidth,predictorHeight);
+			uint8_t* predictorImage_data = readImage(fileIndex,predictorCount,predictorWidth,predictorHeight);
 			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
-			predictorImage = new uint16_t[predictorWidth*predictorHeight*3];
-			for(size_t i=0;i<predictorWidth*predictorHeight*3;i++){
-				predictorImage[i] = predictors[predictorImage_data[i]];
+			if(HAS_COLOUR && (peekMode & 0b00100000)){
+				predictorImage = new uint16_t[predictorWidth*predictorHeight*3];
+				for(size_t i=0;i<predictorWidth*predictorHeight*3;i++){
+					predictorImage[i] = predictors[predictorImage_data[i]];
+				}
+				delete[] predictorImage_data;
 			}
-			delete[] predictorImage_data;
+			else if(HAS_COLOUR){
+				predictorImage = new uint16_t[predictorWidth*predictorHeight*3];
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					predictorImage[i*3 + 0] = predictors[predictorImage_data[i]];
+					predictorImage[i*3 + 1] = predictors[predictorImage_data[i]];
+					predictorImage[i*3 + 2] = predictors[predictorImage_data[i]];
+				}
+				delete[] predictorImage_data;
+			}
+			else{
+				predictorImage = new uint16_t[predictorWidth*predictorHeight];
+				for(size_t i=0;i<predictorWidth*predictorHeight;i++){
+					predictorImage[i] = predictors[predictorImage_data[i]];
+				}
+				delete[] predictorImage_data;
+			}
 		}
 	}
 
-	uint8_t entropyContexts = 1;
+	uint8_t entropyContexts = 0;
 	uint8_t* entropyImage;
 	uint32_t entropyWidth;
 	uint32_t entropyHeight;
@@ -388,17 +150,28 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 			uint8_t* trailing = fileIndex;
 			entropyWidth = readVarint(fileIndex) + 1;
 			entropyHeight = readVarint(fileIndex) + 1;
+			uint8_t peekMode = *fileIndex;
 			entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 			entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
 			printf("---\n");
 			printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
-			entropyImage = read_ranged_colour(fileIndex,entropyContexts,entropyWidth,entropyHeight);
+			if(
+				(HAS_COLOUR && (peekMode & 0b00100000))
+				|| !HAS_COLOUR
+			){
+				entropyImage = readImage(fileIndex,entropyContexts,entropyWidth,entropyHeight);
+			}
+			else{
+				uint8_t* buffer = readImage(fileIndex,entropyContexts,entropyWidth,entropyHeight);
+				entropyImage = bitmap_expander(buffer,entropyWidth,entropyHeight);
+				delete[] buffer;
+			}
 			printf("---entropy image size: %d bytes\n",(int)(fileIndex - trailing));
 		}
 	}
 
 	if(LZ){
-		//panic("LZ decoding not yet implemented!\n");
+		//no extra data in the varint model
 	}
 
 	uint8_t* trailing = fileIndex;
@@ -414,455 +187,57 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 	}
 	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
 
-	uint8_t* bitmap = new uint8_t[width*height*3];
-
 	if(
-		PREDICTION_MAP == 0
-		&& ENTROPY_MAP == 0
+		ENTROPY_MAP == 0
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
-		printf("ransdec entropy only no map\n");
-		RansDecSymbol dsyms[256];
-		for(size_t i=0;i<256;i++){
-			RansDecSymbolInit(&dsyms[i], tables[0].cum_freqs[i], tables[0].freqs[i]);
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		//no entropy map means one entropy channel for all channels.
-		//maybe that's a good idea.
-		for(size_t i=0;i<width*height*3;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			for(size_t j=0;j<256;j++){
-				if(tables[0].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
-		}
+		return decode_raw_colour(fileIndex, 256, width, height);
 	}
 	else if(
-		PREDICTION_MAP == 0
-		&& ENTROPY_MAP == 1
+		ENTROPY_MAP == true && entropyContexts == 1
+		&& PREDICTION_MAP == 0
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
-		printf("ransdec entropy only\n");
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
-
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 1] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 2] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
-		}
+		return decode_entropy_colour(fileIndex, 256, width, height, tables[0]);
 	}
 	else if(
-		PREDICTION_MAP == 1 && predictorCount == 1
-		&& ENTROPY_MAP == 1
+		ENTROPY_MAP == true
+		&& PREDICTION_MAP == 0
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
-		printf("ransdec\n");
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
-
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 1] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 2] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
-		}
-		if(subGreen){
-			printf("subGreen unpredicting\n");
-			colourSub_unfilter_all(bitmap, range, width, height, predictors[0]);
-		}
-		else{
-			//regular unpredictor
-		}
+		return decode_entropyMap_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
 	}
 	else if(
-		PREDICTION_MAP == 1
-		&& ENTROPY_MAP == 1
+		ENTROPY_MAP == true && entropyContexts == 1
+		&& PREDICTION_MAP == true && predictorCount == 1
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
-		printf("ransdec\n");
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
-
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 1] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 2] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
-		}
-		if(subGreen){
-			printf("subGreen many unpredicting\n");
-			colourSub_unfilter_all(
-				bitmap,
-				range,
-				width,
-				height,
-				predictorImage,
-				predictorWidth,
-				predictorHeight
-			);
-		}
-		else{
-			//regular unpredictor
-		}
+		return decode_entropy_prediction_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
 	}
 	else if(
-		PREDICTION_MAP == 1
-		&& ENTROPY_MAP == 1
-		&& LZ == 1
+		ENTROPY_MAP == true
+		&& PREDICTION_MAP == true && predictorCount == 1
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
+		&& LZ == 0
 	){
-		printf("ransdec\n");
-		RansDecSymbol dsyms[entropyContexts][256];
-		for(size_t context=0;context < entropyContexts;context++){
-			for(size_t i=0;i<256;i++){
-				RansDecSymbolInit(&dsyms[context][i], tables[context].cum_freqs[i], tables[context].freqs[i]);
-			}
-		}
-
-		RansState rans;
-		RansDecInit(&rans, &fileIndex);
-		size_t lz_size = 0;
-
-		uint32_t lz_next = readVarint(fileIndex);
-
-		for(size_t i=0;i<width*height;i++){
-			if(lz_next == 0){
-				uint32_t backref = readVarint(fileIndex) + 1;
-				uint32_t matchlen = readVarint(fileIndex) + 1;
-				lz_next = readVarint(fileIndex);
-				for(size_t t=0;t<matchlen;t++){
-					bitmap[(i + t)*3 + 0] = bitmap[(i + t - backref)*3 + 0];
-					bitmap[(i + t)*3 + 1] = bitmap[(i + t - backref)*3 + 1];
-					bitmap[(i + t)*3 + 2] = bitmap[(i + t - backref)*3 + 2];
-				}
-				i += (matchlen - 1);
-				continue;
-			}
-			else{
-				lz_next--;
-			}
-			uint32_t cumFreq = RansDecGet(&rans, 16);
-			uint8_t s;
-
-			size_t tileIndex = tileIndexFromPixel(
-				i,
-				width,
-				entropyWidth,
-				entropyWidth_block,
-				entropyHeight_block
-			);
-
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3]][s], 16);
-
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 1]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 1] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 1]][s], 16);
-
-
-			cumFreq = RansDecGet(&rans, 16);
-			for(size_t j=0;j<256;j++){
-				if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
-					s = j;
-					break;
-				}
-			}
-			bitmap[i*3 + 2] = s;
-			RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
-			if(i < width){
-				if(i == 0){
-					bitmap[1] = add_mod(bitmap[1],bitmap[0],range);
-					bitmap[2] = add_mod(bitmap[2],bitmap[0],range);
-				}
-				else{
-					bitmap[i*3] = add_mod(bitmap[i*3],bitmap[(i - 1)*3],range);
-					int16_t r_L = (int16_t)bitmap[(i - 1)*3 + 1] - (int16_t)bitmap[(i - 1)*3];
-					bitmap[i*3 + 1] = (bitmap[i*3 + 1] + r_L + bitmap[i*3] + range) % range;
-					int16_t b_L = (int16_t)bitmap[(i - 1)*3 + 2] - (int16_t)bitmap[(i - 1)*3];
-					bitmap[i*3 + 2] = (bitmap[i*3 + 2] + b_L + bitmap[i*3] + range) % range;
-				}
-			}
-			else if(i % width == 0){
-				bitmap[i * 3] = add_mod(bitmap[i * 3],bitmap[(i - width) * 3],range);
-				int16_t r_T = (int16_t)bitmap[(i - width) * 3 + 1] - (int16_t)bitmap[(i - width) * 3];
-				bitmap[i * 3 + 1] = (bitmap[i * 3 + 1] + r_T + bitmap[i * 3] + range) % range;
-				int16_t b_T = (int16_t)bitmap[(i - width) * 3 + 2] - (int16_t)bitmap[(i - width) * 3];
-				bitmap[i * 3 + 2] = (bitmap[i * 3 + 2] + b_T + bitmap[i * 3] + range) % range;
-			}
-			else{
-
-				size_t tileIndex = tileIndexFromPixel(
-					i,
-					width,
-					predictorWidth,
-					predictorWidth_block,
-					predictorHeight_block
-				);
-				uint16_t predictor = predictorImage[tileIndex*3];
-
-				uint8_t L =  bitmap[(i - 1)*3];
-				uint8_t TL = bitmap[(i - width - 1)*3];
-				uint8_t T =  bitmap[(i - width)*3];
-				uint8_t TR = bitmap[(i - width + 1)*3];
-				uint8_t here = bitmap[i*3];
-
-				int a = (predictor & 0b1111000000000000) >> 12;
-				int b = (predictor & 0b0000111100000000) >> 8;
-				int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
-				int d = (predictor & 0b0000000000001111);
-
-				uint8_t sum = a + b + c + d;
-				uint8_t halfsum = sum >> 1;
-				if(predictor == 0){
-					bitmap[i*3] = add_mod(
-						here,
-						ffv1(
-							L,
-							T,
-							TL
-						),
-						range
-					);
-				}
-				else{
-					bitmap[i*3] = add_mod(
-						here,
-						clamp(
-							(
-								a*L + b*T + c*TL + d*TR + halfsum
-							)/sum,
-							range
-						),
-						range
-					);
-				}
-				here = bitmap[i*3];
-				//red:
-				predictor = predictorImage[tileIndex*3 + 1];
-				a = (predictor & 0b1111000000000000) >> 12;
-				b = (predictor & 0b0000111100000000) >> 8;
-				c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
-				d = (predictor & 0b0000000000001111);
-
-				sum = a + b + c + d;
-				halfsum = sum >> 1;
-				int16_t r_L  =   (int16_t)bitmap[(i - 1)*3         + 1] - L;
-				int16_t r_T  =   (int16_t)bitmap[(i - width)*3     + 1] - T;
-				int16_t r_TL =   (int16_t)bitmap[(i - width - 1)*3 + 1] - TL;
-				int16_t r_TR =   (int16_t)bitmap[(i - width + 1)*3 + 1] - TR;
-				int16_t r_here = (int16_t)bitmap[i*3 + 1];
-				if(predictor == 0){
-					bitmap[i*3 + 1] = (r_here + here + ffv1(r_L,r_T,r_TL) + range) % range;
-				}
-				else{
-					bitmap[i*3 + 1] = (r_here + here + i_clamp(
-						roundDownDivide(
-							a*r_L + b*r_T + c*r_TL + d*r_TR + halfsum,
-							sum
-						),
-						-range,
-						range
-					) + range) % range;
-				}
-				//blue:
-				predictor = predictorImage[tileIndex*3 + 2];
-				a = (predictor & 0b1111000000000000) >> 12;
-				b = (predictor & 0b0000111100000000) >> 8;
-				c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
-				d = (predictor & 0b0000000000001111);
-
-				sum = a + b + c + d;
-				halfsum = sum >> 1;
-				int16_t b_L  =   (int16_t)bitmap[(i - 1)*3         + 2] - L;
-				int16_t b_T  =   (int16_t)bitmap[(i - width)*3     + 2] - T;
-				int16_t b_TL =   (int16_t)bitmap[(i - width - 1)*3 + 2] - TL;
-				int16_t b_TR =   (int16_t)bitmap[(i - width + 1)*3 + 2] - TR;
-				int16_t b_here = (int16_t)bitmap[i*3 + 2];
-				if(predictor == 0){
-					bitmap[i*3 + 2] = (
-						b_here
-						+ here
-						+ ffv1(b_L,b_T,b_TL)
-						+ range
-					) % range;
-				}
-				else{
-					bitmap[i*3 + 2] = (b_here + here + i_clamp(
-						roundDownDivide(
-							a*b_L + b*b_T + c*b_TL + d*b_TR + halfsum,
-							sum
-						),
-						-range,
-						range
-					) + range) % range;
-				}
-			}
-		}
+		return decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
 	}
 	else{
-		printf("missing decoder functionallity! writing black image\n");
-		for(size_t i=0;i<width*height*3;i++){
-			bitmap[i] = 0;
-		}
+		panic("decoder not capable!\n");
 	}
 
 	if(predictorCount > 1){
@@ -870,40 +245,6 @@ uint8_t* read_ranged_colour(uint8_t*& fileIndex,size_t range,uint32_t width,uint
 	}
 	if(entropyContexts > 1){
 		delete[] entropyImage;
-	}
-	return bitmap;
-}
-
-uint8_t* readImage(uint8_t*& fileIndex,uint32_t width,uint32_t height){
-	//peak at the top two bits to find the colour mode
-	/*
-		00: greyscale
-		01: three separate layers
-		10: subtract green
-		11: indexed
-	*/
-	uint8_t mode = (*fileIndex) >> 6;//do not advance the pointer, as the decoder too needs this byte
-	if(mode == 0){
-		uint8_t* normal = read_ranged_greyscale(fileIndex,256,width,height);
-		uint8_t* expanded = bitmap_expander(normal,width,height);
-		//TODO make LodePNG encode greyscale directly?
-		delete[] normal;
-		return expanded;
-	}
-	else if(mode == 1){
-		uint8_t* normal = read_ranged_colour(fileIndex,256,width,height,0);
-		uint8_t* expanded = alpha_expander(normal,width,height);
-		delete[] normal;
-		return expanded;
-	}
-	else if(mode == 2){
-		uint8_t* normal = read_ranged_colour(fileIndex,256,width,height,1);
-		uint8_t* expanded = alpha_expander(normal,width,height);
-		delete[] normal;
-		return expanded;
-	}
-	else if(mode == 3){
-		panic("indexed decoder not implemented yet!\n");
 	}
 }
 
@@ -918,22 +259,23 @@ int main(int argc, char *argv[]){
 	printf("read %d bytes\n",(int)in_size);
 
 	uint8_t* fileIndex = in_bytes;
-	uint32_t width =    readVarint(fileIndex) + 1;
-	uint32_t height =   readVarint(fileIndex) + 1;
+	uint32_t width =  readVarint(fileIndex) + 1;
+	uint32_t height = readVarint(fileIndex) + 1;
 	printf("width : %d\n",(int)(width));
 	printf("height: %d\n",(int)(height));
 
-	uint8_t* out_bytes = readImage(fileIndex,width,height);
-	
+	uint8_t* normal = readImage(fileIndex, 256, width, height);
 	delete[] in_bytes;
+	uint8_t* expanded = alpha_expander(normal,width,height);
+	delete[] normal;
 
 	std::vector<unsigned char> image;
 	image.resize(width * height * 4);
 	for(size_t i=0;i<width*height*4;i++){
-		image[i] = out_bytes[i];
+		image[i] = expanded[i];
 	}
 
-	delete[] out_bytes;
+	delete[] expanded;
 
 	encodeOneStep(argv[2], image, width, height);
 

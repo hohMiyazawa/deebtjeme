@@ -2,8 +2,11 @@
 #define SIMPLE_ENCODERS_HEADER
 
 #include "symbolstats.hpp"
+#include "bitwriter.hpp"
+#include "table_encode.hpp"
 #include "rans_byte.h"
 #include "entropy_coding.hpp"
+#include "filters.hpp"
 
 void encode_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	SymbolStats stats;

@@ -2,6 +2,7 @@
 #define FILTERS_HEADER
 
 #include "numerics.hpp"
+#include "filter_utils.hpp"
 
 uint8_t* filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
 	uint8_t* filtered = new uint8_t[width * height];
