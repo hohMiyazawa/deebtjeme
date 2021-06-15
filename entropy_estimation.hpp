@@ -2,6 +2,7 @@
 #define ENTROPY_ESTIMATION_HEADER
 
 #include "symbolstats.hpp"
+#include "table_encode.hpp"
 
 double estimateEntropy(uint8_t* in_bytes, size_t size){
 	uint8_t frequencies[size];
