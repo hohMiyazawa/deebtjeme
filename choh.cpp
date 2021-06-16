@@ -38,7 +38,7 @@ int main(int argc, char *argv[]){
 	printf("height: %d\n",(int)height);
 	bool greyscale = greyscale_test(decoded,width,height);
 	if(greyscale){
-		printf("converting to greyscale\n");
+		printf("greyscale\n");
 		uint8_t* grey = new uint8_t[width*height];
 		for(size_t i=0;i<width*height;i++){
 			grey[i] = decoded[i*4 + 1];
@@ -55,6 +55,9 @@ int main(int argc, char *argv[]){
 		}
 		else if(speed == 1){
 			encode_entropy(grey, 256,width,height,outPointer);
+		}
+		else if(speed == 2){
+			encode_ffv1(grey, 256,width,height,outPointer);
 		}
 
 		delete[] grey;

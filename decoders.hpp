@@ -4,6 +4,7 @@
 #include "symbolstats.hpp"
 #include "rans_byte.h"
 #include "bitreader.hpp"
+#include "unfilters.hpp"
 #include "colour_unfilters.hpp"
 
 uint8_t* decode_raw(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
@@ -178,6 +179,46 @@ uint8_t* decode_entropy_prediction_colour(
 		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
 	}
 	colour_unfilter_all(
+		image,
+		range,
+		width,
+		height,
+		predictor
+	);
+	return image;
+}
+
+uint8_t* decode_entropy_prediction(
+	uint8_t*& fileIndex,
+	size_t range,
+	uint32_t width,
+	uint32_t height,
+	SymbolStats table,
+	uint16_t predictor
+){
+	uint8_t* image = new uint8_t[width*height];
+
+	RansDecSymbol dsyms[256];
+	for(size_t i=0;i<256;i++){
+		RansDecSymbolInit(&dsyms[i], table.cum_freqs[i], table.freqs[i]);
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
+	for(size_t i=0;i<width*height;i++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+		for(size_t j=0;j<256;j++){
+			if(table.cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		image[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+	}
+	unfilter_all(
 		image,
 		range,
 		width,

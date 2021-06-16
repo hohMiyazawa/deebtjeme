@@ -3,6 +3,7 @@
 
 #include "numerics.hpp"
 #include "2dutils.hpp"
+#include "filter_utils.hpp"
 
 void unfilter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
 	if(range == 256){//8bit overflow allowed
