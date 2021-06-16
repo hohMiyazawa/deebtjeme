@@ -53,6 +53,9 @@ int main(int argc, char *argv[]){
 		if(speed == 0){
 			encode_raw(grey, 256,width,height,outPointer);
 		}
+		else if(speed == 1){
+			encode_entropy(grey, 256,width,height,outPointer);
+		}
 
 		delete[] grey;
 

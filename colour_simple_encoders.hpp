@@ -35,7 +35,6 @@ void colour_encode_entropy(uint8_t* in_bytes,size_t range,uint32_t width,uint32_
 	}
 	RansEncFlush(&rans, &outPointer);
 
-	uint8_t* trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}

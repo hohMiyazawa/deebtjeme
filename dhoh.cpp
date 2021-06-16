@@ -299,6 +299,14 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		){
 			return decode_raw(fileIndex, 256, width, height);
 		}
+		else if(
+			ENTROPY_MAP == true && entropyContexts == 1
+			&& PREDICTION_MAP == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropy(fileIndex, 256, width, height, tables[0]);
+		}
 		else{
 			panic("decoder not capable!\n");
 		}

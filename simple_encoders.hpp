@@ -39,8 +39,9 @@ void encode_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t he
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
+	*(--outPointer) = 0;
 
-	*(--outPointer) = 0b00000000;
+	*(--outPointer) = 0b00000010;
 }
 
 void encode_ffv1(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){

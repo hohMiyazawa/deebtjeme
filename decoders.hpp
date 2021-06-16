@@ -50,6 +50,32 @@ uint8_t* decode_entropy_colour(uint8_t*& fileIndex, size_t range,uint32_t width,
 	return image;
 }
 
+uint8_t* decode_entropy(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height, SymbolStats table){
+	uint8_t* image = new uint8_t[width*height];
+
+	RansDecSymbol dsyms[256];
+	for(size_t i=0;i<256;i++){
+		RansDecSymbolInit(&dsyms[i], table.cum_freqs[i], table.freqs[i]);
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
+	for(size_t i=0;i<width*height;i++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+		for(size_t j=0;j<256;j++){
+			if(table.cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		image[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+	}
+	return image;
+}
+
 uint8_t* decode_entropyMap_colour(
 	uint8_t*& fileIndex,
 	size_t range,
