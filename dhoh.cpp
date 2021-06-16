@@ -193,6 +193,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	if(PROGRESSIVE){
 		panic("progressive decoding not yet implemented!\n");
 	}
+	uint8_t* bitmap;
 	if(LZ == 0){
 		if(HAS_COLOUR){
 			if(
@@ -200,7 +201,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_raw_colour(fileIndex, 256, width, height);
+				bitmap = decode_raw_colour(fileIndex, 256, width, height);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -209,7 +210,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropy_colour(fileIndex, 256, width, height, tables[0]);
+				bitmap = decode_entropy_colour(fileIndex, 256, width, height, tables[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -218,7 +219,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropyMap_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
+				bitmap = decode_entropyMap_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -227,7 +228,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropy_prediction_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
+				bitmap = decode_entropy_prediction_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -236,7 +237,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
+				bitmap = decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -270,7 +271,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& LZ == 0
 			){
 				printf("colMap entMap predMap\n");
-				return decode_colourMap_entropyMap_predictionMap_colour(
+				bitmap = decode_colourMap_entropyMap_predictionMap_colour(
 					fileIndex,
 					range,
 					width,
@@ -298,7 +299,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_raw(fileIndex, 256, width, height);
+				bitmap = decode_raw(fileIndex, 256, width, height);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -306,7 +307,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropy(fileIndex, 256, width, height, tables[0]);
+				bitmap = decode_entropy(fileIndex, 256, width, height, tables[0]);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -314,7 +315,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropy_prediction(fileIndex, 256, width, height, tables[0], predictors[0]);
+				bitmap = decode_entropy_prediction(fileIndex, 256, width, height, tables[0], predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -322,7 +323,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropy_predictionMap(
+				bitmap = decode_entropy_predictionMap(
 					fileIndex, 256, width, height,
 					tables[0],
 					predictorImage,
@@ -336,7 +337,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropyMap_prediction(
+				bitmap = decode_entropyMap_prediction(
 					fileIndex, 256, width, height,
 					tables,
 					entropyImage,
@@ -352,7 +353,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 				&& LZ == 0
 			){
-				return decode_entropyMap_predictionMap(
+				bitmap = decode_entropyMap_predictionMap(
 					fileIndex, 256, width, height,
 					tables,
 					entropyImage,
@@ -375,7 +376,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				ENTROPY_MAP == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_lz_raw_colour(fileIndex, 256, width, height);
+				bitmap = decode_lz_raw_colour(fileIndex, 256, width, height);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -383,7 +384,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropy_lz_colour(fileIndex, 256, width, height, tables[0]);
+				bitmap = decode_entropy_lz_colour(fileIndex, 256, width, height, tables[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -391,7 +392,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropyMap_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
+				bitmap = decode_entropyMap_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
@@ -399,7 +400,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropy_prediction_lz_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
+				bitmap = decode_entropy_prediction_lz_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -407,7 +408,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropyMap_prediction_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
+				bitmap = decode_entropyMap_prediction_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true
@@ -416,7 +417,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 			){
 				printf("colMap entMap pred=1\n");
-				return decode_colourMap_entropyMap_prediction_lz_colour(
+				bitmap = decode_colourMap_entropyMap_prediction_lz_colour(
 					fileIndex,
 					range,
 					width,
@@ -439,7 +440,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& INDEX_TRANSFORM == 0
 			){
 				printf("colMap entMap predMap\n");
-				return decode_colourMap_entropyMap_predictionMap_lz_colour(
+				bitmap = decode_colourMap_entropyMap_predictionMap_lz_colour(
 					fileIndex,
 					range,
 					width,
@@ -466,28 +467,28 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				ENTROPY_MAP == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_lz_raw(fileIndex, 256, width, height);
+				bitmap = decode_lz_raw(fileIndex, 256, width, height);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
 				&& PREDICTION_MAP == 0
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropy_lz(fileIndex, 256, width, height, tables[0]);
+				bitmap = decode_entropy_lz(fileIndex, 256, width, height, tables[0]);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
 				&& PREDICTION_MAP == true && predictorCount == 1
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropy_prediction_lz(fileIndex, 256, width, height, tables[0], predictors[0]);
+				bitmap = decode_entropy_prediction_lz(fileIndex, 256, width, height, tables[0], predictors[0]);
 			}
 			else if(
 				ENTROPY_MAP == true && entropyContexts == 1
 				&& PREDICTION_MAP == true
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropy_predictionMap_lz(
+				bitmap = decode_entropy_predictionMap_lz(
 					fileIndex, 256, width, height,
 					tables[0],
 					predictorImage,
@@ -500,7 +501,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& PREDICTION_MAP == true && predictorCount == 1
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropyMap_prediction_lz(
+				bitmap = decode_entropyMap_prediction_lz(
 					fileIndex, 256, width, height,
 					tables,
 					entropyImage,
@@ -515,7 +516,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& PREDICTION_MAP == true
 				&& INDEX_TRANSFORM == 0
 			){
-				return decode_entropyMap_predictionMap_lz(
+				bitmap = decode_entropyMap_predictionMap_lz(
 					fileIndex, 256, width, height,
 					tables,
 					entropyImage,
@@ -533,12 +534,16 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		}
 	}
 
+	if(COLOUR_TRANSFORM){
+		delete[] colourImage;
+	}
 	if(predictorCount > 1){
 		delete[] predictorImage;
 	}
 	if(entropyContexts > 1){
 		delete[] entropyImage;
 	}
+	return bitmap;
 }
 
 int main(int argc, char *argv[]){
