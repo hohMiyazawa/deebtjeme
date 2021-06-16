@@ -315,6 +315,54 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		){
 			return decode_entropy_prediction(fileIndex, 256, width, height, tables[0], predictors[0]);
 		}
+		else if(
+			ENTROPY_MAP == true && entropyContexts == 1
+			&& PREDICTION_MAP == true
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropy_predictionMap(
+				fileIndex, 256, width, height,
+				tables[0],
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == true && predictorCount == 1
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropyMap_prediction(
+				fileIndex, 256, width, height,
+				tables,
+				entropyImage,
+				entropyContexts,
+				entropyWidth,
+				entropyHeight,
+				predictors[0]
+			);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == true
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropyMap_predictionMap(
+				fileIndex, 256, width, height,
+				tables,
+				entropyImage,
+				entropyContexts,
+				entropyWidth,
+				entropyHeight,
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
+		}
 		else{
 			panic("decoder not capable!\n");
 		}

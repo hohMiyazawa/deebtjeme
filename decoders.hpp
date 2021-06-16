@@ -306,6 +306,172 @@ uint8_t* decode_entropyMap_prediction_colour(
 	return image;
 }
 
+uint8_t* decode_entropyMap_prediction(
+	uint8_t*& fileIndex,
+	size_t range,
+	uint32_t width,
+	uint32_t height,
+	SymbolStats* tables,
+	uint8_t* entropyImage,
+	uint8_t entropyContexts,
+	uint32_t entropyWidth,
+	uint32_t entropyHeight,
+	uint16_t predictor
+){
+	uint32_t  entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t  entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+	uint8_t* image = new uint8_t[width*height];
+
+	RansDecSymbol dsyms[entropyContexts][256];
+	for(size_t cont = 0;cont < entropyContexts;cont++){
+		for(size_t i=0;i<256;i++){
+			RansDecSymbolInit(&dsyms[cont][i], tables[cont].cum_freqs[i], tables[cont].freqs[i]);
+		}
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
+	for(size_t i=0;i<width*height;i++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+
+		size_t tileIndex = tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+
+		for(size_t j=0;j<256;j++){
+			if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		image[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
+
+	}
+	unfilter_all(
+		image,
+		range,
+		width,
+		height,
+		predictor
+	);
+	return image;
+}
+
+uint8_t* decode_entropy_predictionMap(
+	uint8_t*& fileIndex,
+	size_t range,
+	uint32_t width,
+	uint32_t height,
+	SymbolStats table,
+	uint16_t* predictorImage,
+	uint32_t predictorWidth,
+	uint32_t predictorHeight
+){
+	uint8_t* image = new uint8_t[width*height];
+
+	RansDecSymbol dsyms[256];
+	for(size_t i=0;i<256;i++){
+		RansDecSymbolInit(&dsyms[i], table.cum_freqs[i], table.freqs[i]);
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
+	for(size_t i=0;i<width*height;i++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+
+		for(size_t j=0;j<256;j++){
+			if(table.cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		image[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[s], 16);
+
+	}
+	unfilter_all(
+		image,
+		range,
+		width,
+		height,
+		predictorImage,
+		predictorWidth,
+		predictorHeight
+	);
+	return image;
+}
+
+uint8_t* decode_entropyMap_predictionMap(
+	uint8_t*& fileIndex,
+	size_t range,
+	uint32_t width,
+	uint32_t height,
+	SymbolStats* tables,
+	uint8_t* entropyImage,
+	uint8_t entropyContexts,
+	uint32_t entropyWidth,
+	uint32_t entropyHeight,
+	uint16_t* predictorImage,
+	uint32_t predictorWidth,
+	uint32_t predictorHeight
+){
+	uint32_t  entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
+	uint32_t  entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
+	uint8_t* image = new uint8_t[width*height];
+
+	RansDecSymbol dsyms[entropyContexts][256];
+	for(size_t cont = 0;cont < entropyContexts;cont++){
+		for(size_t i=0;i<256;i++){
+			RansDecSymbolInit(&dsyms[cont][i], tables[cont].cum_freqs[i], tables[cont].freqs[i]);
+		}
+	}
+
+	RansState rans;
+	RansDecInit(&rans, &fileIndex);
+
+	for(size_t i=0;i<width*height;i++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		uint8_t s;
+
+		size_t tileIndex = tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+
+		for(size_t j=0;j<256;j++){
+			if(tables[entropyImage[tileIndex]].cum_freqs[j + 1] > cumFreq){
+				s = j;
+				break;
+			}
+		}
+		image[i] = s;
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex]][s], 16);
+
+	}
+	unfilter_all(
+		image,
+		range,
+		width,
+		height,
+		predictorImage,
+		predictorWidth,
+		predictorHeight
+	);
+	return image;
+}
+
 uint8_t* decode_colourMap_entropyMap_prediction_colour(
 	uint8_t*& fileIndex,
 	size_t range,

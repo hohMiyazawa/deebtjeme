@@ -15,6 +15,7 @@
 #include "varint.hpp"
 #include "simple_encoders.hpp"
 #include "colour_simple_encoders.hpp"
+#include "optimiser.hpp"
 #include "colour_optimiser.hpp"
 
 void print_usage(){
@@ -58,6 +59,9 @@ int main(int argc, char *argv[]){
 		}
 		else if(speed == 2){
 			encode_ffv1(grey, 256,width,height,outPointer);
+		}
+		else if(speed == 3){
+			optimiser_take0a(grey, 256,width,height,outPointer, 1);
 		}
 
 		delete[] grey;
