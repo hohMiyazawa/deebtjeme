@@ -273,6 +273,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
+		printf("colMap entMap predMap\n");
 		return decode_colourMap_entropyMap_predictionMap_colour(
 			fileIndex,
 			range,

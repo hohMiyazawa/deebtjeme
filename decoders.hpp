@@ -400,6 +400,7 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_colour(
 		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 2]][s], 16);
 
 	}
+	printf("residuals decoded\n");
 	colourSub_unfilter_all(
 		image,
 		range,

@@ -15,7 +15,7 @@
 void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = 3*width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 6;
+	uint8_t alternates = 5;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing_end[alternates];
 	uint8_t* trailing[alternates];
@@ -28,8 +28,7 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1]);
 	colour_encode_left(in_bytes,range,width,height,trailing[2]);
 	colour_encode_ffv1(in_bytes,range,width,height,trailing[3]);
-	colour_encode_ffv1_quad(in_bytes,range,width,height,trailing[4]);
-	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[5]);
+	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);
 	for(size_t i=0;i<alternates;i++){
 		size_t diff = trailing_end[i] - trailing[i];
 		printf("type %d: %d\n",(int)i,(int)diff);
@@ -61,7 +60,7 @@ void colour_optimiser_entropyOnly(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -194,7 +193,7 @@ void colour_optimiser_take0a(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -380,7 +379,23 @@ void colour_optimiser_take0a(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take0(
@@ -391,7 +406,7 @@ void colour_optimiser_take0(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -594,7 +609,23 @@ void colour_optimiser_take0(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take1(
@@ -605,7 +636,7 @@ void colour_optimiser_take1(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -883,7 +914,23 @@ void colour_optimiser_take1(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 
@@ -895,7 +942,7 @@ void colour_optimiser_take2(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -1153,7 +1200,23 @@ void colour_optimiser_take2(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take3(
@@ -1164,7 +1227,7 @@ void colour_optimiser_take3(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -1242,7 +1305,7 @@ void colour_optimiser_take3(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 20;
 
@@ -1431,7 +1494,23 @@ void colour_optimiser_take3(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take4(
@@ -1442,7 +1521,7 @@ void colour_optimiser_take4(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -1520,7 +1599,7 @@ void colour_optimiser_take4(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 64;
 
@@ -1753,7 +1832,23 @@ void colour_optimiser_take4(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take5(
@@ -1764,7 +1859,7 @@ void colour_optimiser_take5(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -1842,7 +1937,7 @@ void colour_optimiser_take5(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 128;
 
@@ -2139,7 +2234,23 @@ void colour_optimiser_take5(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	*(--outPointer) = 0b10000110;
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	*(--outPointer) = 0b00110110;
 }
 
 void colour_optimiser_take4_lz(
@@ -2150,7 +2261,7 @@ void colour_optimiser_take4_lz(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -2228,7 +2339,7 @@ void colour_optimiser_take4_lz(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 64;
 
@@ -2587,12 +2698,29 @@ void colour_optimiser_take4_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+
 	if(LZ_used){
-		*(--outPointer) = 0b10000111;
+		*(--outPointer) = 0b00110111;
 		delete[] lz_data;
 	}
 	else{
-		*(--outPointer) = 0b10000110;
+		*(--outPointer) = 0b00110110;
 	}
 }
 
@@ -2604,7 +2732,7 @@ void colour_optimiser_take5_lz(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -2682,7 +2810,7 @@ void colour_optimiser_take5_lz(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 128;
 
@@ -3110,12 +3238,29 @@ void colour_optimiser_take5_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+
 	if(LZ_used){
-		*(--outPointer) = 0b10000111;
+		*(--outPointer) = 0b00110111;
 		delete[] lz_data;
 	}
 	else{
-		*(--outPointer) = 0b10000110;
+		*(--outPointer) = 0b00110110;
 	}
 }
 
@@ -3127,7 +3272,7 @@ void colour_optimiser_take3_lz(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -3205,7 +3350,7 @@ void colour_optimiser_take3_lz(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 20;
 
@@ -3512,12 +3657,29 @@ void colour_optimiser_take3_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+
 	if(LZ_used){
-		*(--outPointer) = 0b10000111;
+		*(--outPointer) = 0b00110111;
 		delete[] lz_data;
 	}
 	else{
-		*(--outPointer) = 0b10000110;
+		*(--outPointer) = 0b00110110;
 	}
 }
 
@@ -3529,7 +3691,7 @@ void colour_optimiser_take6_lz(
 	uint8_t*& outPointer,
 	size_t speed
 ){
-	uint8_t* filtered_bytes = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	uint8_t* entropy_image;
 
@@ -3607,7 +3769,7 @@ void colour_optimiser_take6_lz(
 		predictorWidth,
 		predictorHeight
 	);
-	filter_collection[0] = colourSub_filter_all_ffv1(in_bytes, range, width, height);
+	filter_collection[0] = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
 
 	size_t available_predictors = 200;
 
@@ -4107,12 +4269,29 @@ void colour_optimiser_take6_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
+	trailing = outPointer;
+	uint8_t* colour_image = new uint8_t[3];
+	colour_image[0] = 255;
+	colour_image[1] = 255;
+	colour_image[2] = 0;
+	colour_encode_raw(
+		colour_image,
+		3,
+		1,
+		1,
+		outPointer
+	);
+	delete[] colour_image;
+	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
+	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+
 	if(LZ_used){
-		*(--outPointer) = 0b10000111;
+		*(--outPointer) = 0b00110111;
 		delete[] lz_data;
 	}
 	else{
-		*(--outPointer) = 0b10000110;
+		*(--outPointer) = 0b00110110;
 	}
 }
 

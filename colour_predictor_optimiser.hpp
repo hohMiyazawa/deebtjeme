@@ -71,7 +71,7 @@ uint32_t colourSub_add_predictor_maybe(
 		costTables[i] = entropyLookup(entropy_stats[i]);
 	}
 
-	uint8_t* filter2 = colourSub_filter_all(in_bytes, range, width, height, predictor);
+	uint8_t* filter2 = colour_filter_all_subGreen(in_bytes, range, width, height, predictor);
 
 	double cost_per_occurence = std::log2((double)predictor_count);
 	double saved = 0;
@@ -344,7 +344,7 @@ uint32_t colourSub_add_predictor_maybe_fast(
 		costTables[i] = entropyLookup(entropy_stats[i]);
 	}
 
-	uint8_t* filter2 = colourSub_filter_all(in_bytes, range, width, height, predictor);
+	uint8_t* filter2 = colour_filter_all_subGreen(in_bytes, range, width, height, predictor);
 
 	double cost_per_occurence = std::log2((double)predictor_count);
 
@@ -529,7 +529,7 @@ uint32_t colourSub_add_predictor_maybe_prefiltered(
 		costTables[i] = entropyLookup(entropy_stats[i]);
 	}
 
-	uint8_t* filter2 = colourSub_filter_all(in_bytes, range, width, height, predictor);
+	uint8_t* filter2 = colour_filter_all_subGreen(in_bytes, range, width, height, predictor);
 
 	double cost_per_occurence = std::log2((double)predictor_count);
 	double saved = 0;
@@ -805,7 +805,7 @@ double colourSub_predictor_redistribution_pass(
 	double pass_saved = 0;
 
 	for(size_t pred=0;pred<predictor_count;pred++){
-		uint8_t* filter2 = colourSub_filter_all(in_bytes, range, width, height, predictors[pred]);
+		uint8_t* filter2 = colour_filter_all_subGreen(in_bytes, range, width, height, predictors[pred]);
 
 		double cost_per_occurence = -std::log2((double)(used_count[pred])/((double(predictor_width*predictor_height*3))));
 

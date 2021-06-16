@@ -15,6 +15,7 @@
 #include "varint.hpp"
 #include "simple_encoders.hpp"
 #include "colour_simple_encoders.hpp"
+#include "colour_optimiser.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\n");
@@ -78,19 +79,28 @@ int main(int argc, char *argv[]){
 		uint8_t* outPointer = out_end;
 
 		if(speed == 0){
-			colour_encode_raw(alpha_stripped, 256, width, height, outPointer);
+			colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
 		}
 		else if(speed == 1){
-			colour_encode_entropy(alpha_stripped, 256, width, height, outPointer);
+			colour_encode_ffv1_subGreen(alpha_stripped, 256,width,height,outPointer);
 		}
 		else if(speed == 2){
-			colour_encode_entropy_channel(alpha_stripped, 256, width, height, outPointer);
+			colour_optimiser_take0a(alpha_stripped, 256,width,height,outPointer, 1);
 		}
 		else if(speed == 3){
-			colour_encode_ffv1(alpha_stripped, 256, width, height, outPointer);
+			colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1);
 		}
 		else if(speed == 4){
-			colour_encode_ffv1_subGreen(alpha_stripped, 256, width, height, outPointer);
+			colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 5);
+		}
+		else if(speed == 5){
+			colour_optimiser_take3(alpha_stripped, 256,width,height,outPointer, 5);
+		}
+		else if(speed == 6){
+			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
+		}
+		else{
+			colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
 		}
 
 		delete[] alpha_stripped;

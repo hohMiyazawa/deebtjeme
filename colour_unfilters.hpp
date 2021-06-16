@@ -447,29 +447,19 @@ void colourSub_unfilter_all(
 		}
 //combined red-blue decode
 		uint16_t rg_delta = delta(colourImage[colourIndex*3],in_bytes[i*3]);
-		uint16_t bg_delta = delta(colourImage[colourIndex*3 + 1],in_bytes[i*3]);
-		uint16_t br_delta = delta(colourImage[colourIndex*3 + 2],in_bytes[i*3 + 1]);
 		if(i == 0){
 			in_bytes[i*3 + 1] = (in_bytes[i*3 + 1] + rg_delta) % range;
-			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bg_delta + br_delta) % range;
 			rcache_L = in_bytes[i*3 + 1] + range - rg_delta;
-			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
 		}
 		else if(i < width){
 			in_bytes[i*3 + 1] = (in_bytes[i*3 + 1] + rcache_L + rg_delta) % range;
-			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bcache_L + bg_delta + br_delta) % range;
 			rcache[i - 1] = rcache_L;
-			bcache[i - 1] = bcache_L;
 			rcache_L = in_bytes[i*3 + 1] + range - rg_delta;
-			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
 		}
 		else if(i % width == 0){
 			in_bytes[i*3 + 1] = (in_bytes[i*3 + 1] + rcache[0] + rg_delta) % range;
-			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bcache[0] + bg_delta + br_delta) % range;
-			rcache[i - 1] = rcache_L;
-			bcache[i - 1] = bcache_L;
+			rcache[(i - 1) % width] = rcache_L;
 			rcache_L = in_bytes[i*3 + 1] + range - rg_delta;
-			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
 		}
 		else{
 			uint16_t predictor = predictorImage[predictorIndex*3 + 1];
@@ -503,20 +493,37 @@ void colourSub_unfilter_all(
 					+ rg_delta
 				) % range;
 			}
-			rcache[i - 1] = rcache_L;
+			rcache[(i - 1) % width] = rcache_L;
 			rcache_L = in_bytes[i*3 + 1] + range - rg_delta;
-
-			predictor = predictorImage[predictorIndex*3 + 2];
-			a = (predictor & 0b1111000000000000) >> 12;
-			b = (predictor & 0b0000111100000000) >> 8;
-			c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
-			d = (predictor & 0b0000000000001111);
-			sum = a + b + c + d;
-			halfsum = sum >> 1;
-			L = bcache_L;
-			T = bcache[i % width];
-			TL = bcache[(i-1) % width];
-			TR = bcache[(i+1) % width];
+		}
+		uint16_t bg_delta = delta(colourImage[colourIndex*3 + 1],in_bytes[i*3]);
+		uint16_t br_delta = delta(colourImage[colourIndex*3 + 2],in_bytes[i*3 + 1]);
+		if(i == 0){
+			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bg_delta + br_delta) % range;
+			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
+		}
+		else if(i < width){
+			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bcache_L + bg_delta + br_delta) % range;
+			bcache[i - 1] = bcache_L;
+			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
+		}
+		else if(i % width == 0){
+			in_bytes[i*3 + 2] = (in_bytes[i*3 + 2] + bcache[0] + bg_delta + br_delta) % range;
+			bcache[(i - 1) % width] = bcache_L;
+			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
+		}
+		else{
+			uint16_t predictor = predictorImage[predictorIndex*3 + 2];
+			int a = (predictor & 0b1111000000000000) >> 12;
+			int b = (predictor & 0b0000111100000000) >> 8;
+			int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
+			int d = (predictor & 0b0000000000001111);
+			int sum = a + b + c + d;
+			int halfsum = sum >> 1;
+			uint16_t L = bcache_L;
+			uint16_t T = bcache[i % width];
+			uint16_t TL = bcache[(i-1) % width];
+			uint16_t TR = bcache[(i+1) % width];
 			if(predictor == 0){
 				in_bytes[i*3 + 2] = (
 					in_bytes[i*3 + 2]
@@ -539,7 +546,7 @@ void colourSub_unfilter_all(
 					+ br_delta
 				) % range;
 			}
-			bcache[i - 1] = bcache_L;
+			bcache[(i - 1) % width] = bcache_L;
 			bcache_L = in_bytes[i*3 + 2] + 2*range - bg_delta - br_delta;
 		}
 	}
