@@ -8,6 +8,13 @@
 #include "entropy_coding.hpp"
 #include "filters.hpp"
 
+void encode_raw(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	for(size_t index=width*height;index--;){
+		*(--outPointer) = in_bytes[index];
+	}
+	*(--outPointer) = 0b00000000;
+}
+
 void encode_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	SymbolStats stats;
 	stats.count_freqs(in_bytes, width*height);

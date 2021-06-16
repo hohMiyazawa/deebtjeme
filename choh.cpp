@@ -50,7 +50,9 @@ int main(int argc, char *argv[]){
 		uint8_t* out_end = out_buf + max_elements;
 		uint8_t* outPointer = out_end;
 
-		//calls here
+		if(speed == 0){
+			encode_raw(grey, 256,width,height,outPointer);
+		}
 
 		delete[] grey;
 

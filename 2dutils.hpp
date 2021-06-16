@@ -38,6 +38,18 @@ uint8_t* alpha_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
 	return bitmap_expanded;
 }
 
+uint8_t* full_expander(uint8_t* bitmap,uint32_t width,uint32_t height){
+	uint8_t* bitmap_expanded = new uint8_t[width*height*4];
+	for(size_t i=0;i<width*height;i++){
+		//note: switches GRB to RGB
+		bitmap_expanded[i*4 + 0] = bitmap[i];
+		bitmap_expanded[i*4 + 1] = bitmap[i];
+		bitmap_expanded[i*4 + 2] = bitmap[i];
+		bitmap_expanded[i*4 + 3] = 255;
+	}
+	return bitmap_expanded;
+}
+
 bool greyscale_test(uint8_t* RGBA,uint32_t width,uint32_t height){
 	for(size_t i=0;i<width*height;i+=4){
 		if(

@@ -183,117 +183,125 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			panic("entropy blocking not yet implemented!\n");
 		}
 	}
-	printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
+	if(entropyContexts){
+		printf("  entropy table size: %d bytes\n",(int)(fileIndex - trailing));
+	}
 
-	if(
-		ENTROPY_MAP == 0
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		return decode_raw_colour(fileIndex, 256, width, height);
+	if(INDEX_TRANSFORM){
+		panic("index transform not yet implemented!\n");
 	}
-	else if(
-		ENTROPY_MAP == true && entropyContexts == 1
-		&& PREDICTION_MAP == 0
-		&& COLOUR_TRANSFORM == 0
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		return decode_entropy_colour(fileIndex, 256, width, height, tables[0]);
+	if(PROGRESSIVE){
+		panic("progressive decoding not yet implemented!\n");
 	}
-	else if(
-		ENTROPY_MAP == true
-		&& PREDICTION_MAP == 0
-		&& COLOUR_TRANSFORM == 0
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		return decode_entropyMap_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
-	}
-	else if(
-		ENTROPY_MAP == true && entropyContexts == 1
-		&& PREDICTION_MAP == true && predictorCount == 1
-		&& COLOUR_TRANSFORM == 0
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		return decode_entropy_prediction_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
-	}
-	else if(
-		ENTROPY_MAP == true
-		&& PREDICTION_MAP == true && predictorCount == 1
-		&& COLOUR_TRANSFORM == 0
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		return decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
-	}
-	else if(
-		ENTROPY_MAP == true
-		&& PREDICTION_MAP == true && predictorCount == 1
-		&& COLOUR_TRANSFORM == true
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		printf("colMap entMap pred=1\n");
-		return decode_colourMap_entropyMap_prediction_colour(
-			fileIndex,
-			range,
-			width,
-			height,
-			colourImage,
-			colourWidth,
-			colourHeight,
-			tables,
-			entropyImage,
-			entropyContexts,
-			entropyWidth,
-			entropyHeight,
-			predictors[0]
-		);
-	}
-	else if(
-		ENTROPY_MAP == true
-		&& PREDICTION_MAP == true
-		&& COLOUR_TRANSFORM == true
-		&& PROGRESSIVE == 0
-		&& HAS_COLOUR == true
-		&& INDEX_TRANSFORM == 0
-		&& LZ == 0
-	){
-		printf("colMap entMap predMap\n");
-		return decode_colourMap_entropyMap_predictionMap_colour(
-			fileIndex,
-			range,
-			width,
-			height,
-			colourImage,
-			colourWidth,
-			colourHeight,
-			tables,
-			entropyImage,
-			entropyContexts,
-			entropyWidth,
-			entropyHeight,
-			predictorImage,
-			predictorWidth,
-			predictorHeight
-		);
+	if(HAS_COLOUR){
+		if(
+			ENTROPY_MAP == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_raw_colour(fileIndex, 256, width, height);
+		}
+		else if(
+			ENTROPY_MAP == true && entropyContexts == 1
+			&& PREDICTION_MAP == 0
+			&& COLOUR_TRANSFORM == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropy_colour(fileIndex, 256, width, height, tables[0]);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == 0
+			&& COLOUR_TRANSFORM == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropyMap_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
+		}
+		else if(
+			ENTROPY_MAP == true && entropyContexts == 1
+			&& PREDICTION_MAP == true && predictorCount == 1
+			&& COLOUR_TRANSFORM == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropy_prediction_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == true && predictorCount == 1
+			&& COLOUR_TRANSFORM == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == true && predictorCount == 1
+			&& COLOUR_TRANSFORM == true
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			printf("colMap entMap pred=1\n");
+			return decode_colourMap_entropyMap_prediction_colour(
+				fileIndex,
+				range,
+				width,
+				height,
+				colourImage,
+				colourWidth,
+				colourHeight,
+				tables,
+				entropyImage,
+				entropyContexts,
+				entropyWidth,
+				entropyHeight,
+				predictors[0]
+			);
+		}
+		else if(
+			ENTROPY_MAP == true
+			&& PREDICTION_MAP == true
+			&& COLOUR_TRANSFORM == true
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			printf("colMap entMap predMap\n");
+			return decode_colourMap_entropyMap_predictionMap_colour(
+				fileIndex,
+				range,
+				width,
+				height,
+				colourImage,
+				colourWidth,
+				colourHeight,
+				tables,
+				entropyImage,
+				entropyContexts,
+				entropyWidth,
+				entropyHeight,
+				predictorImage,
+				predictorWidth,
+				predictorHeight
+			);
+		}
+		else{
+			panic("decoder not capable!\n");
+		}
 	}
 	else{
-		panic("decoder not capable!\n");
+		if(
+			ENTROPY_MAP == 0
+			&& INDEX_TRANSFORM == 0
+			&& LZ == 0
+		){
+			return decode_raw(fileIndex, 256, width, height);
+		}
+		else{
+			panic("decoder not capable!\n");
+		}
 	}
 
 	if(predictorCount > 1){
@@ -320,9 +328,17 @@ int main(int argc, char *argv[]){
 	printf("width : %d\n",(int)(width));
 	printf("height: %d\n",(int)(height));
 
+	uint8_t peekMode = *fileIndex;
+	bool HAS_COLOUR  = (peekMode & 0b00100000) >> 5;
+	uint8_t* expanded;
 	uint8_t* normal = readImage(fileIndex, 256, width, height);
 	delete[] in_bytes;
-	uint8_t* expanded = alpha_expander(normal,width,height);
+	if(HAS_COLOUR){
+		expanded = alpha_expander(normal,width,height);
+	}
+	else{
+		expanded = full_expander(normal,width,height);
+	}
 	delete[] normal;
 
 	std::vector<unsigned char> image;
