@@ -394,22 +394,22 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			){
 				bitmap = decode_entropyMap_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight);
 			}
-			else if(
+			/*else if(
 				ENTROPY_MAP == true && entropyContexts == 1
 				&& PREDICTION_MAP == true && predictorCount == 1
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
 				bitmap = decode_entropy_prediction_lz_colour(fileIndex, 256, width, height, tables[0], predictors[0]);
-			}
-			else if(
+			}*/
+			/*else if(
 				ENTROPY_MAP == true
 				&& PREDICTION_MAP == true && predictorCount == 1
 				&& COLOUR_TRANSFORM == 0
 				&& INDEX_TRANSFORM == 0
 			){
 				bitmap = decode_entropyMap_prediction_lz_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
-			}
+			}*/
 			else if(
 				ENTROPY_MAP == true
 				&& PREDICTION_MAP == true && predictorCount == 1
@@ -439,7 +439,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				&& COLOUR_TRANSFORM == true
 				&& INDEX_TRANSFORM == 0
 			){
-				printf("colMap entMap predMap\n");
+				printf("colMap entMap predMap LZ\n");
 				bitmap = decode_colourMap_entropyMap_predictionMap_lz_colour(
 					fileIndex,
 					range,
