@@ -3,6 +3,7 @@
 
 #include "numerics.hpp"
 #include "delta_colour.hpp"
+#include "filter_utils.hpp"
 #include "colour_filter_utils.hpp"
 
 uint8_t* colour_filter_all_left(uint8_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
@@ -94,6 +95,36 @@ uint8_t* colour_filter_all_ffv1(uint8_t* in_bytes, uint32_t range, uint32_t widt
 			TL = in_bytes[((y-1) * width + i - 1)*3 + 2];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
 				in_bytes[((y * width) + i)*3 + 2],
+				ffv1(
+					L,
+					T,
+					TL
+				),
+				range
+			);
+		}
+	}
+
+	return filtered;
+}
+
+uint8_t* hbd_filter_all_ffv1(uint16_t* in_bytes, uint32_t range, uint32_t width, uint32_t height){
+	uint8_t* filtered = new uint8_t[width * height];
+
+	filtered[0] = in_bytes[0];
+
+	for(size_t i=1;i<width;i++){
+		filtered[i] = sub_mod(in_bytes[i],in_bytes[i - 1],range);
+	}
+
+	for(size_t y=1;y<height;y++){
+		filtered[y*width] = sub_mod(in_bytes[y*width],in_bytes[(y - 1)*width],range);
+		for(size_t i=1;i<width;i++){
+			uint16_t L  = in_bytes[(y * width + i - 1)];
+			uint16_t T  = in_bytes[((y-1) * width + i)];
+			uint16_t TL = in_bytes[((y-1) * width + i - 1)];
+			filtered[(y * width) + i] = sub_mod(
+				in_bytes[(y * width) + i],
 				ffv1(
 					L,
 					T,

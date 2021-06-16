@@ -1,6 +1,9 @@
 #ifndef ENTROPY_ESTIMATION_HEADER
 #define ENTROPY_ESTIMATION_HEADER
 
+#include <cmath>
+#include <math.h>
+
 #include "symbolstats.hpp"
 #include "table_encode.hpp"
 

@@ -1,6 +1,6 @@
 LIBS=-lm -lrt
 
-all: layer_split high_low_split lz synth subtract ctransform row_col
+all: layer_split high_low_split lz synth subtract ctransform row_col colour_force
 
 layer_split: layer_split.cpp ../lode_io.hpp ../lodepng.cpp
 	g++ ../lodepng.cpp -o $@ $< -O3 $(LIBS)
@@ -21,4 +21,7 @@ ctransform: ctransform.cpp ../lodepng.cpp
 	g++ ../lodepng.cpp -o $@ $< -O3 $(LIBS)
 
 row_col: row_col.cpp ../lodepng.cpp
+	g++ ../lodepng.cpp -o $@ $< -O3 $(LIBS)
+
+colour_force: colour_force.cpp
 	g++ ../lodepng.cpp -o $@ $< -O3 $(LIBS)
