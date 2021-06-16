@@ -5,6 +5,7 @@
 #include "rans_byte.h"
 #include "bitreader.hpp"
 #include "unfilters.hpp"
+#include "varint.hpp"
 #include "colour_unfilters.hpp"
 
 uint8_t* decode_raw(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
@@ -15,9 +16,59 @@ uint8_t* decode_raw(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t he
 	return image;
 }
 
+uint8_t* decode_lz_raw(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
+	uint8_t* image = new uint8_t[width*height];
+
+	uint32_t lz_next = readVarint(fileIndex);
+	for(size_t i=0;i<width*height;i++){
+		if(lz_next == 0){
+			uint32_t backref = readVarint(fileIndex) + 1;
+			uint32_t matchlen = readVarint(fileIndex) + 1;
+			lz_next = readVarint(fileIndex);
+			for(size_t t=0;t<matchlen;t++){
+				image[i + t] = image[i + t - backref];
+			}
+			i += (matchlen - 1);
+			continue;
+		}
+		else{
+			lz_next--;
+		}
+		image[i] = *(fileIndex++);
+	}
+	return image;
+}
+
 uint8_t* decode_raw_colour(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
 	uint8_t* image = new uint8_t[width*height*3];
 	for(size_t i=0;i<width*height;i++){
+		image[i*3 + 0] = *(fileIndex++);
+		image[i*3 + 1] = *(fileIndex++);
+		image[i*3 + 2] = *(fileIndex++);
+	}
+	return image;
+}
+
+uint8_t* decode_lz_raw_colour(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
+	uint8_t* image = new uint8_t[width*height*3];
+
+	uint32_t lz_next = readVarint(fileIndex);
+	for(size_t i=0;i<width*height;i++){
+		if(lz_next == 0){
+			uint32_t backref = readVarint(fileIndex) + 1;
+			uint32_t matchlen = readVarint(fileIndex) + 1;
+			lz_next = readVarint(fileIndex);
+			for(size_t t=0;t<matchlen;t++){
+				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
+				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
+				image[(i + t)*3 + 2] = image[(i + t - backref)*3 + 2];
+			}
+			i += (matchlen - 1);
+			continue;
+		}
+		else{
+			lz_next--;
+		}
 		image[i*3 + 0] = *(fileIndex++);
 		image[i*3 + 1] = *(fileIndex++);
 		image[i*3 + 2] = *(fileIndex++);
