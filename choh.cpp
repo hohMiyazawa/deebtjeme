@@ -89,6 +89,9 @@ int main(int argc, char *argv[]){
 		else if(speed == 3){
 			colour_encode_ffv1(alpha_stripped, 256, width, height, outPointer);
 		}
+		else if(speed == 4){
+			colour_encode_ffv1_subGreen(alpha_stripped, 256, width, height, outPointer);
+		}
 
 		delete[] alpha_stripped;
 

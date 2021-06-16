@@ -91,7 +91,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	uint32_t predictorWidth_block;
 	uint32_t predictorHeight_block;
 	if(PREDICTION_MAP){
-		printf("  uses prediction\n");
 		predictorCount = (*(fileIndex++)) + 1;
 		for(size_t i=0;i<predictorCount;i++){
 			uint16_t value = ((*(fileIndex++)) << 8);
@@ -143,7 +142,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	uint32_t entropyWidth_block;
 	uint32_t entropyHeight_block;
 	if(ENTROPY_MAP){
-		printf("  has entropy map\n");
 		entropyContexts = *(fileIndex++) + 1;
 		if(entropyContexts > 1){
 			printf("  %d entropy contexts\n",(int)entropyContexts);
@@ -199,6 +197,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	else if(
 		ENTROPY_MAP == true && entropyContexts == 1
 		&& PREDICTION_MAP == 0
+		&& COLOUR_TRANSFORM == 0
 		&& PROGRESSIVE == 0
 		&& HAS_COLOUR == true
 		&& INDEX_TRANSFORM == 0
@@ -209,6 +208,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	else if(
 		ENTROPY_MAP == true
 		&& PREDICTION_MAP == 0
+		&& COLOUR_TRANSFORM == 0
 		&& PROGRESSIVE == 0
 		&& HAS_COLOUR == true
 		&& INDEX_TRANSFORM == 0
@@ -219,6 +219,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	else if(
 		ENTROPY_MAP == true && entropyContexts == 1
 		&& PREDICTION_MAP == true && predictorCount == 1
+		&& COLOUR_TRANSFORM == 0
 		&& PROGRESSIVE == 0
 		&& HAS_COLOUR == true
 		&& INDEX_TRANSFORM == 0
@@ -229,12 +230,66 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	else if(
 		ENTROPY_MAP == true
 		&& PREDICTION_MAP == true && predictorCount == 1
+		&& COLOUR_TRANSFORM == 0
 		&& PROGRESSIVE == 0
 		&& HAS_COLOUR == true
 		&& INDEX_TRANSFORM == 0
 		&& LZ == 0
 	){
 		return decode_entropyMap_prediction_colour(fileIndex, 256, width, height, tables, entropyImage, entropyContexts, entropyWidth, entropyHeight, predictors[0]);
+	}
+	else if(
+		ENTROPY_MAP == true
+		&& PREDICTION_MAP == true && predictorCount == 1
+		&& COLOUR_TRANSFORM == true
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
+		&& LZ == 0
+	){
+		printf("colMap entMap pred=1\n");
+		return decode_colourMap_entropyMap_prediction_colour(
+			fileIndex,
+			range,
+			width,
+			height,
+			colourImage,
+			colourWidth,
+			colourHeight,
+			tables,
+			entropyImage,
+			entropyContexts,
+			entropyWidth,
+			entropyHeight,
+			predictors[0]
+		);
+	}
+	else if(
+		ENTROPY_MAP == true
+		&& PREDICTION_MAP == true
+		&& COLOUR_TRANSFORM == true
+		&& PROGRESSIVE == 0
+		&& HAS_COLOUR == true
+		&& INDEX_TRANSFORM == 0
+		&& LZ == 0
+	){
+		return decode_colourMap_entropyMap_predictionMap_colour(
+			fileIndex,
+			range,
+			width,
+			height,
+			colourImage,
+			colourWidth,
+			colourHeight,
+			tables,
+			entropyImage,
+			entropyContexts,
+			entropyWidth,
+			entropyHeight,
+			predictorImage,
+			predictorWidth,
+			predictorHeight
+		);
 	}
 	else{
 		panic("decoder not capable!\n");
