@@ -50,6 +50,7 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 	uint16_t bcache_L = 0;
 
 	uint32_t lz_next = readVarint(fileIndex);
+
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
 			uint32_t backref = readVarint(fileIndex) + 1;
@@ -59,6 +60,20 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
 				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
 				image[(i + t)*3 + 2] = image[(i + t - backref)*3 + 2];
+				size_t colourIndex = tileIndexFromPixel(
+					i + t,
+					width,
+					colourWidth,
+					colourWidth_block,
+					colourHeight_block
+				);
+				uint16_t rg_delta = delta(colourImage[colourIndex*3],image[(i+t)*3]);
+				rcache[(i + t - 1) % width] = rcache_L;
+				rcache_L = image[(i+t)*3 + 1] + range - rg_delta;
+				uint16_t bg_delta = delta(colourImage[colourIndex*3 + 1],image[(i+t)*3]);
+				uint16_t br_delta = delta(colourImage[colourIndex*3 + 2],image[(i+t)*3 + 1]);
+				bcache[(i + t - 1) % width] = bcache_L;
+				bcache_L = image[(i+t)*3 + 2] + 2*range - bg_delta - br_delta;
 			}
 			i += (matchlen - 1);
 			continue;
@@ -90,12 +105,11 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 				break;
 			}
 		}
-		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 0]][s], 16);
 		if(i == 0){
 			image[i*3 + 0] = s;
 		}
 		else if(i < width){
-			image[i*3 + 0] = add_mod(s,image[(i-1)*3 + 0],range);
+			image[i*3 + 0] = add_mod(s,image[(i-1)*3],range);
 		}
 		else if(i % width == 0){
 			image[i*3 + 0] = add_mod(s,image[(i-width)*3],range);
@@ -133,6 +147,7 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 				);
 			}
 		}
+		RansDecAdvanceSymbol(&rans, &fileIndex, &dsyms[entropyImage[tileIndex*3 + 0]][s], 16);
 
 		size_t colourIndex = tileIndexFromPixel(
 			i,
@@ -205,7 +220,6 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 
 
 
-
 		cumFreq = RansDecGet(&rans, 16);
 		for(size_t j=0;j<256;j++){
 			if(tables[entropyImage[tileIndex*3 + 2]].cum_freqs[j + 1] > cumFreq){
@@ -267,7 +281,6 @@ uint8_t* decode_colourMap_entropyMap_predictionMap_lz_colour(
 			bcache[(i - 1) % width] = bcache_L;
 			bcache_L = image[i*3 + 2] + 2*range - bg_delta - br_delta;
 		}
-
 	}
 
 	return image;
@@ -327,6 +340,20 @@ uint8_t* decode_colourMap_entropyMap_prediction_lz_colour(
 				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
 				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
 				image[(i + t)*3 + 2] = image[(i + t - backref)*3 + 2];
+				size_t colourIndex = tileIndexFromPixel(
+					i + t,
+					width,
+					colourWidth,
+					colourWidth_block,
+					colourHeight_block
+				);
+				uint16_t rg_delta = delta(colourImage[colourIndex*3],image[(i+t)*3]);
+				rcache[(i + t - 1) % width] = rcache_L;
+				rcache_L = image[(i+t)*3 + 1] + range - rg_delta;
+				uint16_t bg_delta = delta(colourImage[colourIndex*3 + 1],image[(i+t)*3]);
+				uint16_t br_delta = delta(colourImage[colourIndex*3 + 2],image[(i+t)*3 + 1]);
+				bcache[(i + t - 1) % width] = bcache_L;
+				bcache_L = image[(i+t)*3 + 2] + 2*range - bg_delta - br_delta;
 			}
 			i += (matchlen - 1);
 			continue;
@@ -633,14 +660,17 @@ uint8_t* decode_entropyMap_predictionMap_lz(
 	uint32_t lz_next = readVarint(fileIndex);
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
-			uint32_t backref = readVarint(fileIndex) + 1;
+			uint32_t backref  = readVarint(fileIndex) + 1;
 			uint32_t matchlen = readVarint(fileIndex) + 1;
-			lz_next = readVarint(fileIndex);
+			lz_next           = readVarint(fileIndex);
 			for(size_t t=0;t<matchlen;t++){
 				image[i + t] = image[i + t - backref];
 			}
 			i += (matchlen - 1);
 			continue;
+		}
+		else{
+			lz_next--;
 		}
 		size_t tileIndex = tileIndexFromPixel(
 			i,

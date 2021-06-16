@@ -15,7 +15,7 @@
 void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	size_t safety_margin = 3*width*height * (log2_plus(range - 1) + 1) + 2048;
 
-	uint8_t alternates = 5;
+	uint8_t alternates = 1;
 	uint8_t* miniBuffer[alternates];
 	uint8_t* trailing_end[alternates];
 	uint8_t* trailing[alternates];
@@ -25,10 +25,11 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 		trailing[i] = trailing_end[i];
 	}
 	colour_encode_entropy(in_bytes,range,width,height,trailing[0]);
+/*
 	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1]);
 	colour_encode_left(in_bytes,range,width,height,trailing[2]);
 	colour_encode_ffv1(in_bytes,range,width,height,trailing[3]);
-	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);
+	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);*/
 	for(size_t i=0;i<alternates;i++){
 		size_t diff = trailing_end[i] - trailing[i];
 		printf("type %d: %d\n",(int)i,(int)diff);

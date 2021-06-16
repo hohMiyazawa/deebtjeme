@@ -83,4 +83,23 @@ double synthness(uint8_t* decoded,uint32_t width,uint32_t height){
 	return (double)matches*4/(width*height);
 }
 
+double synthness_grey(uint8_t* decoded,uint32_t width,uint32_t height){
+	size_t repeat = 0;
+	size_t matches = 0;
+
+	for(size_t i=1;i<width*height;i++){
+		if(
+			   decoded[i] == decoded[(i - 1)]
+		){
+			repeat++;
+			if(repeat == 8){
+				matches++;
+				repeat = 0;
+			}
+		}
+	}
+
+	return (double)matches*8/(width*height);
+}
+
 #endif //DUTILS_HEADER

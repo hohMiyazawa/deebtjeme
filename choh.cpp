@@ -72,8 +72,11 @@ int main(int argc, char *argv[]){
 		else if(speed == 6){
 			optimiser_take4(grey, 256,width,height,outPointer, 6);
 		}
+		else if(speed == 69){
+			optimiser_lz_only(grey, 256,width,height,outPointer);
+		}
 		else{
-			optimiser_take5(grey, 256,width,height,outPointer, speed);
+			optimiser_take5_lz(grey, 256,width,height,outPointer, speed);
 		}
 
 		delete[] grey;
