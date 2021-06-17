@@ -17,6 +17,7 @@
 #include "colour_simple_encoders.hpp"
 #include "optimiser.hpp"
 #include "colour_optimiser.hpp"
+#include "colourMap_encoder.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\n");
@@ -125,6 +126,12 @@ int main(int argc, char *argv[]){
 		}
 		else if(speed == 6){
 			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
+		}
+		else if(speed == 69){
+			colour_optimiser_subColour(alpha_stripped, 256,width,height,outPointer, 6,atoi(argv[4]),atoi(argv[5]),atoi(argv[6]));
+		}
+		else if(speed == 420){
+			colourMap_encoder(alpha_stripped, 256,width,height,outPointer, 1);
 		}
 		else{
 			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
