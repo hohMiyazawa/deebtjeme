@@ -278,6 +278,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	size_t lz_ml_cache = 0;
 
 	uint8_t* image = new uint8_t[width*height*3];
+	printf("decoding pixels\n");
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
 			uint8_t backref_x_prefix = read_prefixcode(&rans, dbx, backref_x_table, &fileIndex);
@@ -395,10 +396,10 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				//nothing
 			}
 			else if(i < width){
-				image[i*3] = (localRange + image[i*3] - image[(i-1)*3]) % localRange;
+				image[i*3] = add_mod(image[i*3],image[(i-1)*3],localRange);
 			}
 			else if(i % width == 0){
-				image[i*3] = (localRange + image[i*3] - image[(i-width)*3]) % localRange;
+				image[i*3] = add_mod(image[i*3],image[(i-width)*3],localRange);
 			}
 			else{
 				predictorIndex = tileIndexFromPixel(
@@ -485,10 +486,12 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 						//nothing
 					}
 					else if(i < width){
-						image[i*3+1] = (range + image[i*3+1] - image[(i-1)*3+1]) % range;
+						image[i*3+1] = add_mod(image[i*3+1],image[(i-1)*3+1],range);
+						image[i*3+2] = add_mod(image[i*3+2],image[(i-1)*3+2],range);
 					}
 					else if(i % width == 0){
-						image[i*3+1] = (range + image[i*3+1] - image[(i-width)*3+1]) % range;
+						image[i*3+1] = add_mod(image[i*3+1],image[(i-width)*3+1],range);
+						image[i*3+2] = add_mod(image[i*3+2],image[(i-width)*3+2],range);
 					}
 					else{
 						uint16_t predictor = predictorImage[predictorIndex*3+1];
@@ -592,8 +595,8 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 						image[i*3 + 1] = (image[i*3 + 1] + rcache[0] + rg_delta) % range;
 						uint8_t br_delta = delta(br,image[i*3+1]);
 						image[i*3 + 2] = (image[i*3 + 2] + bcache[0] + bg_delta + br_delta) % range;
-						rcache[0] = rcache_L;
-						bcache[0] = bcache_L;
+						rcache[width - 1] = rcache_L;
+						bcache[width - 1] = bcache_L;
 						rcache_L = image[i*3 + 1] + range - rg_delta;
 						bcache_L = image[i*3 + 2] + 2*range - bg_delta - br_delta;
 					}
@@ -614,7 +617,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 						if(predictor == 0){
 							image[i*3 + 1] = (
 								image[i*3 + 1]
-								+ ffv1(L,T,TL)
+								+ ffv1_16(L,T,TL)
 								+ rg_delta
 							) % range;
 						}
@@ -650,7 +653,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 						if(predictor == 0){
 							image[i*3 + 2] = (
 								image[i*3 + 2]
-								+ ffv1(L,T,TL)
+								+ ffv1_16(L,T,TL)
 								+ bg_delta
 								+ br_delta
 							) % range;
@@ -680,15 +683,22 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			}
 		}
 	}
+	printf("pixels decoded\n");
 
 	if(INDEX_TRANSFORM){
 		delete[] indexImage;
 		delete[] indexIndexImage;
 		delete[] indexLengths;
 	}
-	delete[] colourImage;
-	delete[] predictorImage;
-	delete[] entropyImage;
+	if(COLOUR_TRANSFORM){
+		delete[] colourImage;
+	}
+	if(PREDICTION_MAP){
+		delete[] predictorImage;
+	}
+	if(ENTROPY_MAP){
+		delete[] entropyImage;
+	}
 	return image;
 }
 
