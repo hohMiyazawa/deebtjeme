@@ -149,7 +149,7 @@ int main(int argc, char *argv[]){
 			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
 		}
 		else if(speed == 69){
-			colour_encode_left(alpha_stripped, 256, width, height, outPointer);
+			colour_optimiser_entropyOnly(alpha_stripped, 256, width, height, outPointer, 1);
 		}
 /*
 		else if(speed == 420){
