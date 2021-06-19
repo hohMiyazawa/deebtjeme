@@ -37,7 +37,7 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1]);
 	colour_encode_left(in_bytes,range,width,height,trailing[2]);
 	colour_encode_ffv1(in_bytes,range,width,height,trailing[3]);
-	colour_optimiser_entropyOnly(in_bytes,range,width,height,trailing[4],1);
+	colour_optimiser_entropyOnly(in_bytes,range,width,height,trailing[4],2);
 /*
 	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);*/
 	for(size_t i=0;i<alternates;i++){
@@ -114,18 +114,20 @@ void colour_optimiser_entropyOnly(
 		statistics[entropy_image[tile_index*3 + 2]].freqs[in_bytes[i*3 + 2]]++;
 	}
 
-	for(size_t i=0;i<speed;i++){
-		contextNumber = colour_entropy_redistribution_pass(
-			in_bytes,
-			range,
-			width,
-			height,
-			entropy_image,
-			contextNumber,
-			entropyWidth,
-			entropyHeight,
-			statistics
-		);
+	if(contextNumber > 1){
+		for(size_t i=0;i<speed;i++){
+			contextNumber = colour_entropy_redistribution_pass(
+				in_bytes,
+				range,
+				width,
+				height,
+				entropy_image,
+				contextNumber,
+				entropyWidth,
+				entropyHeight,
+				statistics
+			);
+		}
 	}
 
 ///encode data
@@ -164,22 +166,23 @@ void colour_optimiser_entropyOnly(
 	}
 	RansEncFlush(&rans, &outPointer);
 
-	printf("ransenc done\n");
+	printf("ransenc done a\n");
 
 	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_entropy_channel(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
+	if(contextNumber > 1){
+		trailing = outPointer;
+		colour_encode_entropy_channel(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
