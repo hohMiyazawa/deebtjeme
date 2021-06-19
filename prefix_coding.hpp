@@ -1,29 +1,19 @@
 #ifndef PREFIX_CODING_HEADER
 #define PREFIX_CODING_HEADER
 
-uint8_t val_to_prefix(size_t val){
-	if(val < 6){
-		return val - 1;
-	}
-	size_t bound = 2;
-	uint8_t counter = 4;
-	while(true){
-		if(val <= bound*3){
-			return counter;
-		}
-		else if(val <= bound*4){
-			return counter + 1;
-		}
-		bound *= 2;
-		counter += 2;
-	}
+#include "rans_byte.h"
+#include "symbolstats.hpp"
+
+uint8_t read_prefixcode(RansState* r, RansDecSymbol* sym, SymbolStats stats, uint8_t** fileIndex){
+	return 0;//todo
 }
 
-uint8_t prefix_to_extra(uint8_t prefix){
-	if(prefix < 5){
-		return 0;
-	}
-	return (prefix - 2) >> 1;
+size_t prefix_to_val(uint8_t prefix, uint8_t& lz_bit_buffer, uint8_t& lz_bit_buffer_index, uint8_t** fileIndex){
+	return 0;//todo
+}
+
+uint8_t inverse_prefix(size_t value){
+	return 0;//todo
 }
 
 #endif //PREFIX_CODING

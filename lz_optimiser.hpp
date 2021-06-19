@@ -112,6 +112,9 @@ uint32_t* lz_dist(
 		}
 	}
 	lz_data[lz_size++] = previous_match;
+	for(size_t i=1;i<lz_size;i+=3){
+		printf("%d %d %d\n",(int)lz_data[i],(int)lz_data[i+1],(int)lz_data[i+2]);
+	}
 /*
 	SymbolStats rr_1;
 	SymbolStats rr_2;

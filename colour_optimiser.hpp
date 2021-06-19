@@ -2661,7 +2661,7 @@ void colour_optimiser_take5_lz(
 			width,
 			height,
 			lz_size,
-			4
+			7
 		);
 		if(lz_size > 1){
 			printf("lz size: %d\n",(int)lz_size);

@@ -6,15 +6,12 @@
 #include "laplace.hpp"
 #include "symbolstats.hpp"
 
-SymbolStats decode_freqTable(BitReader& reader,size_t range,uint8_t& blocking){
+SymbolStats decode_freqTable(BitReader& reader,size_t range){
 	//printf("  table range: %d\n",(int)range);
 	SymbolStats stats;
-	blocking = reader.readBits(4);
+	reader.readBits(4);
 	uint8_t mode = reader.readBits(4);
 	size_t true_range = range;
-	if(blocking){
-		true_range = (range + (1 << (blocking - 1)) - 1) >> blocking;
-	}
 	//printf("  table mode: %d\n",(int)mode);
 	if(mode == 0){
 		for(size_t i=0;i<256;i++){

@@ -38,6 +38,26 @@ METHOD:
 	- bit 7:
 		LZ is used
 
+	not all combindations are valid:
+		- bit 0 should not be set
+		- bit 1 should not be set
+		- if bit 2 unset{
+			- bit 4 should not be set
+		}
+		- if bit 3 set{
+			- bit 4 should not be set
+		}
+		- if bit 4 set{
+			- bit 3 should not be set
+		}
+		- if bit 6 unset{
+			- bit 4 should not be set
+			- bit 5 should not be set
+			- bit 7 should not be set
+		}
+	if bit 2 is not set on the main image, it should not be set on any of the sub images
+	bit 2 should not be set on an INDEX_INDEX_IMAGE
+
 VARINT:
 	encodes a 28bit number.
 	the most significant bit is not counted, and if it is set indicates that another byte should be read.
