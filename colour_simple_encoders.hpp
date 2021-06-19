@@ -194,6 +194,7 @@ void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	*(--outPointer) = 0b00100110;
 }
 
+//works
 void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
 	//printf("filtering colour channels...\n");
 	uint8_t* filtered_bytes = colour_filter_all_left(in_bytes, range, width, height);
@@ -239,10 +240,7 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	uint8_t* trailing = outPointer;
-	for(size_t i=tableEncode.length;i--;){
-		*(--outPointer) = tableEncode.buffer[i];
-	}
+	uint8_t* trailing;
 	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
@@ -261,6 +259,11 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	//printf("---entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
+
+	trailing = outPointer;
+	for(size_t i=tableEncode.length;i--;){
+		*(--outPointer) = tableEncode.buffer[i];
+	}
 
 	*(--outPointer) = 3 - 1;
 
