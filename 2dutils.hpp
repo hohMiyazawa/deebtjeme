@@ -62,6 +62,24 @@ bool greyscale_test(uint8_t* RGBA,uint32_t width,uint32_t height){
 	return true;
 }
 
+size_t greyscale_counter(uint8_t* grey, uint32_t width,uint32_t height, uint8_t* palette, size_t limit){
+	bool found[256];	
+	for(size_t i=0;i<256;i++){
+		found[i] = false;
+	}
+	size_t count = 0;
+	for(size_t i=0;i<width*height;i++){
+		if(!found[grey[i]]){
+			found[grey[i]] = true;
+			palette[count++] = grey[i];
+			if(count > limit){
+				return 0;
+			}
+		}
+	}
+	return count;
+}
+
 double synthness(uint8_t* decoded,uint32_t width,uint32_t height){
 	size_t repeat = 0;
 	size_t matches = 0;

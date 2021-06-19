@@ -38,7 +38,6 @@ int main(int argc, char *argv[]){
 	uint8_t* decoded = decodeOneStep(argv[1],&width,&height);
 	printf("width : %d\n",(int)width);
 	printf("height: %d\n",(int)height);
-/*
 	bool greyscale = greyscale_test(decoded,width,height);
 	if(greyscale){
 		printf("greyscale\n");
@@ -53,6 +52,26 @@ int main(int argc, char *argv[]){
 		uint8_t* out_end = out_buf + max_elements;
 		uint8_t* outPointer = out_end;
 
+		uint8_t palette[256];
+		size_t colour_count = greyscale_counter(grey, width, height, palette, 2);
+		printf("col count %d\n",(int)colour_count);
+
+		if(colour_count == 2){
+			encode_grey_binary(grey, 256, width, height, outPointer, palette[0], palette[1]);
+		}
+		else{
+			if(speed == 0){
+				encode_raw(grey, 256, width, height, outPointer);
+			}
+			else if(speed == 1){
+				encode_entropy(grey, 256,width,height,outPointer);
+			}
+			else if(speed == 2){
+				encode_ffv1(grey, 256,width,height,outPointer);
+			}
+		}
+
+/*
 		if(speed == 0){
 			encode_entropy(grey, 256,width,height,outPointer);
 		}
@@ -80,6 +99,7 @@ int main(int argc, char *argv[]){
 		else{
 			optimiser_take5_lz(grey, 256,width,height,outPointer, speed);
 		}
+*/
 
 		delete[] grey;
 
@@ -94,7 +114,6 @@ int main(int argc, char *argv[]){
 		delete[] out_buf;
 	}
 	else{
-*/
 		uint8_t* alpha_stripped = new uint8_t[width*height*3];
 		for(size_t i=0;i<width*height;i++){
 			alpha_stripped[i*3 + 0] = decoded[i*4 + 1];
@@ -167,7 +186,7 @@ int main(int argc, char *argv[]){
 
 		write_file(argv[2],outPointer,out_end - outPointer);
 		delete[] out_buf;
-//	}
+	}
 
 	return 0;
 }

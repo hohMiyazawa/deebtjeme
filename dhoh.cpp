@@ -92,6 +92,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		indexHeight = *(fileIndex++) + 1;
 		indexLengths = new uint8_t[height];
 		indexImage = readImage(fileIndex, 256, indexWidth, indexHeight);
+		//printf("index %d,%d,%d %d,%d,%d\n",(int)indexImage[0],(int)indexImage[1],(int)indexImage[2],(int)indexImage[3],(int)indexImage[4],(int)indexImage[5]);
 		if(indexHeight > 1){
 			indexIndexWidth = readVarint(fileIndex) + 1;
 			indexIndexHeight = readVarint(fileIndex) + 1;
@@ -443,16 +444,9 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			}
 		}
 
-
 		if(HAS_COLOUR == 0){
 			image[i*3+1] = image[i*3];
 			image[i*3+2] = image[i*3];
-		}
-		else if(INDEX_TRANSFORM){
-			uint8_t location = image[i*3];
-			image[i*3]   = indexImage[(indexWidth*index_to_use + location)*3];
-			image[i*3+1] = indexImage[(indexWidth*index_to_use + location)*3+1];
-			image[i*3+2] = indexImage[(indexWidth*index_to_use + location)*3+2];
 		}
 		else{
 			if(ENTROPY_MAP){
@@ -681,6 +675,22 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 					image[i*3+2] = add_mod(add_mod(image[i*3+2],bg_delta,range),delta(br,image[i*3+1]),range);
 				}
 			}
+		}
+	}
+	if(INDEX_TRANSFORM){
+		for(size_t i=0;i<width*height;i++){
+			size_t indexIndexIndex = tileIndexFromPixel(
+				i,
+				width,
+				indexIndexWidth,
+				indexIndexWidth_block,
+				indexIndexHeight_block
+			);
+			uint8_t index_to_use = indexIndexImage[indexIndexIndex*3];
+			uint8_t location = image[i*3];
+			image[i*3]   = indexImage[(indexWidth*index_to_use + location)*3];
+			image[i*3+1] = indexImage[(indexWidth*index_to_use + location)*3+1];
+			image[i*3+2] = indexImage[(indexWidth*index_to_use + location)*3+2];
 		}
 	}
 	printf("pixels decoded\n");

@@ -14,7 +14,9 @@ uint8_t log2_plus(uint32_t input){
 }
 
 uint8_t add_mod(uint8_t a, uint8_t b, uint32_t modulo){
-	if(b == 0 ){
+	a = a % modulo;
+	b = b % modulo;
+	if(b == 0){
 		return a;
 	}
 
