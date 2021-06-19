@@ -1,151 +1,106 @@
-I update my research code more frequently than this document
+RGB image compression.
 
-What's written below is incomplete, and often incorrect.
+MAIN_IMAGE
+	consists of:
+	- VARINT width minus 1
+	- VARINT height minus 1
+	- IMAGE
 
+	its RANGE is 256
 
+IMAGE:
 
+	An IMAGE consists of:
+	- METHOD
+	- TRANSFORM_DATA
+	- IMAGE_DATA
 
+	To decode an IMAGE, its width, height and RANGE are also required.
 
+METHOD:
+	- BYTE
+	where the bits have the following meanings (most significant bit first)
+	- bit 0:
+		RESERVED, may be used for a TILE_TRANSFORM in the future
+	- bit 1:
+		RESERVED, may be used for PROGRESSIVE in the future
+	- bit 2:
+		0 means greyscale, only one channel is coded, with the other two equal to the first.
+		1 means colour
+	- bit 3:
+		INDEX_TRANSFORM is used
+	- bit 4:
+		COLOUR_TRANSFORM is used
+	- bit 5:
+		PREDICTION_TRANSFORM is used
+	- bit 6:
+		ENTROPY_CODING is used
+	- bit 7:
+		LZ is used
 
+VARINT:
+	encodes a 28bit number.
+	the most significant bit is not counted, and if it is set indicates that another byte should be read.
+	the first byte contains the 7 least significant digits of the 28bit number, the second the next seven, and so on.
+	a varint may not have more than 4 bytes, and the most significant bit of the last byte should not be set.
 
+TRANSFORM_DATA:
+	contains the following data in order, if their respective METHOD bits are set
+	- (conditional) INDEX_TRANSFORM_DATA
+	- (conditional) COLOUR_TRANSFORM_DATA
+	- (conditional) PREDICTION_TRANSFORM_DATA
+	- (conditional) ENTROPY_CODING_DATA
+	- (conditional) LZ_DATA
 
+INDEX_TRANSFORM_DATA:
+	- BYTE: indicating the width  of the INDEX_IMAGE minus 1
+	- BYTE: indicating the height of the INDEX_IMAGE minus 1
+	- INDEX_IMAGE
+	- (conditional) VARINT: index_index_image width  minus 1
+	- (conditional) VARINT: index_index_image height minus 1
+	- (conditional) INDEX_INDEX_IMAGE
 
+INDEX_IMAGE:
+	- IMAGE
+	each row represent an INDEX.
+	if a pixel is repeated in an INDEX, the INDEX is terminated, and the repeated pixel and the remaining pixels of the row are coded, but have no meaning for the INDEX.
 
+INDEX:
+	a list of pixel values, at most 256 entries long.
+	
 
-
----
-
-This is an experiment in lossless image compression.
-
-No attempt is made to made a fully featured image format. If this scheme is to have a real world application, it should be embedded in some suitable container format.
-
---- SIMPLIFIED
-
-8bit greyscale only, implied range 256
-
-WIDTH (varint)
-HEIGHT (varint)
-compression method:
-bit 0: reserved
-bit 1: reserved
-bit 2: reserved
-bit 3: reserved
-bit 4: reserved
-bit 5: use prediction
-bit 6: use multiple entropy coding tables
-bit 7: use LZ
-
-if bit 5:
-	1 byte: number of predictors minus 1
-	[0-255] pairs of bytes, pointing out linear combination predictors
-	[predictor image, using same format, using infered range]
-
-if bit 6:
-	1 byte: number of entropy context minus 1
-	[1-256] tables
-	[entropy image, using same format, using infered range]
-else:
-	1 table
-
-if bit 7:
-	TODO
-
-IMAGEDATA
-
-///tables:
-
-bits 0-3: shifting
-bits 4-7: mode
-	MODE 0: flat table
-	MODE 1-10: laplace
-	MODE 11: zero modelling only
-	MODE 12: zero modelling + 2bit magnitude
-	MODE 13: zero modelling + 3bit magnitude
-	MODE 14: zero modelling + 4bit magnitude
-	MODE 15: zero modelling + 4bit magnitude + all extrabits
-
-zero modelling:
-	ceil(log2(ceil(n/ceil(log2(n))))) bits number of changes
-	if maxchanges: bitmask
-	[0-many] changes
-
-
----
-
-Part 1: Minimal container format for standalone files.
-
-Consists of:
-
-WIDTH
-HEIGHT
-PIXEL FORMAT
-
-Width and height are both encoded as varints, minus one.
-
-The pixel format is a byte with the following bits:
-
-0DDDDDAC
-
-bit 0: a "0", reserved for future extension of the header format.
-	If this is set to "1", the bitstream does not conform to this standard.
-bit 1-5: bit depth, minus one. Values in the range 1-32
-bit 6: signals if an alpha channel is present
-bit 7: signals if colour is present
-
-for this purpose, the values of bits 6 and 7 have the following meanings:
-
-00: greyscale
-01: RGB
-10: greyscale + alpha
-11: ARGB
-
-The size of this header is thus 3-9 bytes
-
----
-
-Part 2: Compression format
-
-Consists of:
-
-TRANSFORMS
-DATA FOR TRANSFORMS
-IMAGE DATA
-
-TRANSFORMS consists of one byte with the following bits:
-
-bit 0: reserved, should be 0
-bit 1: signals if the SYMMETRY transform is used
-bit 2: signals if the SUB_GREEN transform is used
-bit 3: signals if the INDEX transform is used
-bit 4: signals if the PREDICTION transform is used
-bit 5: signals if the ENTROPY_MAP transform is used
-bit 6: signals if the LZ transform is used
-bit 7; signals if the image data is entropy coded
-
-Remark: some combinations are not valid:
-if entropy coding is not used, PREDICTION and ENTROPY_MAP should be set to zero.
-
----
-encoding of frequency tables
-
-Two parts, zero modelling and magnitude coding
-
-Bucketing factor:
-1,2,4,8,16,32,64,128,256
-
-magnitude magnitude bits
-0,2,3,4
-
-bitfill mode
-top-half, all
-...
-first byte
-00000mmb
-  second byte
-  bucketing
-1lllllll
+INDEX_INDEX_IMAGE:
+	if the height of the INDEX_IMAGE is greater than 1, a second image divides the parent IMAGE into blocks to indicate which INDEX is used where
 
 
-TODO complete this
+COLOUR_TRANSFORM_DATA:
+	- VARINT: COLOUR_TRANSFORM_IMAGE width  minus 1
+	- VARINT: COLOUR_TRANSFORM_IMAGE height minus 1
+	- COLOUR_TRANSFORM_IMAGE
+	
+COLOUR_TRANSFORM_IMAGE:
+	- IMAGE
+	where each pixel has the GREEN_TO_RED, GREEN_TO_BLUE and RED_TO_BLUE transform values in a RANGE of 256 to be used for eah block
+
+PREDICTION_TRANSFORM_DATA:
+	- BYTE: number of predictors to use minus 1
+	- (1-256) PREDICTOR
+	- (conditional) VARINT: predictor_image width  minus 1
+	- (conditional) VARINT: predictor_image height minus 1
+	- (conditional) PREDICTOR_IMAGE
 
 
+PREDICTOR:
+	- BYTE: a, b
+	- BYTE: c, d
+
+ENTROPY_CODING_DATA:
+	- BYTE: number of entropy tables minus 1
+	- ENTROPY_TABLE_LIST
+	- (conditional) VARINT: entropy_image width  minus 1
+	- (conditional) VARINT: entropy_image height minus 1
+	- (conditional) ENTROPY_IMAGE
+
+LZ_DATA
+	- LZ_TABLE_LIST
+	
