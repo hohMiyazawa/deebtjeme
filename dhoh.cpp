@@ -168,9 +168,9 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
 			predictorImage = new uint16_t[predictorWidth*predictorHeight*3];
 			for(size_t i=0;i<predictorWidth*predictorHeight;i++){
-				predictorImage[i*3 + 0] = predictors[predictorImage_data[i]];
-				predictorImage[i*3 + 1] = predictors[predictorImage_data[i]];
-				predictorImage[i*3 + 2] = predictors[predictorImage_data[i]];
+				predictorImage[i*3 + 0] = predictors[predictorImage_data[i*3 + 0]];
+				predictorImage[i*3 + 1] = predictors[predictorImage_data[i*3 + 1]];
+				predictorImage[i*3 + 2] = predictors[predictorImage_data[i*3 + 2]];
 			}
 			delete[] predictorImage_data;
 		}
@@ -411,30 +411,36 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 					predictorHeight_block
 				);
 				uint16_t predictor = predictorImage[predictorIndex*3];
-				int a = (predictor & 0b1111000000000000) >> 12;
-				int b = (predictor & 0b0000111100000000) >> 8;
+				int a =       (predictor & 0b1111000000000000) >> 12;
+				int b =       (predictor & 0b0000111100000000) >> 8;
 				int c = (int)((predictor & 0b0000000011110000) >> 4) - 13;
-				int d = (predictor & 0b0000000000001111);
+				int d =       (predictor & 0b0000000000001111);
 
-				uint8_t sum = a + b + c + d;
-				uint8_t halfsum = sum >> 1;
+				uint8_t L = image[(i-1)*3];
+				uint8_t T = image[(i-width)*3];
+				uint8_t TL = image[(i-width-1)*3];
+
 				if(predictor == 0){
 					image[i*3] = add_mod(
 						image[i*3],
 						ffv1(
-							image[(i-1)*3],
-							image[(i-width)*3],
-							image[(i-width-1)*3]
+							L,
+							T,
+							TL
 						),
 						localRange
 					);
 				}
 				else{
+					uint8_t TR = image[(i-width+1)*3];
+					uint8_t sum = a + b + c + d;
+					uint8_t halfsum = sum >> 1;
+
 					image[i*3] = add_mod(
 						image[i*3],
 						clamp(
 							(
-								a*image[(i-1)*3] + b*image[(i-width)*3] + c*image[(i-width-1)*3] + d*image[(i-width+1)*3] + halfsum
+								a*L + b*T + c*TL + d*TR + halfsum
 							)/sum,
 							localRange
 						),

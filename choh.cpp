@@ -128,22 +128,6 @@ int main(int argc, char *argv[]){
 		uint8_t* outPointer = out_end;
 
 		if(speed == 0){
-			colour_encode_raw(alpha_stripped, 256, width, height, outPointer);
-		}
-		else if(speed == 1){
-			colour_encode_entropy(alpha_stripped, 256, width, height, outPointer);
-		}
-		else if(speed == 2){
-			colour_encode_entropy_channel(alpha_stripped, 256, width, height, outPointer);
-		}
-		else if(speed == 3){
-			colour_encode_ffv1(alpha_stripped, 256, width, height, outPointer);
-		}
-		else if(speed == 4){
-			colour_encode_ffv1_subGreen(alpha_stripped, 256, width, height, outPointer);
-		}
-/*
-		if(speed == 0){
 			colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
 		}
 		else if(speed == 1){
@@ -164,16 +148,17 @@ int main(int argc, char *argv[]){
 		else if(speed == 6){
 			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
 		}
+/*
 		else if(speed == 69){
 			colour_optimiser_subColour(alpha_stripped, 256,width,height,outPointer, 6,atoi(argv[4]),atoi(argv[5]),atoi(argv[6]));
 		}
 		else if(speed == 420){
 			colourMap_encoder(alpha_stripped, 256,width,height,outPointer, 1);
 		}
-		else{
-			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
-		}
 */
+		else{
+			colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
+		}
 
 		delete[] alpha_stripped;
 
