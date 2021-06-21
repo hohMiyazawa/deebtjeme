@@ -148,9 +148,6 @@ int main(int argc, char *argv[]){
 		else if(speed == 6){
 			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
 		}
-		else if(speed == 69){
-			colour_optimiser_entropyOnly(alpha_stripped, 256, width, height, outPointer, 1);
-		}
 /*
 		else if(speed == 420){
 			colourMap_encoder(alpha_stripped, 256,width,height,outPointer, 1);

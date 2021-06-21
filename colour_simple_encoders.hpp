@@ -55,10 +55,10 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 		stats_red.freqs[i] = 0;
 		stats_blue.freqs[i] = 0;
 	}
-	for(size_t i=0;i<width*height*3;i+=3){
-		stats_green.freqs[in_bytes[i]]++;
-		stats_red.freqs[in_bytes[i+1]]++;
-		stats_blue.freqs[in_bytes[i+2]]++;
+	for(size_t index=width*height;index--;){
+		stats_green.freqs[in_bytes[index*3]]++;
+		stats_red.freqs[in_bytes[index*3+1]]++;
+		stats_blue.freqs[in_bytes[index*3+2]]++;
 	}
 
 	BitWriter tableEncode;

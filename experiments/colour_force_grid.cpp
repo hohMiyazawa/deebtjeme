@@ -240,6 +240,7 @@ int main(int argc, char *argv[]){
 	std::vector<unsigned char> image;
 	image.resize(block_x * block_y * 4);
 	for(size_t i=0;i<block_x*block_y;i++){
+		printf("%d,%d,%d\n",(int)grid[i*3+0],(int)grid[i*3+1],(int)grid[i*3+2]);
 		image[i*4+0] = grid[i*3+0];
 		image[i*4+1] = grid[i*3+1];
 		image[i*4+2] = grid[i*3+2];
