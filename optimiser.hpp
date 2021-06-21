@@ -53,6 +53,7 @@ void encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t he
 	}
 }
 
+/*
 void optimiser_lz_only(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -100,6 +101,7 @@ void optimiser_lz_only(
 
 	*(--outPointer) = 0b00000001;
 }
+*/
 
 void optimiser_take0(
 	uint8_t* in_bytes,

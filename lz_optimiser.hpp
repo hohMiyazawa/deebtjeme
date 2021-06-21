@@ -3,33 +3,24 @@
 
 #include "prefix_coding.hpp"
 
-uint32_t* lz_dist(
+uint16_t* lz_dist2(
 	uint8_t* in_bytes,
-	float* costmap,
 	uint32_t width,
 	uint32_t height,
-	size_t& lz_size,
+	size_t& lz_pro_size,
 	size_t speed
 ){
-	uint32_t* lz_data = new uint32_t[width*height + 64];
-	lz_size = 0;
+	uint32_t lz_data[width*height + 64];
+	size_t lz_size = 0;
 
 	size_t limit = (64 << speed);
 
 	size_t previous_match = 0;
 
 	for(int i=0;i<width*height;){
-		double saved = 0;
 		size_t match_length = 0;
 		size_t back_ref = 0;
-		size_t cancelled = 0;
-/*
-		if(i % width == 0){
-			printf("row %d\n",(int)(i/width));
-		}
-*/
 		for(int step_back=1;step_back < limit && i - step_back > 0;step_back++){
-			double cur_saved = 0;
 			size_t len=0;
 			for(;i + len < width*height;){
 				if(
@@ -37,39 +28,22 @@ uint32_t* lz_dist(
 					&& in_bytes[(i + len)*3 + 1] == in_bytes[(i - step_back + len)*3 + 1]
 					&& in_bytes[(i + len)*3 + 2] == in_bytes[(i - step_back + len)*3 + 2]
 				){
-					cur_saved += costmap[(i + len)];
 					len++;
 				}
 				else{
 					break;
 				}
 			}
-			double symbolCost = 24;
-			if(len > 128){
-				symbolCost += 8;
-			}
-			if(step_back > 128){
-				symbolCost += 8;
-			}
-			cur_saved -= symbolCost;
-			if(cur_saved > saved){
-				saved = cur_saved;
+			if(len > match_length){
 				match_length = len;
 				back_ref = step_back;
 				if(len > 64){
 					break;
 				}
 			}
-			else if(len > 64){
-				//printf("test %d\n",(int)len);
-				cancelled = len;
-				break;
-			}
 		}
 		size_t y = i/width;
-		if(y && !cancelled){
 		for(size_t yy=0;yy < limit && y - (yy++);){
-			double cur_saved = 0;
 			size_t len=0;
 			for(;i + len < width*height;){
 				if(
@@ -77,31 +51,19 @@ uint32_t* lz_dist(
 					&& in_bytes[(i + len)*3 + 1] == in_bytes[(i - yy*width + len)*3 + 1]
 					&& in_bytes[(i + len)*3 + 2] == in_bytes[(i - yy*width + len)*3 + 2]
 				){
-					cur_saved += costmap[(i + len)];
 					len++;
 				}
 				else{
 					break;
 				}
 			}
-			double symbolCost = 24;
-			if(len > 128){
-				symbolCost += 8;
-			}
-			if(yy*width > 128){
-				symbolCost += 8;
-			}
-			cur_saved -= symbolCost;
-			if(cur_saved > saved){
-				saved = cur_saved;
+			if(len > match_length){
 				match_length = len;
 				back_ref = yy*width;
 			}
 		}
-		}
-		if(saved == 0){
-			i += 1 + cancelled;
-			previous_match += 1 + cancelled;
+		if(match_length < 3){
+			previous_match += 1;
 		}
 		else{
 			lz_data[lz_size++] = previous_match;
@@ -112,172 +74,42 @@ uint32_t* lz_dist(
 		}
 	}
 	lz_data[lz_size++] = previous_match;
-	for(size_t i=1;i<lz_size;i+=3){
-		printf("%d %d %d\n",(int)lz_data[i],(int)lz_data[i+1],(int)lz_data[i+2]);
-	}
-/*
-	SymbolStats rr_1;
-	SymbolStats rr_2;
-	SymbolStats rr_3;
-	for(size_t i=0;i<256;i++){
-		rr_1.freqs[i] = 0;
-		rr_2.freqs[i] = 0;
-		rr_3.freqs[i] = 0;
-	}
-	double extra = 0;
-	for(size_t i=1;i<lz_size;i+=3){
-		uint8_t prefix1 = val_to_prefix(lz_data[i] + 1);
-		rr_1.freqs[prefix1]++;
-		uint8_t prefix2 = val_to_prefix(lz_data[i+1] + 1);
-		rr_2.freqs[prefix2]++;
-		uint8_t prefix3 = val_to_prefix(lz_data[i+2] + 1);
-		rr_3.freqs[prefix3]++;
-		extra += prefix_to_extra(prefix1);
-		extra += prefix_to_extra(prefix2);
-		extra += prefix_to_extra(prefix3);
-	}
-	double rr_1_ent = estimateEntropy_freq(rr_1, (lz_size - 1)/3);
-	double rr_2_ent = estimateEntropy_freq(rr_2, (lz_size - 1)/3);
-	double rr_3_ent = estimateEntropy_freq(rr_3, (lz_size - 1)/3);
-	printf("rr %f %f %f %f = %f\n",rr_1_ent,rr_2_ent,rr_3_ent,extra,(rr_1_ent+rr_2_ent+rr_3_ent+extra)/8);
-*/
 
-	return lz_data;
-}
+	lz_pro_size = 0;
+	uint16_t* lz_data_processed = new uint16_t[width*height + 64];
 
-uint32_t* lz_dist_grey(
-	uint8_t* in_bytes,
-	float* costmap,
-	uint32_t width,
-	uint32_t height,
-	size_t& lz_size,
-	size_t speed
-){
-	uint32_t* lz_data = new uint32_t[width*height + 64];
-	lz_size = 0;
+	size_t extrabits = 0;
 
-	size_t limit = (64 << speed);
+	uint8_t max_back_x = inverse_prefix(width/2)*2 + 1;
 
-	size_t previous_match = 0;
-
-	for(int i=0;i<width*height;){
-		double saved = 0;
-		size_t match_length = 0;
-		size_t back_ref = 0;
-		size_t cancelled = 0;
-/*
-		if(i % width == 0){
-			printf("row %d\n",(int)(i/width));
-		}
-*/
-		for(int step_back=1;step_back < limit && i - step_back > 0;step_back++){
-			double cur_saved = 0;
-			size_t len=0;
-			for(;i + len < width*height;){
-				if(
-					in_bytes[(i + len)] == in_bytes[(i - step_back + len)]
-				){
-					cur_saved += costmap[(i + len)];
-					len++;
-				}
-				else{
-					break;
-				}
-			}
-			double symbolCost = 24;
-			if(len > 128){
-				symbolCost += 8;
-			}
-			if(step_back > 128){
-				symbolCost += 8;
-			}
-			cur_saved -= symbolCost;
-			if(cur_saved > saved){
-				saved = cur_saved;
-				match_length = len;
-				back_ref = step_back;
-				if(len > 64){
-					break;
-				}
-			}
-			else if(len > 64){
-				//printf("test %d\n",(int)len);
-				cancelled = len;
-				break;
-			}
-		}
-		size_t y = i/width;
-		if(y && !cancelled){
-		for(size_t yy=0;yy < limit && y - (yy++);){
-			double cur_saved = 0;
-			size_t len=0;
-			for(;i + len < width*height;){
-				if(
-					in_bytes[(i + len)] == in_bytes[(i - yy*width + len)]
-				){
-					cur_saved += costmap[(i + len)];
-					len++;
-				}
-				else{
-					break;
-				}
-			}
-			double symbolCost = 24;
-			if(len > 128){
-				symbolCost += 8;
-			}
-			if(yy*width > 128){
-				symbolCost += 8;
-			}
-			cur_saved -= symbolCost;
-			if(cur_saved > saved){
-				saved = cur_saved;
-				match_length = len;
-				back_ref = yy*width;
-			}
-		}
-		}
-		if(saved == 0){
-			i += 1 + cancelled;
-			previous_match += 1 + cancelled;
+	for(size_t i=0;i<(lz_size - 1);i+=3){
+		uint8_t future_prefix = inverse_prefix(lz_data[i]);
+		extrabits += extrabits_from_prefix(future_prefix);
+		lz_data_processed[lz_pro_size++] = future_prefix;
+		uint32_t back_x = lz_data[i+1] % width;
+		uint32_t back_y = lz_data[i+1] / width;
+		if(width - back_x < back_x){
+			uint8_t back_x_prefix = inverse_prefix(back_x);
+			extrabits += extrabits_from_prefix(back_x_prefix);
+			lz_data_processed[lz_pro_size++] = max_back_x - back_x_prefix;
 		}
 		else{
-			lz_data[lz_size++] = previous_match;
-			previous_match = 0;
-			lz_data[lz_size++] = back_ref - 1;
-			lz_data[lz_size++] = match_length - 1;
-			i += match_length;
+			uint8_t back_x_prefix = inverse_prefix(back_x);
+			extrabits += extrabits_from_prefix(back_x_prefix);
+			lz_data_processed[lz_pro_size++] = back_x_prefix;
 		}
+		uint8_t back_y_prefix = inverse_prefix(back_y);
+		extrabits += extrabits_from_prefix(back_y_prefix);
+		lz_data_processed[lz_pro_size++] = back_y_prefix;
+		uint32_t matchlen_prefix = inverse_prefix(lz_data[i+2]);
+		extrabits += extrabits_from_prefix(matchlen_prefix);
+		lz_data_processed[lz_pro_size++] = matchlen_prefix;
 	}
-	lz_data[lz_size++] = previous_match;
-/*
-	SymbolStats rr_1;
-	SymbolStats rr_2;
-	SymbolStats rr_3;
-	for(size_t i=0;i<256;i++){
-		rr_1.freqs[i] = 0;
-		rr_2.freqs[i] = 0;
-		rr_3.freqs[i] = 0;
-	}
-	double extra = 0;
-	for(size_t i=1;i<lz_size;i+=3){
-		uint8_t prefix1 = val_to_prefix(lz_data[i] + 1);
-		rr_1.freqs[prefix1]++;
-		uint8_t prefix2 = val_to_prefix(lz_data[i+1] + 1);
-		rr_2.freqs[prefix2]++;
-		uint8_t prefix3 = val_to_prefix(lz_data[i+2] + 1);
-		rr_3.freqs[prefix3]++;
-		extra += prefix_to_extra(prefix1);
-		extra += prefix_to_extra(prefix2);
-		extra += prefix_to_extra(prefix3);
-	}
-	double rr_1_ent = estimateEntropy_freq(rr_1, (lz_size - 1)/3);
-	double rr_2_ent = estimateEntropy_freq(rr_2, (lz_size - 1)/3);
-	double rr_3_ent = estimateEntropy_freq(rr_3, (lz_size - 1)/3);
-	printf("rr %f %f %f %f = %f\n",rr_1_ent,rr_2_ent,rr_3_ent,extra,(rr_1_ent+rr_2_ent+rr_3_ent+extra)/8);
-*/
+	uint32_t matchlen_prefix = inverse_prefix(lz_data[lz_size]);
+	extrabits += extrabits_from_prefix(matchlen_prefix);
+	lz_data_processed[lz_pro_size++] = matchlen_prefix;
 
-	return lz_data;
+	return lz_data_processed;
 }
 
 #endif //LZ_OPTIMISER

@@ -18,6 +18,7 @@
 #include "optimiser.hpp"
 #include "colour_optimiser.hpp"
 #include "colourMap_encoder.hpp"
+#include "prefix_coding.hpp"
 
 void print_usage(){
 	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\n");
