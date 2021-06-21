@@ -61,45 +61,30 @@ int main(int argc, char *argv[]){
 		}
 		else{
 			if(speed == 0){
-				encode_raw(grey, 256, width, height, outPointer);
-			}
-			else if(speed == 1){
 				encode_entropy(grey, 256,width,height,outPointer);
 			}
-			else if(speed == 2){
+			else if(speed == 1){
 				encode_ffv1(grey, 256,width,height,outPointer);
 			}
+			else if(speed == 2){
+				optimiser_take0(grey, 256,width,height,outPointer, 1);
+			}
+			else if(speed == 3){
+				optimiser_take1(grey, 256,width,height,outPointer, 1);
+			}
+			else if(speed == 4){
+				optimiser_take2(grey, 256,width,height,outPointer, 5);
+			}
+			else if(speed == 5){
+				optimiser_take3(grey, 256,width,height,outPointer, 5);
+			}
+			else if(speed == 6){
+				optimiser_take4(grey, 256,width,height,outPointer, 6);
+			}
+			else{
+				optimiser_take5(grey, 256,width,height,outPointer, speed);
+			}
 		}
-
-/*
-		if(speed == 0){
-			encode_entropy(grey, 256,width,height,outPointer);
-		}
-		else if(speed == 1){
-			encode_ffv1(grey, 256,width,height,outPointer);
-		}
-		else if(speed == 2){
-			optimiser_take0(grey, 256,width,height,outPointer, 1);
-		}
-		else if(speed == 3){
-			optimiser_take1(grey, 256,width,height,outPointer, 1);
-		}
-		else if(speed == 4){
-			optimiser_take2(grey, 256,width,height,outPointer, 5);
-		}
-		else if(speed == 5){
-			optimiser_take3(grey, 256,width,height,outPointer, 5);
-		}
-		else if(speed == 6){
-			optimiser_take4(grey, 256,width,height,outPointer, 6);
-		}
-		else if(speed == 69){
-			optimiser_lz_only(grey, 256,width,height,outPointer);
-		}
-		else{
-			optimiser_take5_lz(grey, 256,width,height,outPointer, speed);
-		}
-*/
 
 		delete[] grey;
 

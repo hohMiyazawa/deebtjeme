@@ -190,6 +190,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	uint32_t entropyHeight_block = height;
 	if(ENTROPY_MAP){
 		entropyContexts = *(fileIndex++) + 1;
+		printf("  %d entropy contexts\n",(int)entropyContexts);
 	}
 
 	uint8_t* trailing = fileIndex;
@@ -204,7 +205,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	}
 
 	if(entropyContexts > 1){
-		printf("  %d entropy contexts\n",(int)entropyContexts);
 		uint8_t* trailing = fileIndex;
 		entropyWidth = readVarint(fileIndex) + 1;
 		entropyHeight = readVarint(fileIndex) + 1;
@@ -351,7 +351,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		else{
 			lz_next--;
 		}
-
 		size_t entropyIndex;
 		if(ENTROPY_MAP){
 			entropyIndex = tileIndexFromPixel(
@@ -390,7 +389,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			index_to_use = indexIndexImage[indexIndexIndex*3];
 			localRange = indexLengths[index_to_use] + 1;
 		}
-		
+
 		size_t predictorIndex;
 		if(PREDICTION_MAP){
 			if(i == 0){

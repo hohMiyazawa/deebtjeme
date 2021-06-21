@@ -28,7 +28,7 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 		newFreqs.normalize_freqs(1 << 16);
 		return newFreqs;
 	}
-	if(sum > (1 << 16)){
+	if(sum >= (1 << 16)){
 		freqs.normalize_freqs(1 << 16);
 		for(size_t i=0;i<256;i++){
 			newFreqs.freqs[i] = freqs.freqs[i];
@@ -64,6 +64,7 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 		}
 		else{
 			sink.writeBits(zero_count,zero_count_bits);
+			//printf("zero count: %d %d\n",(int)zero_count,(int)changes[0]);
 			for(size_t i=0;i<zero_count;i++){
 				sink.writeBits(changes[i],zero_pointer_length);
 			}
@@ -71,6 +72,10 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 
 		for(size_t i=0;i<range;i++){
 			if(newFreqs.freqs[i]){
+				if(newFreqs.freqs[i] == (1 << 16)){
+					sink.writeBits(0,4);//doesn't matter what the magnitude is, gets scaled anyway
+					break;
+				}
 				uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
 				sink.writeBits(magnitude,4);
 				uint16_t extraBits = newFreqs.freqs[i] - (1 << magnitude);
