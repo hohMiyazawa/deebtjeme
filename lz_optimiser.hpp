@@ -173,7 +173,7 @@ lz_triple* lz_dist(
 
 			lz_size++;
 			previous_match = 0;
-			i += match_length;
+			i += match_length + 1;
 		}
 	}
 	lz_data[lz_size - 1].val_future = previous_match;
