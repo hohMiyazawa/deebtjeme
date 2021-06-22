@@ -49,6 +49,9 @@
 40	1048576	19
 41		19
 42	2097152	20
+43		20
+44	4194304	21
+45		21
 */
 
 struct lz_triple{
@@ -105,6 +108,71 @@ uint32_t prefix_extrabits(size_t value){
 	}
 	else{
 		return value - (1 << (magnitude - 1));
+	}
+}
+
+void buffered_extrabits_writing(
+	uint8_t& bitbuffer_length,
+	uint32_t new_val,
+	uint8_t new_val_length,
+	uint32_t*& old_location,
+	uint32_t* new_location
+){
+	if(new_val_length == 0){
+		return;
+	}
+	if(bitbuffer_length == 0){
+		if(new_val_length == 24){
+			*new_location = new_val + (3 << 24);
+		}
+		else if(new_val_length > 16){
+			uint32_t shifted = (new_val << (24 - new_val_length));
+			*new_location = shifted + (3 << 24);
+			old_location = new_location;
+			bitbuffer_length = new_val_length - 16;
+		}
+		else if(new_val_length == 16){
+			*new_location = new_val + (2 << 24);
+		}
+		else if(new_val_length > 8){
+			uint32_t shifted = (new_val << (16 - new_val_length));
+			*new_location = shifted + (2 << 24);
+			old_location = new_location;
+			bitbuffer_length = new_val_length - 8;
+		}
+		else if(new_val_length == 8){
+			*new_location = new_val + (1 << 24);
+		}
+		else{
+			uint32_t shifted = (new_val << (8 - new_val_length));
+			*new_location = shifted + (1 << 24);
+			old_location = new_location;
+			bitbuffer_length = new_val_length;
+		}
+	}
+	else if(new_val_length + bitbuffer_length == 8){
+		*old_location += new_val;
+		bitbuffer_length = 0;
+	}
+	else if(new_val_length - bitbuffer_length > 8){
+		uint8_t upper_bits_count = (8 - bitbuffer_length);
+		uint8_t shift_distance = (new_val_length - upper_bits_count);
+		uint8_t upper_bits = new_val >> shift_distance;
+		*old_location += upper_bits;
+		new_val -= upper_bits << shift_distance;
+		new_val_length -= upper_bits_count;
+		bitbuffer_length = 0;
+		buffered_extrabits_writing(
+			bitbuffer_length,
+			new_val,
+			new_val_length,
+			old_location,
+			new_location
+		);
+	}
+	else{
+		*old_location += new_val << (8 - new_val_length - bitbuffer_length);
+		bitbuffer_length += new_val_length;
 	}
 }
 
