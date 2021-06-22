@@ -59,6 +59,8 @@ struct lz_triple{
 	uint8_t backref_y;
 	uint8_t matchlen;
 	uint8_t future;
+	uint32_t val_future;
+	uint32_t val_matchlen;
 	uint32_t backref_x_bits;
 	uint32_t backref_y_bits;
 	uint32_t matchlen_bits;

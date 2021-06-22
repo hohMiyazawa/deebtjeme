@@ -77,10 +77,12 @@ lz_triple* lz_dist(
 		}
 		if(match_length < 3){
 			previous_match += 1;
+			i++;
 		}
 		else{
 			back_ref -= 1;
 			match_length -= 1;
+			lz_data[lz_size - 1].val_future = previous_match;
 			if(previous_match == cache_future){
 				lz_data[lz_size - 1].future = 0;
 				lz_data[lz_size - 1].future_bits = 0;
@@ -149,6 +151,7 @@ lz_triple* lz_dist(
 				cache_back_y = back_y;
 			}
 
+			lz_data[lz_size].val_matchlen = match_length;
 			if(match_length == cache_matchlen){
 				lz_data[lz_size].matchlen = 0;
 				lz_data[lz_size].matchlen_bits = 0;
@@ -173,6 +176,7 @@ lz_triple* lz_dist(
 			i += match_length;
 		}
 	}
+	lz_data[lz_size - 1].val_future = previous_match;
 	if(previous_match == cache_future){
 		lz_data[lz_size - 1].future = 0;
 	}
