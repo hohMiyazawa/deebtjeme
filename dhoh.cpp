@@ -269,6 +269,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				RansDecSymbolInit(&dfr[i], futureref_table.cum_freqs[i], futureref_table.freqs[i]);
 			}
 			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
+			printf("lz next initial prefix %d\n",(int)lz_next_prefix);
 			lz_next = prefix_to_val(lz_next_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 		}
 	}
@@ -310,7 +311,12 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				backref_y = prefix_to_val(backref_y_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				lz_by_cache = backref_y;
 			}
+			printf("pre_x: %d, pre_y: %d\n",(int)backref_x_prefix,(int)backref_y_prefix);
 			size_t backref = backref_y * width + backref_x + 1;
+			if(backref > i){
+				panic("backref too far!\n");
+			}
+			printf("what backref %d %d\n",(int)backref,(int)i);
 			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);
 			size_t matchlen;
 			if(matchlen_prefix == 0){
@@ -321,6 +327,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				lz_ml_cache = matchlen;
 			}
 			matchlen += 1;
+			printf("what matchlen %d\n",(int)matchlen);
 			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
 			if(lz_next_prefix == 0){
 				lz_next = lz_next_cache;
@@ -329,6 +336,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				lz_next = prefix_to_val(lz_next_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				lz_next_cache = lz_next;
 			}
+			printf("what next %d\n",(int)lz_next);
 			for(size_t t=0;t<matchlen;t++){
 				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
 				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
@@ -351,6 +359,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				}
 			}
 			i += (matchlen - 1);
+			printf("lz triple\n");
 			continue;
 		}
 		else{

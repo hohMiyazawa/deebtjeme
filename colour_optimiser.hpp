@@ -2346,7 +2346,9 @@ void colour_optimiser_take5_lz(
 			stats_matchlen.freqs[i] = 0;
 			stats_future.freqs[i] = 0;
 		}
+		printf("lz data %d\n",(int)lz_data[0].future);
 		for(size_t i=1;i<lz_size;i++){
+			//printf("%d %d %d %d\n",(int)lz_data[i].backref_x,(int)lz_data[i].backref_y,(int)lz_data[i].matchlen,(int)lz_data[i].future);
 			stats_backref_x.freqs[lz_data[i].backref_x]++;
 			stats_backref_y.freqs[lz_data[i].backref_y]++;
 			stats_matchlen.freqs[lz_data[i].matchlen]++;
@@ -2360,9 +2362,6 @@ void colour_optimiser_take5_lz(
 		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, inverse_prefix(width*height) + 1);
 		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, inverse_prefix(width*height) + 1);;
 		lz_tableEncode.conclude();
-		for(size_t i=lz_tableEncode.length;i--;){
-			*(--outPointer) = lz_tableEncode.buffer[i];
-		}
 
 		RansEncSymbol esyms_backref_x[256];
 		RansEncSymbol esyms_backref_y[256];
@@ -2459,6 +2458,11 @@ void colour_optimiser_take5_lz(
 			*(--outPointer) = (lz_data[lz_size].future_bits >> 16) & 0b11111111;
 		}
 		RansEncPutSymbol(&rans, &outPointer, esyms_future + lz_data[lz_size].future);
+		RansEncFlush(&rans, &outPointer);
+
+		for(size_t i=lz_tableEncode.length;i--;){
+			*(--outPointer) = lz_tableEncode.buffer[i];
+		}
 	}
 	else{
 		for(size_t index=width*height;index--;){
@@ -2473,8 +2477,8 @@ void colour_optimiser_take5_lz(
 			RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 1]] + filtered_bytes[index*3 + 1]);
 			RansEncPutSymbol(&rans, &outPointer, esyms[entropy_image[tile_index*3 + 0]] + filtered_bytes[index*3 + 0]);
 		}
+		RansEncFlush(&rans, &outPointer);
 	}
-	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
 	printf("ransenc done\n");
