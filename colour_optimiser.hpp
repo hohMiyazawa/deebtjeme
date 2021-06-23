@@ -2379,7 +2379,6 @@ void colour_optimiser_take5_lz(
 
 		uint32_t next_match = lz_data[--lz_size].val_future;
 		for(size_t index=width*height;index--;){
-			printf("%d %d\n",(int)index,(int)lz_size);
 			if(next_match == 0){
 				index -= lz_data[lz_size].val_matchlen;
 

@@ -68,10 +68,23 @@ struct lz_triple{
 };
 
 uint8_t read_prefixcode(RansState* r, RansDecSymbol* sym, SymbolStats stats, uint8_t** fileIndex){
-	return 0;//todo
+	uint32_t cumFreq = RansDecGet(&rans, 16);
+	uint8_t s;
+	for(size_t j=0;j<256;j++){
+		if(stats.cum_freqs[j + 1] > cumFreq){
+			s = j;
+			break;
+		}
+	}
+	RansDecAdvanceSymbol(&rans, &fileIndex, &sym[s], 16);
+	return s;
 }
 
 size_t prefix_to_val(uint8_t prefix, uint8_t& lz_bit_buffer, uint8_t& lz_bit_buffer_index, uint8_t** fileIndex){
+	if(prefix < 4){
+		return prefix;
+	}
+	uint8_t extrabits = extrabits_from_prefix(prefix);
 	return 0;//todo
 }
 
