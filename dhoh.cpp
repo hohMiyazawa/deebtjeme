@@ -250,6 +250,10 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		futureref_table = decode_freqTable(reader, max_fr_table_prefix + 1);
 	}
 	RansState rans;
+	RansDecSymbol decode_binary_zero;
+	RansDecSymbol decode_binary_one;
+	RansDecSymbolInit(&decode_binary_zero, 0, (1 << 15));
+	RansDecSymbolInit(&decode_binary_one, (1 << 15), (1 << 15));
 	if(ENTROPY_MAP){
 		RansDecInit(&rans, &fileIndex);
 		for(size_t cont = 0;cont < entropyContexts;cont++){
@@ -264,7 +268,8 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				RansDecSymbolInit(&dml[i], matchlen_table.cum_freqs[i], matchlen_table.freqs[i]);
 				RansDecSymbolInit(&dfr[i], futureref_table.cum_freqs[i], futureref_table.freqs[i]);
 			}
-			lz_next = prefix_to_val(read_prefixcode(&rans, dfr, futureref_table, &fileIndex), lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
+			lz_next = prefix_to_val(lz_next_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 		}
 	}
 
@@ -282,46 +287,46 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	printf("decoding pixels\n");
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
-			uint8_t backref_x_prefix = read_prefixcode(&rans, dbx, backref_x_table, &fileIndex);
+			uint8_t backref_x_prefix = read_prefixcode(rans, dbx, backref_x_table, fileIndex);
 			size_t backref_x;
 			if(backref_x_prefix == 0){
 				backref_x = lz_bx_cache;
 			}
 			else{
 				if(backref_x_prefix <= max_x_table_prefix){
-					backref_x = prefix_to_val(backref_x_prefix - 1, lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+					backref_x = prefix_to_val(backref_x_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				}
 				else{
-					backref_x = width - prefix_to_val(max_x_table_prefix*2 - backref_x_prefix, lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+					backref_x = width - prefix_to_val(max_x_table_prefix*2 - backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				}
 				lz_bx_cache = backref_x;
 			}
-			uint8_t backref_y_prefix = read_prefixcode(&rans, dby, backref_y_table, &fileIndex);
+			uint8_t backref_y_prefix = read_prefixcode(rans, dby, backref_y_table, fileIndex);
 			size_t backref_y;
 			if(backref_y_prefix == 0){
 				backref_y = lz_by_cache;
 			}
 			else{
-				backref_y = prefix_to_val(backref_y_prefix - 1, lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+				backref_y = prefix_to_val(backref_y_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				lz_by_cache = backref_y;
 			}
 			size_t backref = backref_y * width + backref_x + 1;
-			uint8_t matchlen_prefix = read_prefixcode(&rans, dml, matchlen_table, &fileIndex);
+			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);
 			size_t matchlen;
 			if(matchlen_prefix == 0){
 				matchlen = lz_ml_cache;
 			}
 			else{
-				matchlen = prefix_to_val(matchlen_prefix - 1, lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+				matchlen = prefix_to_val(matchlen_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				lz_ml_cache = matchlen;
 			}
 			matchlen += 1;
-			uint8_t lz_next_prefix = read_prefixcode(&rans, dfr, futureref_table, &fileIndex);
+			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
 			if(lz_next_prefix == 0){
 				lz_next = lz_next_cache;
 			}
 			else{
-				lz_next = prefix_to_val(lz_next_prefix - 1, lz_bit_buffer, lz_bit_buffer_index, &fileIndex);
+				lz_next = prefix_to_val(lz_next_prefix - 1, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				lz_next_cache = lz_next;
 			}
 			for(size_t t=0;t<matchlen;t++){

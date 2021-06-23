@@ -67,7 +67,7 @@ struct lz_triple{
 	uint32_t future_bits;
 };
 
-uint8_t read_prefixcode(RansState* r, RansDecSymbol* sym, SymbolStats stats, uint8_t** fileIndex){
+uint8_t read_prefixcode(RansState& rans, RansDecSymbol* sym, SymbolStats stats, uint8_t*& fileIndex){
 	uint32_t cumFreq = RansDecGet(&rans, 16);
 	uint8_t s;
 	for(size_t j=0;j<256;j++){
@@ -78,14 +78,6 @@ uint8_t read_prefixcode(RansState* r, RansDecSymbol* sym, SymbolStats stats, uin
 	}
 	RansDecAdvanceSymbol(&rans, &fileIndex, &sym[s], 16);
 	return s;
-}
-
-size_t prefix_to_val(uint8_t prefix, uint8_t& lz_bit_buffer, uint8_t& lz_bit_buffer_index, uint8_t** fileIndex){
-	if(prefix < 4){
-		return prefix;
-	}
-	uint8_t extrabits = extrabits_from_prefix(prefix);
-	return 0;//todo
 }
 
 uint8_t inverse_prefix(size_t value){
@@ -126,69 +118,29 @@ uint32_t prefix_extrabits(size_t value){
 	}
 }
 
-void buffered_extrabits_writing(
-	uint8_t& bitbuffer_length,
-	uint32_t new_val,
-	uint8_t new_val_length,
-	uint32_t*& old_location,
-	uint32_t* new_location
+uint32_t prefix_to_val(
+	uint8_t prefix,
+	RansState& rans,
+	uint8_t*& fileIndex,
+	RansDecSymbol decode_binary_zero,
+	RansDecSymbol decode_binary_one
 ){
-	if(new_val_length == 0){
-		return;
+	uint32_t value = (1 << (prefix/2));
+	if(prefix % 2){
+		value += (value >> 1);
 	}
-	if(bitbuffer_length == 0){
-		if(new_val_length == 24){
-			*new_location = new_val + (3 << 24);
-		}
-		else if(new_val_length > 16){
-			uint32_t shifted = (new_val << (24 - new_val_length));
-			*new_location = shifted + (3 << 24);
-			old_location = new_location;
-			bitbuffer_length = new_val_length - 16;
-		}
-		else if(new_val_length == 16){
-			*new_location = new_val + (2 << 24);
-		}
-		else if(new_val_length > 8){
-			uint32_t shifted = (new_val << (16 - new_val_length));
-			*new_location = shifted + (2 << 24);
-			old_location = new_location;
-			bitbuffer_length = new_val_length - 8;
-		}
-		else if(new_val_length == 8){
-			*new_location = new_val + (1 << 24);
+	uint8_t extrabits = extrabits_from_prefix(prefix);
+	for(size_t shift = 0;shift < extrabits;shift++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		if(cumFreq < (1 << 15)){
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_zero, 16);
 		}
 		else{
-			uint32_t shifted = (new_val << (8 - new_val_length));
-			*new_location = shifted + (1 << 24);
-			old_location = new_location;
-			bitbuffer_length = new_val_length;
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_one, 16);
+			value += (1 << (extrabits - shift - 1));
 		}
 	}
-	else if(new_val_length + bitbuffer_length == 8){
-		*old_location += new_val;
-		bitbuffer_length = 0;
-	}
-	else if(new_val_length - bitbuffer_length > 8){
-		uint8_t upper_bits_count = (8 - bitbuffer_length);
-		uint8_t shift_distance = (new_val_length - upper_bits_count);
-		uint8_t upper_bits = new_val >> shift_distance;
-		*old_location += upper_bits;
-		new_val -= upper_bits << shift_distance;
-		new_val_length -= upper_bits_count;
-		bitbuffer_length = 0;
-		buffered_extrabits_writing(
-			bitbuffer_length,
-			new_val,
-			new_val_length,
-			old_location,
-			new_location
-		);
-	}
-	else{
-		*old_location += new_val << (8 - new_val_length - bitbuffer_length);
-		bitbuffer_length += new_val_length;
-	}
+	return value;
 }
 
 #endif //PREFIX_CODING

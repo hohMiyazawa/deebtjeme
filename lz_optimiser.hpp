@@ -14,7 +14,6 @@ lz_triple* lz_dist(
 
 	size_t limit = (64 << speed);
 
-	size_t extrabits = 0;
 	uint8_t max_back_x = inverse_prefix(width/2)*2 + 1;
 
 	size_t previous_match = 0;
@@ -22,8 +21,6 @@ lz_triple* lz_dist(
 	lz_triple firstTriple;
 	lz_data[0] = firstTriple;
 	lz_size = 1;
-	uint8_t bitbuffer_length = 0;
-	uint32_t* partial_location;
 
 	uint32_t cache_future = 0;
 	uint32_t cache_back_x = 0;
@@ -90,14 +87,7 @@ lz_triple* lz_dist(
 			else{
 				uint8_t future_prefix = inverse_prefix(previous_match);
 				uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
-				uint32_t future_extrabits_value = prefix_extrabits(previous_match);
-				buffered_extrabits_writing(
-					bitbuffer_length,
-					future_extrabits_value,
-					future_extrabits,
-					partial_location,
-					&lz_data[lz_size - 1].future_bits
-				);
+				lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
 				lz_data[lz_size - 1].future = future_prefix + 1;
 				cache_future = previous_match;
 			}
@@ -115,20 +105,14 @@ lz_triple* lz_dist(
 				if(width - back_x < back_x){
 					back_x_prefix = max_back_x - inverse_prefix(width - back_x - 1);
 					back_x_extrabits = extrabits_from_prefix(max_back_x - back_x_prefix);
-					back_x_extrabits_value = prefix_extrabits(width - back_x - 1);
+					back_x_extrabits_value = prefix_extrabits(width - back_x - 1) + (back_x_extrabits << 24);
 				}
 				else{
 					back_x_prefix = inverse_prefix(back_x) + 1;
 					back_x_extrabits = extrabits_from_prefix(back_x_prefix - 1);
-					back_x_extrabits_value = prefix_extrabits(back_x);
+					back_x_extrabits_value = prefix_extrabits(back_x) + (back_x_extrabits << 24);;
 				}
-				buffered_extrabits_writing(
-					bitbuffer_length,
-					back_x_extrabits_value,
-					back_x_extrabits,
-					partial_location,
-					&lz_data[lz_size].backref_x_bits
-				);
+				lz_data[lz_size].backref_x_bits = back_x_extrabits_value;
 				lz_data[lz_size].backref_x = back_x_prefix;
 				cache_back_x = back_x;
 			}
@@ -139,14 +123,7 @@ lz_triple* lz_dist(
 			else{
 				uint8_t back_y_prefix = inverse_prefix(back_y);
 				uint8_t back_y_extrabits = extrabits_from_prefix(back_y_prefix);
-				uint32_t back_y_extrabits_value = prefix_extrabits(back_y);
-				buffered_extrabits_writing(
-					bitbuffer_length,
-					back_y_extrabits_value,
-					back_y_extrabits,
-					partial_location,
-					&lz_data[lz_size].backref_y_bits
-				);
+				lz_data[lz_size].backref_y_bits = prefix_extrabits(back_y) + (back_y_extrabits << 24);
 				lz_data[lz_size].backref_y = back_y_prefix + 1;
 				cache_back_y = back_y;
 			}
@@ -159,14 +136,7 @@ lz_triple* lz_dist(
 			else{
 				uint8_t matchlen_prefix = inverse_prefix(match_length);
 				uint8_t matchlen_extrabits = extrabits_from_prefix(matchlen_prefix);
-				uint32_t matchlen_extrabits_value = prefix_extrabits(match_length);
-				buffered_extrabits_writing(
-					bitbuffer_length,
-					matchlen_extrabits_value,
-					matchlen_extrabits,
-					partial_location,
-					&lz_data[lz_size].matchlen_bits
-				);
+				lz_data[lz_size].matchlen_bits = prefix_extrabits(match_length) + (matchlen_extrabits << 24);
 				lz_data[lz_size].matchlen = matchlen_prefix + 1;
 				cache_matchlen = match_length;
 			}
@@ -179,18 +149,12 @@ lz_triple* lz_dist(
 	lz_data[lz_size - 1].val_future = previous_match;
 	if(previous_match == cache_future){
 		lz_data[lz_size - 1].future = 0;
+		lz_data[lz_size - 1].future_bits = 0;
 	}
 	else{
 		uint8_t future_prefix = inverse_prefix(previous_match);
 		uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
-		uint32_t future_extrabits_value = prefix_extrabits(previous_match);
-		buffered_extrabits_writing(
-			bitbuffer_length,
-			future_extrabits_value,
-			future_extrabits,
-			partial_location,
-			&lz_data[lz_size - 1].future_bits
-		);
+		lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
 		lz_data[lz_size - 1].future = future_prefix + 1;
 		cache_future = previous_match;
 	}
