@@ -310,10 +310,10 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 
 			//printf("pre_x: %d, pre_y: %d | %d %d\n",(int)backref_x_prefix,(int)backref_y_prefix,(int)backref_x,(int)backref_y);
 			size_t backref = backref_y * width + backref_x + 1;
-			if(backref > i){
+			/*if(backref > i){
 				panic("backref too far %d > %d!\n",(int)backref,(int)i);
 			}
-			printf("what backref %d\n",(int)backref);
+			printf("what backref %d\n",(int)backref);*/
 			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);
 			size_t matchlen;
 			matchlen = prefix_to_val(matchlen_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
@@ -345,7 +345,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				}
 			}
 			i += (matchlen - 1);
-			printf("lz triple\n");
+			//printf("lz triple\n");
 			continue;
 		}
 		else{

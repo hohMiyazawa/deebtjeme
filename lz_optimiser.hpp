@@ -67,17 +67,11 @@ lz_triple* lz_dist(
 				back_ref = yy*width;
 			}
 		}
-		if(i == 1){
-			printf("match_length[start] %d\n",(int)match_length);
-		}
 		if(match_length < 3){
 			previous_match += 1;
 			i++;
 		}
 		else{
-			if(lz_size == 1){
-				printf("index[start] %d\n",(int)i);
-			}
 			back_ref -= 1;
 			match_length -= 1;
 			lz_data[lz_size - 1].val_future = previous_match;
@@ -126,8 +120,8 @@ lz_triple* lz_dist(
 	lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
 	lz_data[lz_size - 1].future = future_prefix;
 
-	printf("first %d(%d) (incomplete)\n",(int)lz_data[0].future,(int)lz_data[0].val_future);
-	printf("%d %d %d(%d) %d\n",(int)lz_data[1].backref_x,(int)lz_data[1].backref_y,(int)lz_data[1].matchlen,(int)lz_data[1].val_matchlen,(int)lz_data[1].future);
+	//printf("first %d(%d) (incomplete)\n",(int)lz_data[0].future,(int)lz_data[0].val_future);
+	//printf("%d %d %d(%d) %d\n",(int)lz_data[1].backref_x,(int)lz_data[1].backref_y,(int)lz_data[1].matchlen,(int)lz_data[1].val_matchlen,(int)lz_data[1].future);
 
 	return lz_data;
 }
