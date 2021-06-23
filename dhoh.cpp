@@ -244,10 +244,11 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 
 	if(LZ){
 		BitReader reader(&fileIndex);
-		backref_x_table = decode_freqTable(reader, max_x_table_prefix*2 + 1);
+		backref_x_table = decode_freqTable(reader, max_x_table_prefix*2 + 2);
 		backref_y_table = decode_freqTable(reader, max_y_table_prefix + 1);
 		matchlen_table  = decode_freqTable(reader, max_ml_table_prefix + 1);
 		futureref_table = decode_freqTable(reader, max_fr_table_prefix + 1);
+		printf("inv pref %d\n",(int)(max_x_table_prefix*2 + 2));
 	}
 	RansState rans;
 	RansDecSymbol decode_binary_zero;

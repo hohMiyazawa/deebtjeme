@@ -44,7 +44,7 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);*/
 	for(size_t i=0;i<alternates;i++){
 		size_t diff = trailing_end[i] - trailing[i];
-		printf("type %d: %d\n",(int)i,(int)diff);
+		//printf("type %d: %d\n",(int)i,(int)diff);
 	}
 
 	uint8_t bestIndex = 0;
@@ -2357,11 +2357,12 @@ void colour_optimiser_take5_lz(
 		stats_future.freqs[lz_data[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref_x = encode_freqTable(stats_backref_x, lz_tableEncode, inverse_prefix(width/2)*2 + 2);
+		SymbolStats lz_table_backref_x = encode_freqTable(stats_backref_x, lz_tableEncode, inverse_prefix((width + 1)/2)*2 + 2);
 		SymbolStats lz_table_backref_y = encode_freqTable(stats_backref_y, lz_tableEncode, inverse_prefix(height) + 1);
 		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, inverse_prefix(width*height) + 1);
 		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, inverse_prefix(width*height) + 1);;
 		lz_tableEncode.conclude();
+		printf("inv pref %d\n",(int)(inverse_prefix((width + 1)/2)*2 + 2));
 
 		RansEncSymbol esyms_backref_x[256];
 		RansEncSymbol esyms_backref_y[256];
