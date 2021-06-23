@@ -98,7 +98,7 @@ lz_triple* lz_dist(
 			}
 			else{
 				back_x_prefix = inverse_prefix(back_x);
-				back_x_extrabits = extrabits_from_prefix(back_x_prefix - 1);
+				back_x_extrabits = extrabits_from_prefix(back_x_prefix);
 				back_x_extrabits_value = prefix_extrabits(back_x) + (back_x_extrabits << 24);;
 			}
 			lz_data[lz_size].backref_x_bits = back_x_extrabits_value;

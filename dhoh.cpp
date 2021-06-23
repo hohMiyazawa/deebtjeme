@@ -296,10 +296,12 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			uint8_t backref_x_prefix = read_prefixcode(rans, dbx, backref_x_table, fileIndex);
 			size_t backref_x;
 			if(backref_x_prefix <= max_x_table_prefix){
+				printf("lower\n");
 				backref_x = prefix_to_val(backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 			}
 			else{
-				backref_x = width - prefix_to_val(max_x_table_prefix*2 - backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
+				printf("upper\n");
+				backref_x = width - prefix_to_val(max_x_table_prefix*2 + 1 - backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 			}
 
 			uint8_t backref_y_prefix = read_prefixcode(rans, dby, backref_y_table, fileIndex);
