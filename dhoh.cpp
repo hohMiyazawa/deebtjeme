@@ -292,23 +292,23 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	printf("decoding pixels\n");
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
-			printf("index %d\n",(int)i);
+			//printf("index %d\n",(int)i);
 			uint8_t backref_x_prefix = read_prefixcode(rans, dbx, backref_x_table, fileIndex);
 			size_t backref_x;
 			if(backref_x_prefix <= max_x_table_prefix){
-				printf("lower\n");
+				//printf("lower\n");
 				backref_x = prefix_to_val(backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 			}
 			else{
-				printf("upper\n");
-				backref_x = width - prefix_to_val(max_x_table_prefix*2 + 1 - backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
+				//printf("upper\n");
+				backref_x = width - 1 - prefix_to_val(max_x_table_prefix*2 + 1 - backref_x_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 			}
 
 			uint8_t backref_y_prefix = read_prefixcode(rans, dby, backref_y_table, fileIndex);
 			size_t backref_y;
 			backref_y = prefix_to_val(backref_y_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 
-			printf("pre_x: %d, pre_y: %d | %d %d\n",(int)backref_x_prefix,(int)backref_y_prefix,(int)backref_x,(int)backref_y);
+			//printf("pre_x: %d, pre_y: %d | %d %d\n",(int)backref_x_prefix,(int)backref_y_prefix,(int)backref_x,(int)backref_y);
 			size_t backref = backref_y * width + backref_x + 1;
 			if(backref > i){
 				panic("backref too far %d > %d!\n",(int)backref,(int)i);
@@ -317,12 +317,12 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);
 			size_t matchlen;
 			matchlen = prefix_to_val(matchlen_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
-			printf("what matchlen %d(%d)\n",(int)matchlen_prefix,(int)matchlen);
+			//printf("what matchlen %d(%d)\n",(int)matchlen_prefix,(int)matchlen);
 			matchlen += 1;
 			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
 			lz_next = prefix_to_val(lz_next_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 
-			printf("what next %d\n",(int)lz_next);
+			//printf("what next %d\n",(int)lz_next);
 			for(size_t t=0;t<matchlen;t++){
 				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
 				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
