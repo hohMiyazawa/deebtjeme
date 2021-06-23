@@ -22,11 +22,6 @@ lz_triple* lz_dist(
 	lz_data[0] = firstTriple;
 	lz_size = 1;
 
-	uint32_t cache_future = 0;
-	uint32_t cache_back_x = 0;
-	uint32_t cache_back_y = 0;
-	uint32_t cache_matchlen = 0;
-
 	for(int i=0;i<width*height;){
 		size_t match_length = 0;
 		size_t back_ref = 0;
@@ -80,66 +75,39 @@ lz_triple* lz_dist(
 			back_ref -= 1;
 			match_length -= 1;
 			lz_data[lz_size - 1].val_future = previous_match;
-			if(previous_match == cache_future){
-				lz_data[lz_size - 1].future = 0;
-				lz_data[lz_size - 1].future_bits = 0;
-			}
-			else{
-				uint8_t future_prefix = inverse_prefix(previous_match);
-				uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
-				lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
-				lz_data[lz_size - 1].future = future_prefix + 1;
-				cache_future = previous_match;
-			}
+			uint8_t future_prefix = inverse_prefix(previous_match);
+			uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
+			lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
+			lz_data[lz_size - 1].future = future_prefix;
 
 			uint32_t back_x = back_ref % width;
 			uint32_t back_y = back_ref / width;
-			if(back_x == cache_back_x){
-				lz_data[lz_size].backref_x = 0;
-				lz_data[lz_size].backref_x_bits = 0;
+			uint8_t back_x_prefix;
+			uint8_t back_x_extrabits;
+			uint32_t back_x_extrabits_value;
+			if(width - back_x < back_x){
+				back_x_prefix = max_back_x - inverse_prefix(width - back_x - 1);
+				back_x_extrabits = extrabits_from_prefix(max_back_x - back_x_prefix);
+				back_x_extrabits_value = prefix_extrabits(width - back_x - 1) + (back_x_extrabits << 24);
 			}
 			else{
-				uint8_t back_x_prefix;
-				uint8_t back_x_extrabits;
-				uint32_t back_x_extrabits_value;
-				if(width - back_x < back_x){
-					back_x_prefix = max_back_x - inverse_prefix(width - back_x - 1);
-					back_x_extrabits = extrabits_from_prefix(max_back_x - back_x_prefix);
-					back_x_extrabits_value = prefix_extrabits(width - back_x - 1) + (back_x_extrabits << 24);
-				}
-				else{
-					back_x_prefix = inverse_prefix(back_x) + 1;
-					back_x_extrabits = extrabits_from_prefix(back_x_prefix - 1);
-					back_x_extrabits_value = prefix_extrabits(back_x) + (back_x_extrabits << 24);;
-				}
-				lz_data[lz_size].backref_x_bits = back_x_extrabits_value;
-				lz_data[lz_size].backref_x = back_x_prefix;
-				cache_back_x = back_x;
+				back_x_prefix = inverse_prefix(back_x);
+				back_x_extrabits = extrabits_from_prefix(back_x_prefix - 1);
+				back_x_extrabits_value = prefix_extrabits(back_x) + (back_x_extrabits << 24);;
 			}
-			if(back_y == cache_back_y){
-				lz_data[lz_size].backref_y = 0;
-				lz_data[lz_size].backref_y_bits = 0;
-			}
-			else{
-				uint8_t back_y_prefix = inverse_prefix(back_y);
-				uint8_t back_y_extrabits = extrabits_from_prefix(back_y_prefix);
-				lz_data[lz_size].backref_y_bits = prefix_extrabits(back_y) + (back_y_extrabits << 24);
-				lz_data[lz_size].backref_y = back_y_prefix + 1;
-				cache_back_y = back_y;
-			}
+			lz_data[lz_size].backref_x_bits = back_x_extrabits_value;
+			lz_data[lz_size].backref_x = back_x_prefix;
+
+			uint8_t back_y_prefix = inverse_prefix(back_y);
+			uint8_t back_y_extrabits = extrabits_from_prefix(back_y_prefix);
+			lz_data[lz_size].backref_y_bits = prefix_extrabits(back_y) + (back_y_extrabits << 24);
+			lz_data[lz_size].backref_y = back_y_prefix;
 
 			lz_data[lz_size].val_matchlen = match_length;
-			if(match_length == cache_matchlen){
-				lz_data[lz_size].matchlen = 0;
-				lz_data[lz_size].matchlen_bits = 0;
-			}
-			else{
-				uint8_t matchlen_prefix = inverse_prefix(match_length);
-				uint8_t matchlen_extrabits = extrabits_from_prefix(matchlen_prefix);
-				lz_data[lz_size].matchlen_bits = prefix_extrabits(match_length) + (matchlen_extrabits << 24);
-				lz_data[lz_size].matchlen = matchlen_prefix + 1;
-				cache_matchlen = match_length;
-			}
+			uint8_t matchlen_prefix = inverse_prefix(match_length);
+			uint8_t matchlen_extrabits = extrabits_from_prefix(matchlen_prefix);
+			lz_data[lz_size].matchlen_bits = prefix_extrabits(match_length) + (matchlen_extrabits << 24);
+			lz_data[lz_size].matchlen = matchlen_prefix;
 
 			lz_size++;
 			previous_match = 0;
@@ -147,17 +115,10 @@ lz_triple* lz_dist(
 		}
 	}
 	lz_data[lz_size - 1].val_future = previous_match;
-	if(previous_match == cache_future){
-		lz_data[lz_size - 1].future = 0;
-		lz_data[lz_size - 1].future_bits = 0;
-	}
-	else{
-		uint8_t future_prefix = inverse_prefix(previous_match);
-		uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
-		lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
-		lz_data[lz_size - 1].future = future_prefix + 1;
-		cache_future = previous_match;
-	}
+	uint8_t future_prefix = inverse_prefix(previous_match);
+	uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
+	lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
+	lz_data[lz_size - 1].future = future_prefix;
 
 	return lz_data;
 }
