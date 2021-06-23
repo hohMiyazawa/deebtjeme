@@ -2303,11 +2303,49 @@ void colour_optimiser_take5_lz(
 			width,
 			height,
 			lz_size,
-			2
+			256
 		);
 		if(lz_size > 1){
 			printf("lz size: %d\n",(int)lz_size);
 			LZ_used = true;
+
+
+			for(size_t context = 0;context < contextNumber;context++){
+				for(size_t i=0;i<256;i++){
+					statistics[context].freqs[i] = 0;
+				}
+			}
+
+			uint32_t next_match = lz_data[0].val_future;
+			size_t lz_looper = 1;
+			for(size_t i=0;i<width*height;i++){
+				if(next_match == 0){
+					i += lz_data[lz_looper].val_matchlen;
+					next_match = lz_data[lz_looper++].val_future;
+					continue;
+				}
+				else{
+					next_match--;
+				}
+				size_t tile_index = tileIndexFromPixel(
+					i,
+					width,
+					entropyWidth,
+					entropyWidth_block,
+					entropyHeight_block
+				);
+				statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+				statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+				statistics[entropy_image[tile_index*3 + 0]].freqs[filtered_bytes[i*3 + 0]]++;
+			}
+/*
+			BitWriter tableEncode2;
+			tableEncode = tableEncode2;
+			for(size_t context = 0;context < contextNumber;context++){
+				table[context] = encode_freqTable(statistics[context], tableEncode, range);
+			}
+			tableEncode.conclude();
+*/
 		}
 		else{
 			delete[] lz_data;

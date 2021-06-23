@@ -134,11 +134,8 @@ int main(int argc, char *argv[]){
 		else if(speed == 6){
 			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
 		}
-		else if(speed == 69){
-			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, 6);
-		}
 		else{
-			colour_optimiser_take5(alpha_stripped, 256,width,height,outPointer, speed);
+			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
 		}
 
 		delete[] alpha_stripped;

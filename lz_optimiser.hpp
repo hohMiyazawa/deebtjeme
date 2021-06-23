@@ -12,7 +12,7 @@ lz_triple* lz_dist(
 ){
 	lz_triple* lz_data = new lz_triple[width*height];
 
-	size_t limit = (64 << speed);
+	size_t limit = speed;
 
 	uint8_t max_back_x = inverse_prefix((width+1)/2)*2 + 1;
 
