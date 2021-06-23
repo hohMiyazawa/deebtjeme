@@ -2357,12 +2357,18 @@ void colour_optimiser_take5_lz(
 		stats_future.freqs[lz_data[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref_x = encode_freqTable(stats_backref_x, lz_tableEncode, inverse_prefix((width + 1)/2)*2 + 1);
+		SymbolStats lz_table_backref_x = encode_freqTable(stats_backref_x, lz_tableEncode, inverse_prefix((width + 1)/2)*2 + 2);
 		SymbolStats lz_table_backref_y = encode_freqTable(stats_backref_y, lz_tableEncode, inverse_prefix(height) + 1);
 		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, inverse_prefix(width*height) + 1);
-		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, inverse_prefix(width*height) + 1);;
+		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, inverse_prefix(width*height) + 1);
 		lz_tableEncode.conclude();
-		printf("inv pref %d\n",(int)(inverse_prefix((width + 1)/2)*2 + 1));
+		printf(
+			"inv pref %d %d %d %d\n",
+			(int)(inverse_prefix((width + 1)/2)*2 + 2),
+			(int)(inverse_prefix(height) + 1),
+			(int)(inverse_prefix(width*height) + 1),
+			(int)(inverse_prefix(width*height) + 1)
+		);
 
 		RansEncSymbol esyms_backref_x[256];
 		RansEncSymbol esyms_backref_y[256];
@@ -2373,6 +2379,7 @@ void colour_optimiser_take5_lz(
 			RansEncSymbolInit(&esyms_backref_y[i], lz_table_backref_y.cum_freqs[i], lz_table_backref_y.freqs[i], 16);
 			RansEncSymbolInit(&esyms_matchlen[i],  lz_table_matchlen.cum_freqs[i],  lz_table_matchlen.freqs[i],  16);
 			RansEncSymbolInit(&esyms_future[i],    lz_table_future.cum_freqs[i],    lz_table_future.freqs[i],    16);
+			//printf("table: %d %d %d %d\n",(int)lz_table_backref_x.freqs[i],(int)lz_table_backref_y.freqs[i],(int)lz_table_matchlen.freqs[i],(int)lz_table_future.freqs[i]);
 		}
 
 		RansEncSymbol binary_zero;

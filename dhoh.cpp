@@ -244,11 +244,17 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 
 	if(LZ){
 		BitReader reader(&fileIndex);
-		backref_x_table = decode_freqTable(reader, max_x_table_prefix*2 + 1);
+		backref_x_table = decode_freqTable(reader, max_x_table_prefix*2 + 2);
 		backref_y_table = decode_freqTable(reader, max_y_table_prefix + 1);
 		matchlen_table  = decode_freqTable(reader, max_ml_table_prefix + 1);
 		futureref_table = decode_freqTable(reader, max_fr_table_prefix + 1);
-		printf("inv pref %d\n",(int)(max_x_table_prefix*2 + 1));
+		printf(
+			"inv pref %d %d %d %d\n",
+			(int)(max_x_table_prefix*2 + 2),
+			(int)(max_y_table_prefix + 1),
+			(int)(max_ml_table_prefix + 1),
+			(int)(max_fr_table_prefix + 1)
+		);
 	}
 	RansState rans;
 	RansDecSymbol decode_binary_zero;
@@ -268,8 +274,10 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				RansDecSymbolInit(&dby[i], backref_y_table.cum_freqs[i], backref_y_table.freqs[i]);
 				RansDecSymbolInit(&dml[i], matchlen_table.cum_freqs[i], matchlen_table.freqs[i]);
 				RansDecSymbolInit(&dfr[i], futureref_table.cum_freqs[i], futureref_table.freqs[i]);
+				//printf("table: %d %d %d %d\n",(int)backref_x_table.freqs[i],(int)backref_y_table.freqs[i],(int)matchlen_table.freqs[i],(int)futureref_table.freqs[i]);
 			}
 			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
+			printf("\n+++\n\n");
 			printf("lz next initial prefix %d\n",(int)lz_next_prefix);
 			lz_next = prefix_to_val(lz_next_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 		}
@@ -284,6 +292,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	printf("decoding pixels\n");
 	for(size_t i=0;i<width*height;i++){
 		if(lz_next == 0){
+			printf("index %d\n",(int)i);
 			uint8_t backref_x_prefix = read_prefixcode(rans, dbx, backref_x_table, fileIndex);
 			size_t backref_x;
 			if(backref_x_prefix <= max_x_table_prefix){
@@ -302,13 +311,12 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			if(backref > i){
 				panic("backref too far %d > %d!\n",(int)backref,(int)i);
 			}
-			printf("what backref %d %d\n",(int)backref,(int)i);
+			printf("what backref %d\n",(int)backref);
 			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);
 			size_t matchlen;
 			matchlen = prefix_to_val(matchlen_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
-
+			printf("what matchlen %d(%d)\n",(int)matchlen_prefix,(int)matchlen);
 			matchlen += 1;
-			printf("what matchlen %d\n",(int)matchlen);
 			uint8_t lz_next_prefix = read_prefixcode(rans, dfr, futureref_table, fileIndex);
 			lz_next = prefix_to_val(lz_next_prefix, rans, fileIndex, decode_binary_zero, decode_binary_one);
 
