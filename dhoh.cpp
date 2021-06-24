@@ -92,6 +92,16 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		indexHeight = *(fileIndex++) + 1;
 		indexLengths = new uint8_t[height];
 		indexImage = readImage(fileIndex, 256, indexWidth, indexHeight);
+		if(indexWidth == 1 && indexHeight == 1){
+			delete[] indexLengths;
+			uint8_t* image = new uint8_t[width*height*3];
+			for(size_t i=0;i<width*height;i++){
+				image[i*3] = indexImage[0];
+				image[i*3+1] = indexImage[1];
+				image[i*3+2] = indexImage[2];
+			}
+			return image;
+		}
 		//printf("index %d,%d,%d %d,%d,%d\n",(int)indexImage[0],(int)indexImage[1],(int)indexImage[2],(int)indexImage[3],(int)indexImage[4],(int)indexImage[5]);
 		if(indexHeight > 1){
 			indexIndexWidth = readVarint(fileIndex) + 1;

@@ -80,6 +80,33 @@ size_t greyscale_counter(uint8_t* grey, uint32_t width,uint32_t height, uint8_t*
 	return count;
 }
 
+size_t colour_counter(uint8_t* in_bytes, uint32_t width,uint32_t height, uint8_t* palette, size_t limit){
+	size_t count = 0;
+	for(size_t i=0;i<width*height;i++){
+		bool found = false;
+		for(size_t j=0;j<count;j++){
+			if(
+				palette[j*3] == in_bytes[i*3]
+				&& palette[j*3+1] == in_bytes[i*3+1]
+				&& palette[j*3+2] == in_bytes[i*3+2]
+			){
+				found = true;
+				break;
+			}
+		}
+		if(!found){
+			palette[count*3] = in_bytes[i*3];
+			palette[count*3+1] = in_bytes[i*3+1];
+			palette[count*3+2] = in_bytes[i*3+2];
+			count++;
+			if(count > limit){
+				return 0;
+			}
+		}
+	}
+	return count;
+}
+
 double synthness(uint8_t* decoded,uint32_t width,uint32_t height){
 	size_t repeat = 0;
 	size_t matches = 0;

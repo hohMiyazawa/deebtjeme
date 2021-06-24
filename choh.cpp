@@ -55,9 +55,16 @@ int main(int argc, char *argv[]){
 
 		uint8_t palette[256];
 		size_t colour_count = greyscale_counter(grey, width, height, palette, 2);
-		printf("col count %d\n",(int)colour_count);
+		printf("colour count %d\n",(int)colour_count);
 
-		if(colour_count == 2){
+		if(colour_count == 1){
+			*(--outPointer) = palette[0];
+			*(--outPointer) = 0b00000000;
+			*(--outPointer) = 0;
+			*(--outPointer) = 0;
+			*(--outPointer) = 0b00010000;
+		}
+		else if(colour_count == 2){
 			encode_grey_binary(grey, 256, width, height, outPointer, palette[0], palette[1]);
 		}
 		else{
@@ -113,29 +120,44 @@ int main(int argc, char *argv[]){
 		uint8_t* out_end = out_buf + max_elements;
 		uint8_t* outPointer = out_end;
 
-		if(speed == 0){
-			colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
-		}
-		else if(speed == 1){
-			colour_encode_ffv1_subGreen(alpha_stripped, 256,width,height,outPointer);
-		}
-		else if(speed == 2){
-			colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1);
-		}
-		else if(speed == 3){
-			colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 1);
-		}
-		else if(speed == 4){
-			colour_optimiser_take2(alpha_stripped, 256,width,height,outPointer, 5);
-		}
-		else if(speed == 5){
-			colour_optimiser_take3(alpha_stripped, 256,width,height,outPointer, 5);
-		}
-		else if(speed == 6){
-			colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
+		uint8_t palette[256*3];
+		size_t colour_count = colour_counter(alpha_stripped, width, height, palette, 2);
+		printf("colour count %d\n",(int)colour_count);
+
+		if(colour_count == 1){
+			*(--outPointer) = palette[2];
+			*(--outPointer) = palette[1];
+			*(--outPointer) = palette[0];
+			*(--outPointer) = 0b00100000;
+			*(--outPointer) = 0;
+			*(--outPointer) = 0;
+			*(--outPointer) = 0b00110000;
 		}
 		else{
-			colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
+			if(speed == 0){
+				colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
+			}
+			else if(speed == 1){
+				colour_encode_ffv1_subGreen(alpha_stripped, 256,width,height,outPointer);
+			}
+			else if(speed == 2){
+				colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1);
+			}
+			else if(speed == 3){
+				colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 1);
+			}
+			else if(speed == 4){
+				colour_optimiser_take2(alpha_stripped, 256,width,height,outPointer, 5);
+			}
+			else if(speed == 5){
+				colour_optimiser_take3(alpha_stripped, 256,width,height,outPointer, 5);
+			}
+			else if(speed == 6){
+				colour_optimiser_take4(alpha_stripped, 256,width,height,outPointer, 6);
+			}
+			else{
+				colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, speed);
+			}
 		}
 
 		delete[] alpha_stripped;
