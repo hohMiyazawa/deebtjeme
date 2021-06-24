@@ -65,7 +65,8 @@ int main(int argc, char *argv[]){
 			*(--outPointer) = 0b00010000;
 		}
 		else if(colour_count == 2){
-			encode_grey_binary(grey, 256, width, height, outPointer, palette[0], palette[1]);
+			//encode_grey_binary(grey, 256, width, height, outPointer, palette[0], palette[1]);
+			encode_grey_binary_entropy(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
 		}
 		else{
 			if(speed == 0){

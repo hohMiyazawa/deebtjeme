@@ -16,20 +16,28 @@ uint8_t entropy_map_initial(
 	uint32_t height,
 	uint8_t*& entropy_image,
 	uint32_t& entropyWidth,
-	uint32_t& entropyHeight
+	uint32_t& entropyHeight,
+	uint32_t entropyWidth_block,
+	uint32_t entropyHeight_block,
+	uint8_t contextNumber
 ){
-	uint32_t entropyWidth_block  = 8;
-	uint32_t entropyHeight_block = 8;
-
-	entropyWidth  = (width + 7)/8;
-	entropyHeight = (height + 7)/8;
-
-	uint8_t contextNumber;
-	if((width + height + 255)/256 > 255){
-		contextNumber = 255;
+	if(entropyWidth_block == 0){
+		entropyWidth_block  = 8;
 	}
-	else{
-		contextNumber = (width + height + 255)/256;
+	if(entropyHeight_block == 0){
+		entropyHeight_block = 8;
+	}
+
+	entropyWidth  = (width + entropyWidth_block - 1)/entropyWidth_block;
+	entropyHeight = (height + entropyWidth_block - 1)/entropyWidth_block;
+
+	if(contextNumber == 0){
+		if(((width + height) + 255)/256 > 255){
+			contextNumber = 255;
+		}
+		else{
+			contextNumber = ((width + height) + 255)/256;
+		}
 	}
 
 	SymbolStats defaultFreqs;
