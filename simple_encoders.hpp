@@ -216,7 +216,7 @@ void encode_grey_binary(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_
 	stats.count_freqs(filtered_bytes, width*height);
 
 	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	SymbolStats table = encode_freqTable(stats,tableEncode, 2);
 	tableEncode.conclude();
 
 	RansEncSymbol esyms[256];

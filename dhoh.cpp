@@ -88,6 +88,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	uint32_t indexIndexHeight_block = height;
 	uint8_t* indexLengths;
 	if(INDEX_TRANSFORM){
+		uint8_t* trailing = fileIndex;
 		indexWidth = *(fileIndex++) + 1;
 		indexHeight = *(fileIndex++) + 1;
 		indexLengths = new uint8_t[height];
@@ -103,6 +104,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			return image;
 		}
 		//printf("index %d,%d,%d %d,%d,%d\n",(int)indexImage[0],(int)indexImage[1],(int)indexImage[2],(int)indexImage[3],(int)indexImage[4],(int)indexImage[5]);
+		range = indexWidth;
 		if(indexHeight > 1){
 			indexIndexWidth = readVarint(fileIndex) + 1;
 			indexIndexHeight = readVarint(fileIndex) + 1;
@@ -131,6 +133,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			indexIndexImage[2] = 0;
 			indexLengths[0] = indexWidth - 1;
 		}
+		printf("---palette size: %d bytes\n",(int)(fileIndex - trailing));
 	}
 
 

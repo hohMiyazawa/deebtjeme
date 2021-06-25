@@ -30,7 +30,7 @@ void indexed_encode_speed0(
 	stats.count_freqs(in_bytes, width*height);
 
 	BitWriter tableEncode;
-	SymbolStats table = encode_freqTable(stats,tableEncode,range);
+	SymbolStats table = encode_freqTable(stats,tableEncode, colour_count);
 	tableEncode.conclude();
 
 	RansEncSymbol esyms[256];
@@ -103,18 +103,22 @@ void indexed_encode_speed1(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
+	uint8_t* trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 	*(--outPointer) = 1 - 1;
 
 	*(--outPointer) = 0b11010000;
 	*(--outPointer) = 0b00010000;
 	*(--outPointer) = 0;
 
+	trailing = outPointer;
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
 	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
+	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
 	*(--outPointer) = 0b00110110;
 }

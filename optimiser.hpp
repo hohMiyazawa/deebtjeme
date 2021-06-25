@@ -166,7 +166,7 @@ void encode_grey_binary_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
-		table[context] = encode_freqTable(statistics[context], tableEncode, range);
+		table[context] = encode_freqTable(statistics[context], tableEncode, 2);
 	}
 	tableEncode.conclude();
 
