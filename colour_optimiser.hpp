@@ -65,7 +65,6 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 	}
 }
 
-//works
 void colour_optimiser_entropyOnly(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -79,7 +78,7 @@ void colour_optimiser_entropyOnly(
 	uint32_t entropyWidth;
 	uint32_t entropyHeight;
 
-	printf("initial distribution\n");
+	//printf("initial distribution\n");
 	uint8_t contextNumber = colour_entropy_map_initial(
 		in_bytes,
 		range,
@@ -90,11 +89,11 @@ void colour_optimiser_entropyOnly(
 		entropyHeight,
 		0,0,0//use defaults
 	);
-	printf("contexts: %d\n",(int)contextNumber);
+	//printf("contexts: %d\n",(int)contextNumber);
 
 	uint32_t entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
-	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
+	//printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
 	SymbolStats statistics[contextNumber];
 	
@@ -133,7 +132,7 @@ void colour_optimiser_entropyOnly(
 	}
 
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -149,8 +148,6 @@ void colour_optimiser_entropyOnly(
 			RansEncSymbolInit(&esyms[cont][i], table[cont].cum_freqs[i], table[cont].freqs[i], 16);
 		}
 	}
-
-	printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -168,12 +165,10 @@ void colour_optimiser_entropyOnly(
 	}
 	RansEncFlush(&rans, &outPointer);
 
-	printf("ransenc done a\n");
-
 	uint8_t* trailing;
 	if(contextNumber > 1){
 		trailing = outPointer;
-		colour_encode_entropy_channel(
+		colour_encode_entropy(
 			entropy_image,
 			contextNumber,
 			entropyWidth,
@@ -182,7 +177,7 @@ void colour_optimiser_entropyOnly(
 		);
 		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
 		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+		//printf("[entropyOnly] entropy image size: %d bytes\n",(int)(trailing - outPointer));
 	}
 	delete[] entropy_image;
 
@@ -190,7 +185,7 @@ void colour_optimiser_entropyOnly(
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
+	//printf("[entropyOnly] entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	*(--outPointer) = contextNumber - 1;//number of contexts
 
@@ -312,7 +307,7 @@ void colour_optimiser_take0(
 	);
 
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -329,7 +324,7 @@ void colour_optimiser_take0(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -348,7 +343,7 @@ void colour_optimiser_take0(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	uint8_t* trailing;
 
@@ -544,7 +539,7 @@ void colour_optimiser_take1(
 		statistics
 	);
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -561,7 +556,7 @@ void colour_optimiser_take1(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -580,7 +575,7 @@ void colour_optimiser_take1(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	uint8_t* trailing;
 	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
@@ -851,7 +846,7 @@ void colour_optimiser_take2(
 		statistics
 	);
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -868,7 +863,7 @@ void colour_optimiser_take2(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -887,7 +882,7 @@ void colour_optimiser_take2(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	uint8_t* trailing;
 
@@ -1142,7 +1137,7 @@ void colour_optimiser_take3(
 		statistics
 	);
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -1159,7 +1154,7 @@ void colour_optimiser_take3(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -1178,7 +1173,7 @@ void colour_optimiser_take3(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	for(size_t i=0;i<predictorCount;i++){
 		delete[] filter_collection[i];
@@ -1482,7 +1477,7 @@ void colour_optimiser_take4(
 		statistics
 	);
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -1499,7 +1494,7 @@ void colour_optimiser_take4(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -1518,7 +1513,7 @@ void colour_optimiser_take4(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	for(size_t i=0;i<predictorCount;i++){
 		delete[] filter_collection[i];
@@ -1886,7 +1881,7 @@ void colour_optimiser_take5(
 		statistics
 	);
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -1903,7 +1898,7 @@ void colour_optimiser_take5(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -1922,7 +1917,7 @@ void colour_optimiser_take5(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	for(size_t i=0;i<predictorCount;i++){
 		delete[] filter_collection[i];
@@ -2352,7 +2347,7 @@ void colour_optimiser_take5_lz(
 		}
 	}
 ///encode data
-	printf("table started\n");
+	//printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -2369,7 +2364,7 @@ void colour_optimiser_take5_lz(
 		}
 	}
 
-	printf("ransenc\n");
+	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -2536,7 +2531,7 @@ void colour_optimiser_take5_lz(
 	}
 	delete[] filtered_bytes;
 
-	printf("ransenc done\n");
+	//printf("ransenc done\n");
 
 	for(size_t i=0;i<predictorCount;i++){
 		delete[] filter_collection[i];

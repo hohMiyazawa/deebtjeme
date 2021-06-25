@@ -70,11 +70,15 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 			}
 		}
 
+		bool brea_flag = false;
 		for(size_t i=0;i<range;i++){
 			if(newFreqs.freqs[i]){
 				if(newFreqs.freqs[i] == (1 << 16)){
 					sink.writeBits(0,4);//doesn't matter what the magnitude is, gets scaled anyway
-					break;
+					brea_flag = true;
+				}
+				if(brea_flag){
+					panic("what???\n");
 				}
 				uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
 				sink.writeBits(magnitude,4);
