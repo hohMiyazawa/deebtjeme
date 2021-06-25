@@ -122,7 +122,7 @@ int main(int argc, char *argv[]){
 		uint8_t* outPointer = out_end;
 
 		uint8_t palette[256*3];
-		size_t colour_count = colour_counter(alpha_stripped, width, height, palette, 30);
+		size_t colour_count = colour_counter(alpha_stripped, width, height, palette, 80);
 		printf("colour count %d\n",(int)colour_count);
 
 		if(colour_count == 1){
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]){
 			*(--outPointer) = 0;
 			*(--outPointer) = 0b00110000;
 		}
-		else if(colour_count && colour_count < 30){
+		else if(colour_count && colour_count < 80){
 			indexed_encode(alpha_stripped, 256, palette, colour_count, width, height, outPointer, speed);
 		}
 		else{
