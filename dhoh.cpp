@@ -462,7 +462,9 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			}
 		}
 
-		if(HAS_COLOUR == 0){
+		if(INDEX_TRANSFORM == 1){
+		}
+		else if(HAS_COLOUR == 0){
 			image[i*3+1] = image[i*3];
 			image[i*3+2] = image[i*3];
 		}

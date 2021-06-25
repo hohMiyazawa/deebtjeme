@@ -110,8 +110,8 @@ void indexed_encode_speed1(
 	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 	*(--outPointer) = 1 - 1;
 
-	*(--outPointer) = 0b11010000;
-	*(--outPointer) = 0b00010000;
+	*(--outPointer) = 0b00000000;
+	*(--outPointer) = 0b00000000;
 	*(--outPointer) = 0;
 
 	trailing = outPointer;
