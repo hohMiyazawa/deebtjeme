@@ -196,17 +196,19 @@ void encode_grey_binary_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width
 	delete[] filtered_bytes;
 
 	uint8_t* trailing = outPointer;
-	encode_entropy(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
+	if(contextNumber > 1){
+		encode_entropy(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
