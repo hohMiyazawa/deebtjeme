@@ -78,7 +78,8 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 					brea_flag = true;
 				}
 				if(brea_flag){
-					panic("what???\n");
+					//panic("what???\n");
+					printf("THIS SHOULD NOT HAPPEN! Zeromodelling error in tabl_encode.hpp\n");
 				}
 				uint8_t magnitude = log2_plus(newFreqs.freqs[i]) - 1;
 				sink.writeBits(magnitude,4);

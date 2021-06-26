@@ -5,6 +5,7 @@
 #include "entropy_estimation.hpp"
 #include "table_encode.hpp"
 #include "numerics.hpp"
+#include "fake_encoders.hpp"
 
 /*
 	heuristic for entropy mapping
@@ -251,6 +252,244 @@ uint32_t colour_entropy_redistribution_pass(
 		entropy_image[i] = mapping[entropy_image[i]];
 	}
 	return index;//new number of contexts
+}
+
+size_t measure_entropy_efficiency(
+	uint8_t* filtered_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t* entropy_image,
+	uint32_t contextNumber,
+	uint32_t entropy_width,
+	uint32_t entropy_height,
+	uint32_t entropy_width_block,
+	uint32_t entropy_height_block
+){
+	SymbolStats statistics[contextNumber];
+	
+	for(size_t context = 0;context < contextNumber;context++){
+		for(size_t i=0;i<256;i++){
+			statistics[context].freqs[i] = 0;
+		}
+	}
+	for(size_t i=0;i<width*height;i++){
+		size_t tile_index = tileIndexFromPixel(
+			i,
+			width,
+			entropy_width,
+			entropy_width_block,
+			entropy_height_block
+		);
+		statistics[entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+		statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+		statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+	}
+
+	BitWriter tableEncode;
+	SymbolStats table[contextNumber];
+	for(size_t context = 0;context < contextNumber;context++){
+		table[context] = encode_freqTable(statistics[context], tableEncode, range);
+	}
+	tableEncode.conclude();
+
+	size_t image_size = 0;
+	if(contextNumber > 1){
+		image_size = colour_encode_combiner_dry(
+			entropy_image,
+			contextNumber,
+			entropy_width,
+			entropy_height
+		);
+	}
+
+	double entropy_sum = 0;
+	for(size_t context = 0;context < contextNumber;context++){
+		for(size_t i=0;i<range;i++){
+			if(statistics[context].freqs[i]){
+				entropy_sum += statistics[context].freqs[i] * (16 - std::log2((double)table[context].freqs[i]));
+			}
+		}
+	}
+	return (entropy_sum/8) + tableEncode.length + image_size;
+}
+
+uint32_t colour_contextSize_optimiser(
+	uint8_t* filtered_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& entropy_image,
+	uint32_t contexts,
+	uint32_t& entropy_width,
+	uint32_t& entropy_height,
+	uint32_t& entropy_width_block,
+	uint32_t& entropy_height_block,
+	SymbolStats* entropy_stats
+){
+	size_t default_size = measure_entropy_efficiency(
+		filtered_bytes,
+		range,
+		width,
+		height,
+		entropy_image,
+		contexts,
+		entropy_width,
+		entropy_height,
+		entropy_width_block,
+		entropy_height_block
+	);
+	size_t bestBlock = entropy_width_block;
+	size_t bestBlockSize = 999999999;
+	size_t bestBlockRange = 1;
+	for(size_t block=4;block<=20;block++){
+		uint8_t* b_entropy_image;
+
+		uint32_t b_entropyWidth;
+		uint32_t b_entropyHeight;
+
+		uint8_t b_contextNumber = colour_entropy_map_initial(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			b_entropy_image,
+			b_entropyWidth,
+			b_entropyHeight,
+			block,block,0
+		);
+
+		uint32_t b_entropyWidth_block  = (width + b_entropyWidth - 1)/b_entropyWidth;
+		uint32_t b_entropyHeight_block  = (height + b_entropyHeight - 1)/b_entropyHeight;
+
+		SymbolStats b_statistics[b_contextNumber];
+		
+		for(size_t context = 0;context < b_contextNumber;context++){
+			for(size_t i=0;i<256;i++){
+				b_statistics[context].freqs[i] = 0;
+			}
+		}
+		for(size_t i=0;i<width*height;i++){
+			size_t tile_index = tileIndexFromPixel(
+				i,
+				width,
+				b_entropyWidth,
+				b_entropyWidth_block,
+				b_entropyHeight_block
+			);
+			b_statistics[b_entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+			b_statistics[b_entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+			b_statistics[b_entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+		}
+
+		for(size_t i=0;i<10;i++){
+			b_contextNumber = colour_entropy_redistribution_pass(
+				filtered_bytes,
+				range,
+				width,
+				height,
+				b_entropy_image,
+				b_contextNumber,
+				b_entropyWidth,
+				b_entropyHeight,
+				b_statistics
+			);
+		}
+
+		size_t block_size = measure_entropy_efficiency(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			b_entropy_image,
+			b_contextNumber,
+			b_entropyWidth,
+			b_entropyHeight,
+			b_entropyWidth_block,
+			b_entropyHeight_block
+		);
+		printf("%d block size: %d\n",(int)block,(int)block_size);
+		if(block_size < bestBlockSize){
+			bestBlockSize = block_size;
+			bestBlock = block;
+		}
+	}
+	bestBlockSize = 999999999;
+	for(size_t blockRange = 1;blockRange < 20;blockRange++){
+		uint8_t* b_entropy_image;
+
+		uint32_t b_entropyWidth;
+		uint32_t b_entropyHeight;
+
+		uint8_t b_contextNumber = colour_entropy_map_initial(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			b_entropy_image,
+			b_entropyWidth,
+			b_entropyHeight,
+			bestBlock,bestBlock,blockRange
+		);
+
+		uint32_t b_entropyWidth_block  = (width + b_entropyWidth - 1)/b_entropyWidth;
+		uint32_t b_entropyHeight_block  = (height + b_entropyHeight - 1)/b_entropyHeight;
+
+		SymbolStats b_statistics[b_contextNumber];
+		
+		for(size_t context = 0;context < b_contextNumber;context++){
+			for(size_t i=0;i<256;i++){
+				b_statistics[context].freqs[i] = 0;
+			}
+		}
+		for(size_t i=0;i<width*height;i++){
+			size_t tile_index = tileIndexFromPixel(
+				i,
+				width,
+				b_entropyWidth,
+				b_entropyWidth_block,
+				b_entropyHeight_block
+			);
+			b_statistics[b_entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+			b_statistics[b_entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+			b_statistics[b_entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+		}
+
+		for(size_t i=0;i<10;i++){
+			b_contextNumber = colour_entropy_redistribution_pass(
+				filtered_bytes,
+				range,
+				width,
+				height,
+				b_entropy_image,
+				b_contextNumber,
+				b_entropyWidth,
+				b_entropyHeight,
+				b_statistics
+			);
+		}
+
+		size_t block_size = measure_entropy_efficiency(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			b_entropy_image,
+			b_contextNumber,
+			b_entropyWidth,
+			b_entropyHeight,
+			b_entropyWidth_block,
+			b_entropyHeight_block
+		);
+		printf("%d block@%d size: %d\n",(int)bestBlock,(int)blockRange,(int)block_size);
+		if(block_size < bestBlockSize){
+			bestBlockSize = block_size;
+			bestBlockRange = blockRange;;
+		}
+	}
+	printf("found block %d@%d: %d\n",(int)bestBlock,(int)bestBlockRange,(int)bestBlockSize);
+	printf("default block size: %d\n",(int)default_size);
+	return contexts;
 }
 
 #endif //COLOUR_ENTROPY_OPTIMISER
