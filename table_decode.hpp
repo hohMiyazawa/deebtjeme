@@ -24,8 +24,14 @@ SymbolStats decode_freqTable(BitReader& reader,size_t range){
 		}
 		stats.normalize_freqs(1 << 16);
 	}
-	else if(mode <= 10){
+	else if(mode < 10){
 		return laplace(mode,true_range);
+	}
+	else if(mode == 10){
+		stats.freqs[0] = (1 << 16);
+		for(size_t i=1;i<256;i++){
+			stats.freqs[i] = 0;
+		}
 	}
 	else{
 		size_t zero_pointer_length = log2_plus(range - 1);
