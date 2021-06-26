@@ -2640,7 +2640,7 @@ void colour_optimiser_take6_lz(
 	uint32_t entropyHeight_block  = (height + entropyHeight - 1)/entropyHeight;
 	printf("entropy dimensions %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 
-	SymbolStats statistics[contextNumber];
+	SymbolStats* statistics = new SymbolStats[contextNumber];
 	
 	for(size_t context = 0;context < contextNumber;context++){
 		for(size_t i=0;i<256;i++){
@@ -2903,7 +2903,8 @@ void colour_optimiser_take6_lz(
 		entropyHeight,
 		entropyWidth_block,
 		entropyHeight_block,
-		statistics
+		statistics,
+		speed
 	);
 //one pass for stats tables
 	contextNumber = colour_entropy_redistribution_pass(
@@ -2987,6 +2988,7 @@ void colour_optimiser_take6_lz(
 		table[context] = encode_freqTable(statistics[context], tableEncode, range);
 	}
 	tableEncode.conclude();
+	delete[] statistics;
 
 
 	RansEncSymbol esyms[contextNumber][256];

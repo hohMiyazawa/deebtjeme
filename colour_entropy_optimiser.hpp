@@ -325,7 +325,8 @@ uint32_t colour_contextSize_optimiser(
 	uint32_t& entropy_height,
 	uint32_t& entropy_width_block,
 	uint32_t& entropy_height_block,
-	SymbolStats* entropy_stats
+	SymbolStats*& entropy_stats,
+	size_t speed
 ){
 	size_t default_size = measure_entropy_efficiency(
 		filtered_bytes,
@@ -382,7 +383,7 @@ uint32_t colour_contextSize_optimiser(
 			b_statistics[b_entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
 		}
 
-		for(size_t i=0;i<10;i++){
+		for(size_t i=0;i<speed;i++){
 			b_contextNumber = colour_entropy_redistribution_pass(
 				filtered_bytes,
 				range,
@@ -455,7 +456,7 @@ uint32_t colour_contextSize_optimiser(
 			b_statistics[b_entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
 		}
 
-		for(size_t i=0;i<10;i++){
+		for(size_t i=0;i<speed;i++){
 			b_contextNumber = colour_entropy_redistribution_pass(
 				filtered_bytes,
 				range,
@@ -484,11 +485,64 @@ uint32_t colour_contextSize_optimiser(
 		printf("%d block@%d size: %d\n",(int)bestBlock,(int)blockRange,(int)block_size);
 		if(block_size < bestBlockSize){
 			bestBlockSize = block_size;
-			bestBlockRange = blockRange;;
+			bestBlockRange = blockRange;
 		}
 	}
 	printf("found block %d@%d: %d\n",(int)bestBlock,(int)bestBlockRange,(int)bestBlockSize);
 	printf("default block size: %d\n",(int)default_size);
+	if(bestBlockSize < default_size){
+		printf("replacing entropy density map\n");
+		delete[] entropy_image;
+
+		contexts = colour_entropy_map_initial(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			entropy_width,
+			entropy_height,
+			bestBlock,bestBlock,bestBlockRange
+		);
+
+		entropy_width_block  = (width + entropy_width - 1)/entropy_width;
+		entropy_height_block  = (height + entropy_height - 1)/entropy_height;
+
+		SymbolStats* statistics = new SymbolStats[contexts];
+		
+		for(size_t context = 0;context < contexts;context++){
+			for(size_t i=0;i<256;i++){
+				statistics[context].freqs[i] = 0;
+			}
+		}
+		for(size_t i=0;i<width*height;i++){
+			size_t tile_index = tileIndexFromPixel(
+				i,
+				width,
+				entropy_width,
+				entropy_width_block,
+				entropy_height_block
+			);
+			statistics[entropy_image[tile_index*3]].freqs[filtered_bytes[i*3]]++;
+			statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+			statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+		}
+
+		for(size_t i=0;i<speed + 5;i++){
+			contexts = colour_entropy_redistribution_pass(
+				filtered_bytes,
+				range,
+				width,
+				height,
+				entropy_image,
+				contexts,
+				entropy_width,
+				entropy_height,
+				statistics
+			);
+		}
+		entropy_stats = statistics;
+	}
 	return contexts;
 }
 

@@ -21,7 +21,7 @@
 #include "prefix_coding.hpp"
 
 void print_usage(){
-	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-8\n");
+	printf("./choh infile.png outfile.hoh speed\n\nspeed is a number from 0-10\n");
 }
 
 int main(int argc, char *argv[]){

@@ -13,7 +13,7 @@ Usage:
 ./choh infile.png outfile.hoh speed
 ```
 
-Where ``speed`` is a number in the range ``0`` to ``8`` (inclusive). increasingly slower and better compression.
+Where ``speed`` is a number in the range ``0`` to ``10`` (inclusive). increasingly slower and better compression.
 
 Decoding:
 ```
