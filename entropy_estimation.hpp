@@ -69,7 +69,7 @@ double* entropyLookup(SymbolStats stats){
 	}
 	if(total == 0){
 		for(size_t i=0;i<256;i++){
-			table[i] = 0;;
+			table[i] = 0;
 		}
 		return table;
 	}
