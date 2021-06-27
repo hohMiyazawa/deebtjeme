@@ -2,6 +2,7 @@
 #define LODE_IO_HEADER
 
 #include "lodepng.h"
+#include "panic.hpp"
 #include <iostream>
 
 void encodeOneStep(const char* filename, std::vector<unsigned char>& image, unsigned width, unsigned height) {
@@ -18,6 +19,9 @@ uint8_t* decodeOneStep(const char* filename,unsigned* width_out,unsigned* height
 
 	//decode
 	unsigned error = lodepng::decode(image, width, height, filename);
+	if(error){
+		panic("loading error\n");
+	}
 
 	*width_out = width;
 	*height_out = height;
