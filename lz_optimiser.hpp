@@ -147,7 +147,7 @@ lz_triple* lz_dist_fast(
 
 	for(int i=0;i<width*height;){
 		size_t future_iden = 0;
-		for(size_t j=0;j + i < width*height;j++){
+		for(size_t j=1;j + i < width*height;j++){
 			if(
 				in_bytes[i*3 + 0] == in_bytes[(i + j)*3 + 0]
 				&& in_bytes[i*3 + 1] == in_bytes[(i + j)*3 + 1]
@@ -159,26 +159,30 @@ lz_triple* lz_dist_fast(
 				break;
 			}
 		}
-		if(future_iden > 3){
+		if(future_iden < 3){
+		}
+		/*else if(future_iden < 4){
+			previous_match += future_iden + 2;
+			i += future_iden + 2;
+			continue;
+		}*/
+		else{
+			size_t match_length = future_iden - 1;
+
 			previous_match += 1;
-			lz_data[lz_size - 1].val_future = previous_match;
+
+			lz_data[lz_size - 1].val_future = previous_match ;
 			uint8_t future_prefix = inverse_prefix(previous_match);
 			uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
 			lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
 			lz_data[lz_size - 1].future = future_prefix;
 
-			uint8_t back_x_prefix = inverse_prefix(0);
-			uint8_t back_x_extrabits = extrabits_from_prefix(back_x_prefix);
-			uint32_t back_x_extrabits_value = prefix_extrabits(0) + (back_x_extrabits << 24);;
-			lz_data[lz_size].backref_x_bits = back_x_extrabits_value;
-			lz_data[lz_size].backref_x = back_x_prefix;
+			lz_data[lz_size].backref_x_bits = 0;
+			lz_data[lz_size].backref_x = 0;
 
-			uint8_t back_y_prefix = inverse_prefix(0);
-			uint8_t back_y_extrabits = extrabits_from_prefix(back_y_prefix);
-			lz_data[lz_size].backref_y_bits = prefix_extrabits(0) + (back_y_extrabits << 24);
-			lz_data[lz_size].backref_y = back_y_prefix;
+			lz_data[lz_size].backref_y_bits = 0;
+			lz_data[lz_size].backref_y = 0;
 
-			size_t match_length = future_iden - 1;
 			lz_data[lz_size].val_matchlen = match_length;
 			uint8_t matchlen_prefix = inverse_prefix(match_length);
 			uint8_t matchlen_extrabits = extrabits_from_prefix(matchlen_prefix);
@@ -187,7 +191,7 @@ lz_triple* lz_dist_fast(
 
 			lz_size++;
 			previous_match = 0;
-			i += future_iden + 1;
+			i += match_length + 2;
 			continue;
 		}
 
