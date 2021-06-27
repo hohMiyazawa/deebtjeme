@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
 				optimiser_take4(grey, 256,width,height,outPointer, 6);
 			}
 			else{
-				optimiser_take5(grey, 256,width,height,outPointer, speed);
+				optimiser_take5_lz(grey, 256,width,height,outPointer, speed);
 			}
 		}
 
