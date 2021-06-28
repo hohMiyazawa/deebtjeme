@@ -1001,10 +1001,11 @@ void lz_pruner(
 		if(saved < 0){
 			total_minus += saved;
 			lz_data[newIndex - 1].val_future += lz_data[i].val_future + lz_data[i].val_matchlen + 1;
-			lz_data[newIndex - 1].future = inverse_prefix(lz_data[newIndex - 1].val_future);
+			uint8_t future_prefix = inverse_prefix(lz_data[newIndex - 1].val_future);
+			lz_data[newIndex - 1].future = future_prefix;
 
-			uint8_t future_extrabits = extrabits_from_prefix(lz_data[newIndex - 1].future);
-			lz_data[lz_size - 1].future_bits = prefix_extrabits(lz_data[newIndex - 1].val_future) + (future_extrabits << 24);
+			uint8_t future_extrabits = extrabits_from_prefix(future_prefix);
+			lz_data[newIndex - 1].future_bits = prefix_extrabits(lz_data[newIndex - 1].val_future) + (future_extrabits << 24);
 		}
 		else{
 			lz_data[newIndex++] = lz_data[i];

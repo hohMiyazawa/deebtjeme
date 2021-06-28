@@ -3982,6 +3982,7 @@ void colour_optimiser_take6_lz(
 	}
 	delete[] filter_collection;
 //
+/*
 	contextNumber = colour_contextSize_optimiser(
 		filtered_bytes,
 		range,
@@ -3996,6 +3997,7 @@ void colour_optimiser_take6_lz(
 		statistics,
 		speed
 	);
+*/
 //one pass for stats tables
 	contextNumber = colour_entropy_redistribution_pass(
 		filtered_bytes,
