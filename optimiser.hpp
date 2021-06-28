@@ -2646,6 +2646,12 @@ void optimiser_take5_lz(
 		16,
 		(16 << speed)
 	);
+	lz_pruner(
+		estimate,
+		width,
+		lz_data,
+		lz_size
+	);
 	delete[] estimate;
 
 	size_t matchlen_sum = 0;
@@ -2654,7 +2660,7 @@ void optimiser_take5_lz(
 	}
 	double synth = (double)matchlen_sum/(width*height);
 
-	if(synth > 0.3){
+	if(synth > 0.25){
 		LZ_used = true;
 
 		for(size_t context = 0;context < contextNumber;context++){

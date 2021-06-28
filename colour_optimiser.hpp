@@ -4058,9 +4058,12 @@ void colour_optimiser_take6_lz(
 	lz_size = 0;
 	if(synth > 0.25){
 		printf("Trying LZ\n");
-		size_t lzlimit = width*(speed - 4);
-		if(lzlimit < 256){
-			lzlimit = 256;
+		size_t lzlimit;
+		if(speed > 20){
+			lzlimit = 4 << 20;
+		}
+		else{
+			lzlimit = 4 << speed;
 		}
 		/*lz_data = lz_dist(
 			in_bytes,
@@ -4131,6 +4134,75 @@ void colour_optimiser_take6_lz(
 			}
 			tableEncode.conclude();
 */
+			if(speed > 9){
+				double* costTables[contextNumber];
+
+				for(size_t i=0;i<contextNumber;i++){
+					costTables[i] = entropyLookup(statistics[i]);
+				}
+
+				for(size_t i=0;i<width*height;i++){
+					size_t tile_index = tileIndexFromPixel(
+						i,
+						width,
+						entropyWidth,
+						entropyWidth_block,
+						entropyHeight_block
+					);
+					estimate[i] =
+						costTables[entropy_image[tile_index*3]][filtered_bytes[i*3]]
+						+ costTables[entropy_image[tile_index*3+1]][filtered_bytes[i*3+1]]
+						+ costTables[entropy_image[tile_index*3+2]][filtered_bytes[i*3+2]];
+				}
+
+				for(size_t i=0;i<contextNumber;i++){
+					delete[] costTables[i];
+				}
+				lz_dist_selfAware(
+					in_bytes,
+					estimate,
+					width,
+					height,
+					lz_data,
+					lz_size,
+					lzlimit
+				);
+				lz_pruner(
+					estimate,
+					width,
+					lz_data,
+					lz_size
+				);
+
+				for(size_t context = 0;context < contextNumber;context++){
+					for(size_t i=0;i<256;i++){
+						statistics[context].freqs[i] = 0;
+					}
+				}
+
+				uint32_t next_match = lz_data[0].val_future;
+				size_t lz_looper = 1;
+				for(size_t i=0;i<width*height;i++){
+					if(next_match == 0){
+						i += lz_data[lz_looper].val_matchlen;
+						next_match = lz_data[lz_looper++].val_future;
+						continue;
+					}
+					else{
+						next_match--;
+					}
+					size_t tile_index = tileIndexFromPixel(
+						i,
+						width,
+						entropyWidth,
+						entropyWidth_block,
+						entropyHeight_block
+					);
+					statistics[entropy_image[tile_index*3 + 2]].freqs[filtered_bytes[i*3 + 2]]++;
+					statistics[entropy_image[tile_index*3 + 1]].freqs[filtered_bytes[i*3 + 1]]++;
+					statistics[entropy_image[tile_index*3 + 0]].freqs[filtered_bytes[i*3 + 0]]++;
+				}
+			}
 		}
 		else{
 			delete[] lz_data;
