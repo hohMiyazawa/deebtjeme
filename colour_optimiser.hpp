@@ -4060,12 +4060,27 @@ void colour_optimiser_take6_lz(
 		if(lzlimit < 256){
 			lzlimit = 256;
 		}
-		lz_data = lz_dist(
+		/*lz_data = lz_dist(
 			in_bytes,
 			width,
 			height,
 			lz_size,
+			256
+		);*/
+		lz_data = lz_dist_complete(
+			in_bytes,
+			estimate,
+			width,
+			height,
+			lz_size,
+			16,
 			lzlimit
+		);
+		lz_pruner(
+			estimate,
+			width,
+			lz_data,
+			lz_size
 		);
 		/*lz_data = lz_dist_fast(
 			in_bytes,

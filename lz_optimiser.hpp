@@ -931,4 +931,94 @@ lz_triple* lz_dist_grey(
 	return lz_data;
 }
 
+void lz_pruner(
+	float* estimate,
+	uint32_t width,
+	lz_triple* lz_data,
+	size_t& lz_size
+){
+	SymbolStats stats_backref_x;
+	SymbolStats stats_backref_y;
+	SymbolStats stats_matchlen;
+	SymbolStats stats_future;
+	for(size_t i=0;i<256;i++){
+		stats_backref_x.freqs[i] = 0;
+		stats_backref_y.freqs[i] = 0;
+		stats_matchlen.freqs[i] = 0;
+		stats_future.freqs[i] = 0;
+	}
+	for(size_t i=1;i<lz_size;i++){
+		stats_backref_x.freqs[lz_data[i].backref_x]++;
+		stats_backref_y.freqs[lz_data[i].backref_y]++;
+		stats_matchlen.freqs[lz_data[i].matchlen]++;
+		stats_future.freqs[lz_data[i].future]++;
+	}
+	stats_future.freqs[lz_data[0].future]++;
+
+	double* backref_x_cost = entropyLookup(stats_backref_x);
+	double* backref_y_cost = entropyLookup(stats_backref_y);
+	double* matchlen_cost = entropyLookup(stats_matchlen);
+	double* future_cost = entropyLookup(stats_future);
+
+	for(size_t i=0;i<256;i++){
+		uint8_t extrabits = extrabits_from_prefix(i);
+		backref_y_cost[i] += extrabits;
+		matchlen_cost[i] += extrabits;
+		future_cost[i] += extrabits;
+	}
+	uint8_t max_back_x = inverse_prefix((width+1)/2)*2 + 1;
+	for(size_t i=0;i<=max_back_x;i++){
+		if(max_back_x - i < i){
+			backref_x_cost[i] += extrabits_from_prefix(max_back_x - i);
+		}
+		else{
+			backref_x_cost[i] += extrabits_from_prefix(i);
+		}
+	}
+	size_t index = lz_data[0].val_future;
+	double total_minus = 0;
+
+	size_t newIndex = 1;
+	for(size_t i=1;i<lz_size;i++){
+		double saved = 0;
+		for(size_t j=0;j<=lz_data[i].val_matchlen;j++){
+			saved += estimate[index + j];
+		}
+		saved -= backref_x_cost[lz_data[i].backref_x];
+		saved -= backref_y_cost[lz_data[i].backref_y];
+		saved -= matchlen_cost[lz_data[i].matchlen];
+		saved -= (
+				future_cost[lz_data[i].future]
+				+ future_cost[lz_data[i-1].future]
+			) - future_cost[
+				inverse_prefix(
+					lz_data[i].val_future
+					+ lz_data[i-1].val_future
+					+ lz_data[i].val_matchlen
+					+ 1
+				)
+			];
+		if(saved < 0){
+			total_minus += saved;
+			lz_data[newIndex - 1].val_future += lz_data[i].val_future + lz_data[i].val_matchlen + 1;
+			lz_data[newIndex - 1].future = inverse_prefix(lz_data[newIndex - 1].val_future);
+
+			uint8_t future_extrabits = extrabits_from_prefix(lz_data[newIndex - 1].future);
+			lz_data[lz_size - 1].future_bits = prefix_extrabits(lz_data[newIndex - 1].val_future) + (future_extrabits << 24);
+		}
+		else{
+			lz_data[newIndex++] = lz_data[i];
+		}
+		
+		index += lz_data[i].val_matchlen + 1 + lz_data[i].val_future;
+	}
+	lz_size = newIndex;
+	printf("reached %d %f\n",(int)index,total_minus);
+
+	delete[] backref_x_cost;
+	delete[] backref_y_cost;
+	delete[] matchlen_cost;
+	delete[] future_cost;
+}
+
 #endif //LZ_OPTIMISER
