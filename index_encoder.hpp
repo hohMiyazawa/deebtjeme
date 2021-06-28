@@ -737,6 +737,12 @@ void indexed_encode_speed4(
 		16,
 		(16 << speed)
 	);
+	lz_pruner(
+		estimate,
+		width,
+		lz_data,
+		lz_size
+	);
 	delete[] estimate;
 
 	if(lz_size > 10){
