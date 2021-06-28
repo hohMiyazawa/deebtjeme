@@ -3977,6 +3977,10 @@ void colour_optimiser_take6_lz(
 			break;
 		}
 	}
+	for(size_t i=0;i<predictorCount;i++){
+		delete[] filter_collection[i];
+	}
+	delete[] filter_collection;
 //
 	contextNumber = colour_contextSize_optimiser(
 		filtered_bytes,
@@ -4008,6 +4012,31 @@ void colour_optimiser_take6_lz(
 	bool LZ_used = false;
 	lz_triple* lz_data;
 	size_t lz_size;
+	float* estimate = new float[width*height];
+
+	double* costTables[contextNumber];
+
+	for(size_t i=0;i<contextNumber;i++){
+		costTables[i] = entropyLookup(statistics[i]);
+	}
+
+	for(size_t i=0;i<width*height;i++){
+		size_t tile_index = tileIndexFromPixel(
+			i,
+			width,
+			entropyWidth,
+			entropyWidth_block,
+			entropyHeight_block
+		);
+		estimate[i] =
+			costTables[entropy_image[tile_index*3]][filtered_bytes[i*3]]
+			+ costTables[entropy_image[tile_index*3+1]][filtered_bytes[i*3+1]]
+			+ costTables[entropy_image[tile_index*3+2]][filtered_bytes[i*3+2]];
+	}
+
+	for(size_t i=0;i<contextNumber;i++){
+		delete[] costTables[i];
+	}
 
 	lz_data = lz_dist_fast(
 		in_bytes,
@@ -4090,6 +4119,7 @@ void colour_optimiser_take6_lz(
 			delete[] lz_data;
 		}
 	}
+	delete[] estimate;
 ///encode data
 	//printf("table started\n");
 	BitWriter tableEncode;
@@ -4277,11 +4307,6 @@ void colour_optimiser_take6_lz(
 	delete[] filtered_bytes;
 
 	//printf("ransenc done\n");
-
-	for(size_t i=0;i<predictorCount;i++){
-		delete[] filter_collection[i];
-	}
-	delete[] filter_collection;
 
 	uint8_t* trailing;
 
