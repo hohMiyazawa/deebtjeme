@@ -1100,7 +1100,7 @@ lz_triple* lz_dist_selfAware(
 				break;
 			}
 		}
-		if(future_iden_value > backref_x_cost[0] + backref_y_cost[0] + matchlen_cost[inverse_prefix(future_iden - 1)] + future_cost[inverse_prefix(previous_match)]){
+		if(future_iden && future_iden_value > backref_x_cost[0] + backref_y_cost[0] + matchlen_cost[inverse_prefix(future_iden - 1)] + future_cost[inverse_prefix(previous_match)]){
 			size_t match_length = future_iden - 1;
 
 			previous_match += 1;

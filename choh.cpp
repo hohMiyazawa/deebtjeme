@@ -66,7 +66,12 @@ int main(int argc, char *argv[]){
 		}
 		else if(colour_count == 2){
 			//encode_grey_binary(grey, 256, width, height, outPointer, palette[0], palette[1]);
-			encode_grey_binary_entropy(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
+			if(speed < 4){
+				encode_grey_binary_entropy(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
+			}
+			else{
+				encode_grey_binary_entropy_lz(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
+			}
 		}
 		else{
 			if(speed == 0){

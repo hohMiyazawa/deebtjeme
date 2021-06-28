@@ -380,6 +380,12 @@ void encode_grey_binary_entropy_lz(uint8_t* in_bytes, uint32_t range,uint32_t wi
 		24,
 		(16 << speed)
 	);
+	lz_pruner(
+		estimate,
+		width,
+		lz_data,
+		lz_size
+	);
 	delete[] estimate;
 
 	if(lz_size > 10){
