@@ -4058,7 +4058,7 @@ void colour_optimiser_take6_lz(
 	lz_size = 0;
 	if(synth > 0.25){
 		printf("Trying LZ\n");
-		size_t lzlimit = width*4;
+		size_t lzlimit = width*(speed - 4);
 		if(lzlimit < 256){
 			lzlimit = 256;
 		}
