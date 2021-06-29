@@ -4278,6 +4278,18 @@ void colour_optimiser_take6_lz(
 			delete[] filter_collection[i];
 		}
 		delete[] filter_collection;
+		//one pass for stats tables
+		contextNumber = colour_entropy_redistribution_pass(
+			filtered_bytes,
+			range,
+			width,
+			height,
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			statistics
+		);
 	}
 ///encode data
 	//printf("table started\n");

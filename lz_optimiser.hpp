@@ -1099,6 +1099,8 @@ lz_triple* lz_dist_selfAware(
 	for(size_t i=0;i<height;i++){
 		col_cost[i] = backref_y_cost[inverse_prefix(i)];
 	}
+	delete[] backref_x_cost;
+	delete[] backref_y_cost;
 
 	size_t limit = speed;
 
@@ -1287,8 +1289,6 @@ lz_triple* lz_dist_selfAware(
 	lz_data[lz_size - 1].future_bits = prefix_extrabits(previous_match) + (future_extrabits << 24);
 	lz_data[lz_size - 1].future = future_prefix;
 
-	delete[] backref_x_cost;
-	delete[] backref_y_cost;
 	delete[] matchlen_cost;
 	delete[] future_cost;
 
