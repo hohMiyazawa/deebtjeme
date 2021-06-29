@@ -4178,6 +4178,26 @@ void colour_optimiser_take6_lz(
 					lz_size
 				);
 				printf("lz size: %d\n",(int)lz_size);
+				if(speed > 12){
+					printf("Doing second introspective LZ matching (slow). Only enabled at speed > 12\n");
+					lz_dist_selfAware(
+						in_bytes,
+						estimate,
+						width,
+						height,
+						lz_data,
+						lz_size,
+						lzlimit
+					);
+					printf("lz size: %d\n",(int)lz_size);
+					lz_pruner(
+						estimate,
+						width,
+						lz_data,
+						lz_size
+					);
+					printf("lz size: %d\n",(int)lz_size);
+				}
 
 				for(size_t context = 0;context < contextNumber;context++){
 					for(size_t i=0;i<256;i++){

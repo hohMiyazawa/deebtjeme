@@ -146,4 +146,17 @@ uint32_t prefix_to_val(
 	return value;
 }
 
+uint32_t prefix_to_val_noExtra(
+	uint8_t prefix
+){
+	if(prefix < 4){
+		return (uint32_t)prefix;
+	}
+	uint32_t value = (1 << (prefix/2));
+	if(prefix % 2){
+		value += (value >> 1);
+	}
+	return value;
+}
+
 #endif //PREFIX_CODING

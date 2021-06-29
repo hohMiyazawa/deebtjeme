@@ -975,6 +975,20 @@ void lz_pruner(
 			backref_x_cost[i] += extrabits_from_prefix(i);
 		}
 	}
+/*
+	printf("back_x stats:\n");
+	for(size_t i=0;i<=max_back_x;i++){
+		printf("%d: %d %f\n",(int)i,(int)stats_backref_x.freqs[i],backref_x_cost[i]);
+	}
+	printf("back_y stats:\n");
+	for(size_t i=0;i<20;i++){
+		printf("%d: %d %f\n",(int)i,(int)stats_backref_y.freqs[i],backref_y_cost[i]);
+	}
+	printf("matchlen stats:\n");
+	for(size_t i=0;i<20;i++){
+		printf("%d: %d %f\n",(int)i,(int)stats_matchlen.freqs[i],matchlen_cost[i]);
+	}
+*/
 	size_t index = lz_data[0].val_future;
 	double total_minus = 0;
 
@@ -1070,11 +1084,21 @@ lz_triple* lz_dist_selfAware(
 		}
 	}
 
-/*
-	for(size_t i=0;i<256;i++){
-		printf("%d %f\n",(int)i,future_cost[i]);
+	double row_cost[width];
+	double col_cost[height];
+	for(size_t i=0;i<width;i++){
+		uint8_t back_x_prefix;
+		if(width - i < i){
+			back_x_prefix = max_back_x - inverse_prefix(width - i - 1);
+		}
+		else{
+			back_x_prefix = inverse_prefix(i);
+		}
+		row_cost[i] = backref_x_cost[back_x_prefix];
 	}
-*/
+	for(size_t i=0;i<height;i++){
+		col_cost[i] = backref_y_cost[inverse_prefix(i)];
+	}
 
 	size_t limit = speed;
 
@@ -1100,7 +1124,7 @@ lz_triple* lz_dist_selfAware(
 				break;
 			}
 		}
-		if(future_iden && future_iden_value > backref_x_cost[0] + backref_y_cost[0] + matchlen_cost[inverse_prefix(future_iden - 1)] + future_cost[inverse_prefix(previous_match)]){
+		if(future_iden && future_iden_value > row_cost[0] + col_cost[0] + matchlen_cost[inverse_prefix(future_iden - 1)] + future_cost[inverse_prefix(previous_match)]){
 			size_t match_length = future_iden - 1;
 
 			previous_match += 1;
@@ -1155,6 +1179,7 @@ lz_triple* lz_dist_selfAware(
 			}
 			uint32_t back_x = (step_back - 1) % width;
 			uint32_t back_y = (step_back - 1) / width;
+/*
 			uint8_t back_x_prefix;
 			if(width - back_x < back_x){
 				back_x_prefix = max_back_x - inverse_prefix(width - back_x - 1);
@@ -1165,6 +1190,11 @@ lz_triple* lz_dist_selfAware(
 			uint8_t back_y_prefix = inverse_prefix(back_y);
 			value -= backref_x_cost[back_x_prefix];
 			value -= backref_y_cost[back_y_prefix];
+*/
+
+			value -= row_cost[back_x];	
+			value -= col_cost[back_y];
+/**/
 			value -= matchlen_cost[inverse_prefix(len - 1)];
 			value -= future_cost[inverse_prefix(previous_match)];
 			if(value > best_value){
@@ -1193,10 +1223,8 @@ lz_triple* lz_dist_selfAware(
 					break;
 				}
 			}
-			uint32_t back_y = (yy*width - 1) / width;
-			uint8_t back_y_prefix = inverse_prefix(back_y);
-			value -= backref_x_cost[max_back_x];
-			value -= backref_y_cost[back_y_prefix];
+			value -= row_cost[width - 1];
+			value -= col_cost[yy - 1];
 			value -= matchlen_cost[inverse_prefix(len - 1)];
 			value -= future_cost[inverse_prefix(previous_match)];
 
