@@ -3915,7 +3915,7 @@ void colour_optimiser_take6_lz(
 0b0001001111000010
 	};
 
-	printf("testing %d alternate predictors\n",(int)available_predictors);
+	printf("testing %d alternate predictors",(int)available_predictors);
 
 	for(size_t i=1;i<available_predictors;i++){
 		predictorCount = colourSub_add_predictor_maybe_prefiltered(
@@ -3939,8 +3939,8 @@ void colour_optimiser_take6_lz(
 		);
 	}
 
-	printf("performing %d refinement passes\n",(int)speed);
-	for(size_t i=0;i<speed;i++){
+	printf("\nperforming %d refinement passes\n",(int)speed/2);
+	for(size_t i=0;i<speed/2;i++){
 		contextNumber = colour_entropy_redistribution_pass(
 			filtered_bytes,
 			range,
@@ -3977,10 +3977,6 @@ void colour_optimiser_take6_lz(
 			break;
 		}
 	}
-	for(size_t i=0;i<predictorCount;i++){
-		delete[] filter_collection[i];
-	}
-	delete[] filter_collection;
 //
 /*
 	contextNumber = colour_contextSize_optimiser(
@@ -4011,6 +4007,7 @@ void colour_optimiser_take6_lz(
 		statistics
 	);
 //lz interlude
+	printf("Testing LZ\n");
 	bool LZ_used = false;
 	lz_triple* lz_data;
 	size_t lz_size;
@@ -4057,6 +4054,10 @@ void colour_optimiser_take6_lz(
 	delete[] lz_data;
 	lz_size = 0;
 	if(synth > 0.25){
+		for(size_t i=0;i<predictorCount;i++){
+			delete[] filter_collection[i];
+		}
+		delete[] filter_collection;
 		printf("Trying LZ\n");
 		size_t lzlimit;
 		if(speed > 20){
@@ -4081,6 +4082,7 @@ void colour_optimiser_take6_lz(
 			16,
 			lzlimit
 		);
+		printf("lz size: %d\n",(int)lz_size);
 		lz_pruner(
 			estimate,
 			width,
@@ -4158,6 +4160,7 @@ void colour_optimiser_take6_lz(
 				for(size_t i=0;i<contextNumber;i++){
 					delete[] costTables[i];
 				}
+				printf("Doing introspective LZ matching (slow). Only enabled at speed > 9\n");
 				lz_dist_selfAware(
 					in_bytes,
 					estimate,
@@ -4167,12 +4170,14 @@ void colour_optimiser_take6_lz(
 					lz_size,
 					lzlimit
 				);
+				printf("lz size: %d\n",(int)lz_size);
 				lz_pruner(
 					estimate,
 					width,
 					lz_data,
 					lz_size
 				);
+				printf("lz size: %d\n",(int)lz_size);
 
 				for(size_t context = 0;context < contextNumber;context++){
 					for(size_t i=0;i<256;i++){
@@ -4207,8 +4212,53 @@ void colour_optimiser_take6_lz(
 		else{
 			delete[] lz_data;
 		}
+		delete[] estimate;
 	}
-	delete[] estimate;
+	else{
+		delete[] estimate;
+		printf("performing %d refinement passes\n",(int)(speed - speed/2));
+		for(size_t i=0;i<speed - speed/2;i++){
+			contextNumber = colour_entropy_redistribution_pass(
+				filtered_bytes,
+				range,
+				width,
+				height,
+				entropy_image,
+				contextNumber,
+				entropyWidth,
+				entropyHeight,
+				statistics
+			);
+
+			//printf("shuffling predictors around\n");
+			double saved = colourSub_predictor_redistribution_pass_prefiltered(
+				in_bytes,
+				filtered_bytes,
+				range,
+				width,
+				height,
+				entropy_image,
+				contextNumber,
+				entropyWidth,
+				entropyHeight,
+				statistics,
+				predictors,
+				predictor_image,
+				predictorCount,
+				predictorWidth,
+				predictorHeight,
+				filter_collection
+			);
+			printf("saved: %f bits\n",saved);
+			if(saved < 8){//early escape
+				break;
+			}
+		}
+		for(size_t i=0;i<predictorCount;i++){
+			delete[] filter_collection[i];
+		}
+		delete[] filter_collection;
+	}
 ///encode data
 	//printf("table started\n");
 	BitWriter tableEncode;
@@ -4283,8 +4333,6 @@ void colour_optimiser_take6_lz(
 		RansEncSymbol binary_one;
 		RansEncSymbolInit(&binary_zero, 0, (1 << 15), 16);
 		RansEncSymbolInit(&binary_one,  (1 << 15), (1 << 15), 16);
-
-		printf("lz freq tables created\n");
 
 		uint32_t next_match = lz_data[--lz_size].val_future;
 		for(size_t index=width*height;index--;){

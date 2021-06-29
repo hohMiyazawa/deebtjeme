@@ -806,7 +806,7 @@ uint32_t colourSub_add_predictor_maybe_prefiltered(
 		//nonaligned block? how to deal with that?
 	}
 	if(blocks && saved > 80){
-		printf("maybe: %d %f\n",(int)blocks,saved);
+		printf(" %f",saved);
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height*3));
 		saved = 0;
 		blocks = 0;

@@ -1013,8 +1013,8 @@ void lz_pruner(
 		
 		index += lz_data[i].val_matchlen + 1 + lz_data[i].val_future;
 	}
+	printf("pruned %d matches, saving %f bits\n",(int)(lz_size - newIndex),-total_minus);
 	lz_size = newIndex;
-	printf("reached %d %f\n",(int)index,total_minus);
 
 	delete[] backref_x_cost;
 	delete[] backref_y_cost;
