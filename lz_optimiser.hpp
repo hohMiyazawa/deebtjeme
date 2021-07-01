@@ -969,10 +969,6 @@ lz_triple* lz_dist_selfAware(
 			else if(width - back_x <= 8 && back_y < 7){
 				value -= backref_cost[reverse_lut[(6 - back_y) * 16 + 7 + width - back_x]];
 			}
-			else if(width - back_x == 1 && back_y < 1024){
-				uint8_t vertical_prefix = inverse_prefix(back_y);
-				value -= backref_cost[140 + vertical_prefix];
-			}
 			else if(back_x < 16 && back_y > 0 && back_y <= 1024){
 				uint8_t vertical_prefix = inverse_prefix(back_y - 1);
 				value -= backref_cost[120 + vertical_prefix];
@@ -1018,31 +1014,11 @@ lz_triple* lz_dist_selfAware(
 			}
 
 			if(yy*width < (1 << 20)){
-
-				size_t back_x = (yy*width - 1) % width;
 				size_t back_y = (yy*width - 1) / width;
 
-				if(back_x < 8 && back_y < 8){
-					value -= backref_cost[reverse_lut[(7 - back_y) * 16 + 7 - back_x]];
-				}
-				else if(width - back_x <= 8 && back_y < 7){
-					value -= backref_cost[reverse_lut[(6 - back_y) * 16 + 7 + width - back_x]];
-				}
-				else if(width - back_x == 1 && back_y < 1024){
-					uint8_t vertical_prefix = inverse_prefix(back_y);
-					value -= backref_cost[140 + vertical_prefix];
-				}
-				else if(back_x < 16 && back_y > 0 && back_y <= 1024){
-					uint8_t vertical_prefix = inverse_prefix(back_y - 1);
-					value -= backref_cost[120 + vertical_prefix];
-				}
-				else if(width - back_x <= 16 && back_y < 1024){
-					uint8_t vertical_prefix = inverse_prefix(back_y);
-					value -= backref_cost[120 + vertical_prefix];
-				}
-				else{
-					value -= backref_cost[160 + inverse_prefix(yy*width - 1)];
-				}
+				uint8_t vertical_prefix = inverse_prefix(back_y);
+				value -= backref_cost[140 + vertical_prefix];
+
 				//value -= backref_cost[160 + inverse_prefix(yy*width - 1)];
 				value -= matchlen_cost[inverse_prefix(len - 1)];
 				value -= future_cost[inverse_prefix(previous_match)];
