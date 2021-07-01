@@ -770,6 +770,37 @@ lz_triple_c* lz_pruner(
 /*
 	TODO: some context swapping optimisations here?
 */
+/*
+	bool singles_blocked = false;
+	bool blocked[120];
+	for(size_t i=0;i<120;i++){
+		blocked[i] = false;
+	}
+	for(size_t y=0;y<7;y++){
+		for(size_t x=0;x<15;x++){
+			uint8_t location = y*16 + x;
+			uint8_t prefix = reverse_lut[location];
+			if(stats_backref.freqs[prefix] && backref_cost[prefix] > backref_cost[140 + inverse_prefix(6 - y)]){
+				printf("   yay %d!\n",stats_backref.freqs[prefix]);
+				blocked[prefix] = true;
+				singles_blocked = true;
+				stats_backref.freqs[140 + inverse_prefix(6 - y)] += stats_backref.freqs[prefix];
+				stats_backref.freqs[prefix] = 0;
+			}
+		}
+	}
+	if(singles_blocked){
+		for(size_t i=1;i<lz_size;i++){
+			if(reval[i].backref < 120 && blocked[reval[i].backref] == true){
+				printf("mingw\n");
+			}
+		}
+		delete[] backref_cost;
+		backref_cost = entropyLookup(stats_backref);
+	}
+*/
+
+//end context swapping
 
 
 	size_t index = lz_data[0].val_future;
@@ -821,6 +852,235 @@ lz_triple_c* lz_pruner(
 	delete[] future_cost;
 
 	return reval;
+}
+
+lz_triple* lz_dist_selfAware(
+	uint8_t* in_bytes,
+	float* estimate,
+	uint32_t width,
+	uint32_t height,
+	lz_triple* lz_data,
+	lz_triple_c* lz_symbols,
+	size_t& lz_size,
+	double value_tresh,
+	size_t speed
+){
+	SymbolStats stats_backref;
+	SymbolStats stats_matchlen;
+	SymbolStats stats_future;
+	for(size_t i=0;i<256;i++){
+		stats_backref.freqs[i] = 0;
+		stats_matchlen.freqs[i] = 0;
+		stats_future.freqs[i] = 0;
+	}
+	for(size_t i=1;i<lz_size;i++){
+		stats_backref.freqs[lz_symbols[i].backref]++;
+		stats_matchlen.freqs[lz_symbols[i].matchlen]++;
+		stats_future.freqs[lz_symbols[i].future]++;
+	}
+	stats_future.freqs[lz_symbols[0].future]++;
+
+	double* backref_cost = entropyLookup(stats_backref);
+	double* matchlen_cost = entropyLookup(stats_matchlen);
+	double* future_cost = entropyLookup(stats_future);
+
+	for(size_t i=0;i<20;i++){
+		uint8_t extrabits = extrabits_from_prefix(i);
+		backref_cost[120 + i] += extrabits;
+		backref_cost[140 + i] += extrabits + 5;
+	}
+	for(size_t i=0;i<40;i++){
+		uint8_t extrabits = extrabits_from_prefix(i);
+		backref_cost[160 + i] += extrabits;
+		matchlen_cost[i] += extrabits;
+		future_cost[i] += extrabits;
+	}
+
+	size_t limit = speed;
+
+	size_t previous_match = 0;
+
+	lz_data[0].val_future = 0;
+	lz_size = 1;
+
+	for(int i=0;i<width*height;){
+		//printf("i %d\n",(int)i);
+
+		size_t future_iden = 0;
+		double future_iden_value = 0;
+		for(size_t j=1;j + i < width*height;j++){
+			if(
+				in_bytes[i*3 + 0] == in_bytes[(i + j)*3 + 0]
+				&& in_bytes[i*3 + 1] == in_bytes[(i + j)*3 + 1]
+				&& in_bytes[i*3 + 2] == in_bytes[(i + j)*3 + 2]
+			){
+				future_iden++;
+				future_iden_value += estimate[i + j];
+			}
+			else{
+				break;
+			}
+		}
+		if(future_iden_value > value_tresh){
+			size_t match_length = future_iden - 1;
+			previous_match += 1;
+
+			lz_data[lz_size - 1].val_future = previous_match;
+			lz_data[lz_size].val_backref = 0;
+			lz_data[lz_size].val_matchlen = match_length;
+
+			lz_size++;
+			previous_match = 0;
+			i += match_length + 2;
+			continue;
+		}
+		else if(future_iden > 64){
+			previous_match += future_iden + 1;
+			i += future_iden + 1;
+			continue;
+		}
+
+		size_t match_length = 0;
+		size_t back_ref = 0;
+		double best_value = 0;
+		for(int step_back=2;step_back < limit && i - step_back + 1 > 0;step_back++){
+			size_t len = 0;
+			double value = 0;
+			for(;i + len < width*height;){
+				if(
+					in_bytes[(i + len)*3 + 0] == in_bytes[(i - step_back + len)*3 + 0]
+					&& in_bytes[(i + len)*3 + 1] == in_bytes[(i - step_back + len)*3 + 1]
+					&& in_bytes[(i + len)*3 + 2] == in_bytes[(i - step_back + len)*3 + 2]
+				){
+					value += estimate[i + len];
+					len++;
+				}
+				else{
+					break;
+				}
+			}
+
+			size_t back_x = (step_back - 1) % width;
+			size_t back_y = (step_back - 1) / width;
+
+			if(back_x < 8 && back_y < 8){
+				value -= backref_cost[reverse_lut[(7 - back_y) * 16 + 7 - back_x]];
+			}
+			else if(width - back_x <= 8 && back_y < 7){
+				value -= backref_cost[reverse_lut[(6 - back_y) * 16 + 7 + width - back_x]];
+			}
+			else if(width - back_x == 1 && back_y < 1024){
+				uint8_t vertical_prefix = inverse_prefix(back_y);
+				value -= backref_cost[140 + vertical_prefix];
+			}
+			else if(back_x < 16 && back_y > 0 && back_y <= 1024){
+				uint8_t vertical_prefix = inverse_prefix(back_y - 1);
+				value -= backref_cost[120 + vertical_prefix];
+			}
+			else if(width - back_x <= 16 && back_y < 1024){
+				uint8_t vertical_prefix = inverse_prefix(back_y);
+				value -= backref_cost[120 + vertical_prefix];
+			}
+			else{
+				value -= backref_cost[160 + inverse_prefix(step_back - 1)];
+			}
+
+			//value -= backref_cost[160 + inverse_prefix(step_back - 1)];
+			value -= matchlen_cost[inverse_prefix(len - 1)];
+			value -= future_cost[inverse_prefix(previous_match)];
+
+			if(value > best_value){
+				match_length = len;
+				//printf("%d i+len\n",(int)(i + len));
+				back_ref = step_back;
+				best_value = value;
+				if(len > 64){
+					break;
+				}
+			}
+		}
+		size_t y = i/width;
+		for(size_t yy=0;yy < limit && y - (yy++);){
+			size_t len = 0;
+			double value = 0;
+			for(;i + len < width*height;){
+				if(
+					in_bytes[(i + len)*3 + 0] == in_bytes[(i - yy*width + len)*3 + 0]
+					&& in_bytes[(i + len)*3 + 1] == in_bytes[(i - yy*width + len)*3 + 1]
+					&& in_bytes[(i + len)*3 + 2] == in_bytes[(i - yy*width + len)*3 + 2]
+				){
+					value += estimate[i + len];
+					len++;
+				}
+				else{
+					break;
+				}
+			}
+
+			if(yy*width < (1 << 20)){
+
+				size_t back_x = (yy*width - 1) % width;
+				size_t back_y = (yy*width - 1) / width;
+
+				if(back_x < 8 && back_y < 8){
+					value -= backref_cost[reverse_lut[(7 - back_y) * 16 + 7 - back_x]];
+				}
+				else if(width - back_x <= 8 && back_y < 7){
+					value -= backref_cost[reverse_lut[(6 - back_y) * 16 + 7 + width - back_x]];
+				}
+				else if(width - back_x == 1 && back_y < 1024){
+					uint8_t vertical_prefix = inverse_prefix(back_y);
+					value -= backref_cost[140 + vertical_prefix];
+				}
+				else if(back_x < 16 && back_y > 0 && back_y <= 1024){
+					uint8_t vertical_prefix = inverse_prefix(back_y - 1);
+					value -= backref_cost[120 + vertical_prefix];
+				}
+				else if(width - back_x <= 16 && back_y < 1024){
+					uint8_t vertical_prefix = inverse_prefix(back_y);
+					value -= backref_cost[120 + vertical_prefix];
+				}
+				else{
+					value -= backref_cost[160 + inverse_prefix(yy*width - 1)];
+				}
+				//value -= backref_cost[160 + inverse_prefix(yy*width - 1)];
+				value -= matchlen_cost[inverse_prefix(len - 1)];
+				value -= future_cost[inverse_prefix(previous_match)];
+
+				if(value > best_value){
+					match_length = len;
+					//printf("%d i2+len\n",(int)(i + len));
+					back_ref = yy*width;
+					best_value = value;
+				}
+			}
+			else{
+				break;
+			}
+		}
+		if(
+			best_value == 0
+		){
+			previous_match++;
+			i++;
+		}
+		else{
+			lz_data[lz_size - 1].val_future = previous_match;
+			lz_data[lz_size].val_backref = back_ref - 1;
+			lz_data[lz_size].val_matchlen = match_length - 1;
+
+			lz_size++;
+			previous_match = 0;
+			i += match_length;
+		}
+	}
+	lz_data[lz_size - 1].val_future = previous_match;
+
+	delete[] backref_cost;
+	delete[] matchlen_cost;
+	delete[] future_cost;
+
+	return lz_data;
 }
 
 #endif //LZ_OPTIMISER

@@ -4067,7 +4067,7 @@ void colour_optimiser_take6_lz(
 				statistics[entropy_image[tile_index*3 + 0]].freqs[filtered_bytes[i*3 + 0]]++;
 			}
 
-			if(0 && speed > 9){
+			if(speed > 9){
 				double* costTables[contextNumber];
 
 				for(size_t i=0;i<contextNumber;i++){
@@ -4092,6 +4092,17 @@ void colour_optimiser_take6_lz(
 					delete[] costTables[i];
 				}
 /*
+				delete[] lz_data;
+				lz_data = lz_dist_complete(
+					in_bytes,
+					estimate,
+					width,
+					height,
+					lz_size,
+					16,
+					lzlimit
+				);
+*/
 				printf("Doing introspective LZ matching (slow). Only enabled at speed > 9\n");
 				lz_dist_selfAware(
 					in_bytes,
@@ -4099,10 +4110,13 @@ void colour_optimiser_take6_lz(
 					width,
 					height,
 					lz_data,
+					lz_symbols,
 					lz_size,
+					16,
 					lzlimit
 				);
 				printf("lz size: %d\n",(int)lz_size);
+				delete[] lz_symbols;
 				lz_symbols = lz_pruner(
 					estimate,
 					width,
@@ -4110,7 +4124,30 @@ void colour_optimiser_take6_lz(
 					lz_size
 				);
 				printf("lz size: %d\n",(int)lz_size);
-*/
+				if(speed > 12){
+					printf("Doing second introspective LZ matching (slow). Only enabled at speed > 12\n");
+					lz_dist_selfAware(
+						in_bytes,
+						estimate,
+						width,
+						height,
+						lz_data,
+						lz_symbols,
+						lz_size,
+						16,
+						lzlimit
+					);
+					printf("lz size: %d\n",(int)lz_size);
+					delete[] lz_symbols;
+					lz_symbols = lz_pruner(
+						estimate,
+						width,
+						lz_data,
+						lz_size
+					);
+					printf("lz size: %d\n",(int)lz_size);
+				}
+
 
 				for(size_t context = 0;context < contextNumber;context++){
 					for(size_t i=0;i<256;i++){
