@@ -55,17 +55,66 @@
 */
 
 struct lz_triple{
-	uint8_t backref_x;
-	uint8_t backref_y;
+	uint32_t val_backref;
+	uint32_t val_matchlen;
+	uint32_t val_future;
+};
+
+struct lz_triple_c{
+	uint8_t backref;
 	uint8_t matchlen;
 	uint8_t future;
-	uint32_t val_future;
-	uint32_t val_matchlen;
-	uint32_t backref_x_bits;
-	uint32_t backref_y_bits;
+	uint32_t backref_bits;
 	uint32_t matchlen_bits;
 	uint32_t future_bits;
 };
+
+int8_t lut_x[120] = {
+ 0,   1,   1,  -1,   0,   2,   1,  -1, 
+ 2,  -2,   2,  -2,   0,   3,   1,  -1, 
+ 3,  -3,   2,  -2,   3,  -3,   0,   4, 
+ 1,  -1,   4,  -4,   3,  -3,   2,  -2, 
+ 4,  -4,   0,   3,  -3,   4,  -4,   5, 
+ 1,  -1,   5,  -5,   2,  -2,   5,  -5, 
+ 4,  -4,   3,  -3,   5,  -5,   0,   6, 
+ 1,  -1,   6,  -6,   2,  -2,   6,  -6, 
+ 4,  -4,   5,  -5,   3,  -3,   6,  -6, 
+ 0,   7,   1,  -1,   5,  -5,   7,  -7, 
+ 4,  -4,   6,  -6,   2,  -2,   7,  -7, 
+ 3,  -3,   7,  -7,   5,  -5,   6,  -6, 
+ 8,   4,  -4,   7,  -7,   8,   8,   6, 
+-6,   8,   5,  -5,   7,  -7,   8,   6, 
+-6,   7,  -7,   8,   7,  -7,   8,   8};
+
+int8_t lut_y[120] = {
+ 1,   0,   1,   1,   2,   0,   2,   2,
+ 1,   1,   2,   2,   3,   0,   3,   3,
+ 1,   1,   3,   3,   2,   2,   4,   0,
+ 4,   4,   1,   1,   3,   3,   4,   4,
+ 2,   2,   5,   4,   4,   3,   3,   0,
+ 5,   5,   1,   1,   5,   5,   2,   2,
+ 4,   4,   5,   5,   3,   3,   6,   0,
+ 6,   6,   1,   1,   6,   6,   2,   2,
+ 5,   5,   4,   4,   6,   6,   3,   3,
+ 7,   0,   7,   7,   5,   5,   1,   1,
+ 6,   6,   4,   4,   7,   7,   2,   2,
+ 7,   7,   3,   3,   6,   6,   5,   5,
+ 0,   7,   7,   4,   4,   1,   2,   6,
+ 6,   3,   7,   7,   5,   5,   4,   7,
+ 7,   6,   6,   5,   7,   7,   6,   7};
+
+uint8_t reverse_lut[120] = {
+119,116,111,106, 97, 88, 84, 74, 72, 75, 85, 89, 98,107,112,117,
+118,113,103, 92, 80, 68, 60, 56, 54, 57, 61, 69, 81, 93,104,114,
+115,108, 94, 76, 64, 50, 44, 40, 34, 41, 45, 51, 65, 77, 95,109,
+110, 99, 82, 66, 48, 35, 30, 24, 22, 25, 31, 36, 49, 67, 83,100,
+105, 90, 70, 52, 37, 28, 18, 14, 12, 15, 19, 29, 38, 53, 71, 91,
+102, 86, 62, 46, 32, 20, 10,  6,  4,  7, 11, 21, 33, 47, 63, 87,
+101, 78, 58, 42, 26, 16,  8,  2,  0,  3,  9, 17, 27, 43, 59, 79,
+ 96, 73, 55, 39, 23, 13,  5,  1
+};
+
+
 
 uint8_t read_prefixcode(RansState& rans, RansDecSymbol* sym, SymbolStats stats, uint8_t*& fileIndex){
 	uint32_t cumFreq = RansDecGet(&rans, 16);
@@ -141,6 +190,26 @@ uint32_t prefix_to_val(
 		else{
 			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_one, 16);
 			value += (1 << (extrabits - shift - 1));
+		}
+	}
+	return value;
+}
+
+uint8_t read32(
+	RansState& rans,
+	uint8_t*& fileIndex,
+	RansDecSymbol decode_binary_zero,
+	RansDecSymbol decode_binary_one
+){
+	uint8_t value = 0;
+	for(size_t shift = 0;shift < 5;shift++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		if(cumFreq < (1 << 15)){
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_zero, 16);
+		}
+		else{
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_one, 16);
+			value += (1 << (4 - shift));
 		}
 	}
 	return value;
