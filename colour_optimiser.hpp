@@ -4028,12 +4028,22 @@ void colour_optimiser_take6_lz(
 		printf("lz size: %d %d %d\n",(int)lz_size,(int)(width*height),(int)lavasum);*/
 
 		printf("lz size: %d\n",(int)lz_size);
+		size_t old_lz_size = lz_size;
 		lz_symbols = lz_pruner(
 			estimate,
 			width,
 			lz_data,
 			lz_size
 		);
+		if(lz_size && old_lz_size/lz_size < 10){
+			delete[] lz_symbols;
+			lz_symbols = lz_pruner(
+				estimate,
+				width,
+				lz_data,
+				lz_size
+			);
+		}
 		if(lz_size > 1){
 			printf("lz size: %d\n",(int)lz_size);
 			LZ_used = true;
