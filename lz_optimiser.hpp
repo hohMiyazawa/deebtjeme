@@ -666,15 +666,15 @@ lz_triple_c* lz_translator(
 			reval[i].backref = 120 + vertical_prefix;
 
 			uint8_t extrabits = extrabits_from_prefix(vertical_prefix);
-			//printf("xoff: %d %d\n",(int)lz_data[i].val_backref,(int)(15 - back_x));
-			reval[i].backref_bits = ((prefix_extrabits(back_y) << 5) + (15 - back_x)) + ((extrabits + 5) << 24);
+			//printf("xoff: %d %d %d | %d x %d | %d\n",(int)lz_data[i].val_backref,(int)(15 - back_x),(int)vertical_prefix,(int)back_x,(int)back_y,(int));
+			reval[i].backref_bits = ((prefix_extrabits(back_y - 1) << 5) + (15 - back_x)) + ((extrabits + 5) << 24);
 		}
 		else if(width - back_x <= 16 && back_y < 1024){
 			uint8_t vertical_prefix = inverse_prefix(back_y);
 			reval[i].backref = 120 + vertical_prefix;
 
 			uint8_t extrabits = extrabits_from_prefix(vertical_prefix);
-			//printf("xoff: %d %d\n",(int)lz_data[i].val_backref,(int)(15 + width - back_x));
+			//printf("xoff: %d %d %d\n",(int)lz_data[i].val_backref,(int)(15 + width - back_x),(int)vertical_prefix);
 			reval[i].backref_bits = ((prefix_extrabits(back_y) << 5) + (15 + width - back_x)) + ((extrabits + 5) << 24);
 		}
 		else{

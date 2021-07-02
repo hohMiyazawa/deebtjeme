@@ -301,6 +301,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				size_t vertical = prefix_to_val(backref_prefix - 120, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				uint8_t xoffset = read32(rans, fileIndex, decode_binary_zero, decode_binary_one);
 				backref = (vertical + 1) * width - xoffset + 16;
+				//printf("xoff: %d %d %d\n",(int)backref,(int)xoffset,(int)(vertical + 1));
 			}
 			else if(backref_prefix < 160){
 				size_t vertical = prefix_to_val(backref_prefix - 140, rans, fileIndex, decode_binary_zero, decode_binary_one);
