@@ -21,12 +21,12 @@ METHOD:
 	- BYTE
 	where the bits have the following meanings (most significant bit first)
 	- bit 0:
-		RESERVED, may be used for a TILE_TRANSFORM in the future
-	- bit 1:
 		RESERVED, may be used for PROGRESSIVE in the future
-	- bit 2:
+	- bit 1:
 		0 means greyscale, only one channel is coded, with the other two equal to the first.
 		1 means colour
+	- bit 2:
+		SUBTRACT_GREEN transform is used
 	- bit 3:
 		INDEX_TRANSFORM is used
 	- bit 4:
@@ -40,8 +40,11 @@ METHOD:
 
 	not all combindations are valid:
 		- bit 0 should not be set
-		- bit 1 should not be set
-		- if bit 2 unset{
+		- if bit 1 unset{
+			- bit 4 should not be set
+		}
+		- if bit 2 set{
+			- bit 3 should not be set
 			- bit 4 should not be set
 		}
 		- if bit 3 set{

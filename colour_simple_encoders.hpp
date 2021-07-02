@@ -12,7 +12,7 @@ void colour_encode_raw(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t he
 	for(size_t index=width*height*3;index--;){
 		*(--outPointer) = in_bytes[index];
 	}
-	*(--outPointer) = 0b00100000;
+	*(--outPointer) = 0b01000000;
 }
 
 //works
@@ -42,7 +42,7 @@ void colour_encode_entropy(uint8_t* in_bytes,size_t range,uint32_t width,uint32_
 	}
 	*(--outPointer) = 0;
 
-	*(--outPointer) = 0b00100010;
+	*(--outPointer) = 0b01000010;
 }
 
 //works
@@ -111,7 +111,7 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 	}
 
 	*(--outPointer) = 3 - 1;
-	*(--outPointer) = 0b00100010;
+	*(--outPointer) = 0b01000010;
 }
 
 //works
@@ -191,7 +191,7 @@ void colour_encode_ffv1(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	*(--outPointer) = 0b00000000;
 	*(--outPointer) = 1 - 1;
 
-	*(--outPointer) = 0b00100110;
+	*(--outPointer) = 0b01000110;
 }
 
 //works
@@ -271,7 +271,7 @@ void colour_encode_left(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t h
 	*(--outPointer) = 0b00010000;
 	*(--outPointer) = 1 - 1;
 
-	*(--outPointer) = 0b00100110;
+	*(--outPointer) = 0b01000110;
 }
 
 //working
@@ -366,7 +366,7 @@ void colour_encode_ffv1_subGreen(uint8_t* in_bytes,size_t range,uint32_t width,u
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
 
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
@@ -460,7 +460,7 @@ void colour_encode_entropy_quad(uint8_t* in_bytes,size_t range,uint32_t width,ui
 
 	*(--outPointer) = contextNumber - 1;
 
-	*(--outPointer) = 0b00100010;
+	*(--outPointer) = 0b01000010;
 }
 
 #endif //COLOUR_SIMPLE_ENCODERS_HEADER

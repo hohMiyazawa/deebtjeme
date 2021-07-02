@@ -23,23 +23,26 @@ void print_usage(){
 }
 
 void sanity_check(
-	bool TILES,
 	bool PROGRESSIVE,
 	bool HAS_COLOUR,
+	bool SUBTRACT_GREEN,
 	bool INDEX_TRANSFORM,
 	bool COLOUR_TRANSFORM,
 	bool PREDICTION_MAP,
 	bool ENTROPY_MAP,
 	bool LZ
 ){
-	if(TILES){
-		panic("TILES bit set!\n");
-	}
 	if(PROGRESSIVE){
 		panic("PROGRESSIVE bit set!\n");
 	}
+	if(!HAS_COLOUR && SUBTRACT_GREEN){
+		panic("Can not subtract green for greyscale!\n");
+	}
 	if(!HAS_COLOUR && COLOUR_TRANSFORM){
 		panic("Can not use colour transform for greyscale!\n");
+	}
+	if(SUBTRACT_GREEN && COLOUR_TRANSFORM){
+		panic("Can not use colour transform and subtract green at the same time!\n");
 	}
 	if(INDEX_TRANSFORM && COLOUR_TRANSFORM){
 		panic("Can not use colour transform and index transform at the same time!\n");
@@ -59,9 +62,9 @@ void sanity_check(
 uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t height){
 	uint8_t compressionMode = *(fileIndex++);
 
-	bool TILES            = (compressionMode & 0b10000000) >> 7;
-	bool PROGRESSIVE      = (compressionMode & 0b01000000) >> 6;
-	bool HAS_COLOUR       = (compressionMode & 0b00100000) >> 5;
+	bool PROGRESSIVE      = (compressionMode & 0b10000000) >> 7;
+	bool HAS_COLOUR       = (compressionMode & 0b01000000) >> 6;
+	bool SUBTRACT_GREEN   = (compressionMode & 0b00100000) >> 5;
 	bool INDEX_TRANSFORM  = (compressionMode & 0b00010000) >> 4;
 	bool COLOUR_TRANSFORM = (compressionMode & 0b00001000) >> 3;
 	bool PREDICTION_MAP   = (compressionMode & 0b00000100) >> 2;
@@ -69,9 +72,9 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	bool LZ               = (compressionMode & 0b00000001) >> 0;
 
 	sanity_check(
-		TILES,
 		PROGRESSIVE,
 		HAS_COLOUR,
+		SUBTRACT_GREEN,
 		INDEX_TRANSFORM,
 		COLOUR_TRANSFORM,
 		PREDICTION_MAP,
@@ -152,6 +155,16 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		printf("  colour transform image %d x %d\n",(int)colourWidth,(int)colourHeight);
 		colourImage = readImage(fileIndex, 256,colourWidth,colourHeight);
 		printf("---colour transform image size: %d bytes\n",(int)(fileIndex - trailing));
+	}
+	else if(SUBTRACT_GREEN){
+		colourWidth = 1;
+		colourHeight = 1;
+		colourWidth_block  = width;
+		colourHeight_block = height;
+		colourImage = new uint8_t[3];
+		colourImage[0] = 255;
+		colourImage[1] = 255;
+		colourImage[2] = 0;
 	}
 
 	uint16_t predictors[256];
@@ -324,7 +337,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				image[(i + t)*3 + 0] = image[(i + t - backref)*3 + 0];
 				image[(i + t)*3 + 1] = image[(i + t - backref)*3 + 1];
 				image[(i + t)*3 + 2] = image[(i + t - backref)*3 + 2];
-				if(COLOUR_TRANSFORM && PREDICTION_MAP){
+				if((COLOUR_TRANSFORM || SUBTRACT_GREEN) && PREDICTION_MAP){
 					size_t colourIndex = tileIndexFromPixel(
 						i + t,
 						width,
@@ -478,7 +491,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 				image[i*3+1] = *(fileIndex++);
 				image[i*3+2] = *(fileIndex++);
 			}
-			if(COLOUR_TRANSFORM == 0){
+			if(COLOUR_TRANSFORM == 0 && SUBTRACT_GREEN == 0){
 				if(PREDICTION_MAP){
 					if(i == 0){
 						//nothing
@@ -704,7 +717,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		delete[] indexIndexImage;
 		delete[] indexLengths;
 	}
-	if(COLOUR_TRANSFORM){
+	if(COLOUR_TRANSFORM || SUBTRACT_GREEN){
 		delete[] colourImage;
 	}
 	if(PREDICTION_MAP){

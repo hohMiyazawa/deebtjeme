@@ -189,7 +189,7 @@ void colour_optimiser_entropyOnly(
 
 	*(--outPointer) = contextNumber - 1;//number of contexts
 
-	*(--outPointer) = 0b00100010;
+	*(--outPointer) = 0b01000010;
 }
 
 void colour_optimiser_take0(
@@ -389,24 +389,7 @@ void colour_optimiser_take0(
 	}
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
-
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take1(
@@ -622,23 +605,7 @@ void colour_optimiser_take1(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take2(
@@ -929,23 +896,7 @@ void colour_optimiser_take2(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take3(
@@ -1225,23 +1176,7 @@ void colour_optimiser_take3(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take4(
@@ -1565,23 +1500,7 @@ void colour_optimiser_take4(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take5(
@@ -1969,23 +1888,7 @@ void colour_optimiser_take5(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
-	*(--outPointer) = 0b00101110;
+	*(--outPointer) = 0b01100110;
 }
 
 void colour_optimiser_take3_lz(
@@ -2452,29 +2355,13 @@ void colour_optimiser_take3_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00101111;
+		*(--outPointer) = 0b01100111;
 	}
 	else{
-		*(--outPointer) = 0b00101110;
+		*(--outPointer) = 0b01100110;
 	}
 }
 
@@ -2994,29 +2881,13 @@ void colour_optimiser_take4_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00101111;
+		*(--outPointer) = 0b01100111;
 	}
 	else{
-		*(--outPointer) = 0b00101110;
+		*(--outPointer) = 0b01100110;
 	}
 }
 
@@ -3609,29 +3480,13 @@ void colour_optimiser_take5_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00101111;
+		*(--outPointer) = 0b01100111;
 	}
 	else{
-		*(--outPointer) = 0b00101110;
+		*(--outPointer) = 0b01100110;
 	}
 }
 
@@ -4461,29 +4316,13 @@ void colour_optimiser_take6_lz(
 	delete[] predictors;
 	*(--outPointer) = predictorCount - 1;
 
-	trailing = outPointer;
-	uint8_t* colour_image = new uint8_t[3];
-	colour_image[0] = 255;
-	colour_image[1] = 255;
-	colour_image[2] = 0;
-	colour_encode_raw(
-		colour_image,
-		3,
-		1,
-		1,
-		outPointer
-	);
-	delete[] colour_image;
-	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
-	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
-
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00101111;
+		*(--outPointer) = 0b01100111;
 	}
 	else{
-		*(--outPointer) = 0b00101110;
+		*(--outPointer) = 0b01100110;
 	}
 }
 
