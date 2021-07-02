@@ -2634,16 +2634,28 @@ void optimiser_take5_lz(
 		lz_size
 	);
 	printf("lz size: %d\n",(int)lz_size);
-	delete[] estimate;
 
-	size_t matchlen_sum = 0;
-	for(size_t i=1;i<lz_size;i++){
-		matchlen_sum += 1 + lz_data[i].val_matchlen;
-	}
-	double synth = (double)matchlen_sum/(width*height);
-
-	if(synth > 0.25){
+	if(lz_size > 20){
 		LZ_used = true;
+		if(speed > 8){
+			delete[] lz_symbols;
+			lz_symbols = lz_pruner(
+				estimate,
+				width,
+				lz_data,
+				lz_size
+			);
+		}
+		if(speed > 10){
+			delete[] lz_symbols;
+			lz_symbols = lz_pruner(
+				estimate,
+				width,
+				lz_data,
+				lz_size
+			);
+		}
+		delete[] estimate;
 
 		for(size_t context = 0;context < contextNumber;context++){
 			for(size_t i=0;i<256;i++){
@@ -2673,7 +2685,9 @@ void optimiser_take5_lz(
 		}
 	}
 	else{
+		delete[] estimate;
 		delete[] lz_data;
+		delete[] lz_symbols;
 	}
 ///encode data
 	printf("table started\n");
@@ -2892,6 +2906,7 @@ void optimiser_take5_lz(
 
 	if(LZ_used){
 		delete[] lz_data;
+		delete[] lz_symbols;
 		*(--outPointer) = 0b00000111;
 	}
 	else{
