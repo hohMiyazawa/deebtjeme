@@ -65,6 +65,101 @@ void colour_encode_combiner(uint8_t* in_bytes,uint32_t range,uint32_t width,uint
 	}
 }
 
+void colour_optimiser_take1(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+);
+
+void colour_optimiser_take2(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+);
+
+void colour_optimiser_take3_lz(
+	uint8_t* in_bytes,
+	uint32_t range,
+	uint32_t width,
+	uint32_t height,
+	uint8_t*& outPointer,
+	size_t speed
+);
+
+void colour_encode_combiner_slow(uint8_t* in_bytes,uint32_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+	size_t safety_margin = 3*width*height * (log2_plus(range - 1) + 1 + 1) + 2048;
+
+	uint8_t alternates = 5;//8;
+	uint8_t* miniBuffer[alternates];
+	uint8_t* trailing_end[alternates];
+	uint8_t* trailing[alternates];
+	for(size_t i=0;i<alternates;i++){
+		miniBuffer[i] = new uint8_t[safety_margin];
+		trailing_end[i] = miniBuffer[i] + safety_margin;
+		trailing[i] = trailing_end[i];
+	}
+	colour_encode_entropy(in_bytes,range,width,height,trailing[0]);
+	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1]);
+	colour_encode_left(in_bytes,range,width,height,trailing[2]);
+	colour_encode_ffv1(in_bytes,range,width,height,trailing[3]);
+	colour_optimiser_entropyOnly(in_bytes,range,width,height,trailing[4],2);
+	/*colour_optimiser_take1(
+		in_bytes,
+		range,
+		width,
+		height,
+		trailing[5],
+		1
+	);
+	colour_optimiser_take2(
+		in_bytes,
+		range,
+		width,
+		height,
+		trailing[6],
+		5
+	);
+	colour_optimiser_take3_lz(
+		in_bytes,
+		range,
+		width,
+		height,
+		trailing[7],
+		5
+	);*/
+/*
+	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);*/
+	for(size_t i=0;i<alternates;i++){
+		size_t diff = trailing_end[i] - trailing[i];
+		//printf("type %d: %d\n",(int)i,(int)diff);
+	}
+
+	uint8_t bestIndex = 0;
+	size_t best = trailing_end[0] - trailing[0];
+	printf("  type 0: %d bytes\n",(int)best);
+	for(size_t i=1;i<alternates;i++){
+		size_t diff = trailing_end[i] - trailing[i];
+		printf("  type %d: %d bytes\n",(int)i,(int)diff);
+		if(diff < best){
+			best = diff;
+			bestIndex = i;
+		}
+	}
+	printf("best type: %d\n",(int)bestIndex);
+	for(size_t i=(trailing_end[bestIndex] - trailing[bestIndex]);i--;){
+		*(--outPointer) = trailing[bestIndex][i];
+	}
+	for(size_t i=0;i<alternates;i++){
+		delete[] miniBuffer[i];
+	}
+}
+
 void colour_optimiser_entropyOnly(
 	uint8_t* in_bytes,
 	uint32_t range,
@@ -465,7 +560,7 @@ void colour_optimiser_take1(
 	uint32_t predictorWidth;
 	uint32_t predictorHeight;
 
-	printf("research: setting initial predictor layout\n");
+	printf("setting initial predictor layout\n");
 
 	uint8_t predictorCount = colour_predictor_map_initial(
 		filtered_bytes,
@@ -560,26 +655,26 @@ void colour_optimiser_take1(
 
 	//printf("ransenc done\n");
 
-	uint8_t* trailing;
-	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
-
-	trailing = outPointer;
-	colour_encode_entropy_channel(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_entropy_channel(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
 	}
+	printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	*(--outPointer) = contextNumber - 1;//number of contexts
 
@@ -813,7 +908,7 @@ void colour_optimiser_take2(
 		statistics
 	);
 ///encode data
-	//printf("table started\n");
+	printf("table started\n");
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -830,7 +925,7 @@ void colour_optimiser_take2(
 		}
 	}
 
-	//printf("ransenc\n");
+	printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -849,22 +944,22 @@ void colour_optimiser_take2(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	//printf("ransenc done\n");
+	printf("ransenc done\n");
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_entropy_channel(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_entropy_channel(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
@@ -1131,19 +1226,19 @@ void colour_optimiser_take3(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_entropy_channel(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_entropy_channel(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -1455,19 +1550,20 @@ void colour_optimiser_take4(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_combiner(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		trailing = outPointer;
+		colour_encode_combiner(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -1843,19 +1939,19 @@ void colour_optimiser_take5(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_combiner(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_combiner(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -2144,7 +2240,6 @@ void colour_optimiser_take3_lz(
 	}
 	else{
 		delete[] lz_data;
-		delete[] lz_symbols;
 	}
 ///encode data
 	//printf("table started\n");
@@ -2310,19 +2405,19 @@ void colour_optimiser_take3_lz(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_entropy_channel(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_entropy_channel(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -2836,19 +2931,19 @@ void colour_optimiser_take4_lz(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_combiner(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing  = outPointer;
+	if(contextNumber > 1){
+		colour_encode_combiner(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -3435,19 +3530,19 @@ void colour_optimiser_take5_lz(
 	}
 	delete[] filter_collection;
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_combiner(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_combiner(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -4271,19 +4366,19 @@ void colour_optimiser_take6_lz(
 
 	//printf("ransenc done\n");
 
-	uint8_t* trailing;
-
-	trailing = outPointer;
-	colour_encode_combiner(
-		entropy_image,
-		contextNumber,
-		entropyWidth,
-		entropyHeight,
-		outPointer
-	);
-	writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
-	writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
-	printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	uint8_t* trailing = outPointer;
+	if(contextNumber > 1){
+		colour_encode_combiner_slow(
+			entropy_image,
+			contextNumber,
+			entropyWidth,
+			entropyHeight,
+			outPointer
+		);
+		writeVarint_reverse((uint32_t)(entropyHeight - 1),outPointer);
+		writeVarint_reverse((uint32_t)(entropyWidth - 1), outPointer);
+		printf("entropy image size: %d bytes\n",(int)(trailing - outPointer));
+	}
 	delete[] entropy_image;
 
 	trailing = outPointer;
@@ -4296,7 +4391,7 @@ void colour_optimiser_take6_lz(
 
 	if(predictorCount > 1){
 		uint8_t* trailing = outPointer;
-		colour_encode_combiner(
+		colour_encode_combiner_slow(
 			predictor_image,
 			predictorCount,
 			predictorWidth,

@@ -58,8 +58,6 @@ uint32_t add_predictor_maybe(
 	}
 	uint32_t predictor_width_block  = (width + predictor_width - 1)/predictor_width;
 	uint32_t predictor_height_block = (height + predictor_height - 1)/predictor_height;
-	uint32_t entropy_width_block  = (width + entropy_width - 1)/entropy_width;
-	uint32_t entropy_height_block = (height + entropy_height - 1)/entropy_height;
 
 	double* costTables[contexts];
 

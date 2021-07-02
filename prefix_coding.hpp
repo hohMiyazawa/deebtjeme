@@ -118,7 +118,7 @@ uint8_t reverse_lut[120] = {
 
 uint8_t read_prefixcode(RansState& rans, RansDecSymbol* sym, SymbolStats stats, uint8_t*& fileIndex){
 	uint32_t cumFreq = RansDecGet(&rans, 16);
-	uint8_t s;
+	uint8_t s = 0;
 	for(size_t j=0;j<256;j++){
 		if(stats.cum_freqs[j + 1] > cumFreq){
 			s = j;
