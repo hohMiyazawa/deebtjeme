@@ -55,7 +55,7 @@ void indexed_encode_speed0(
 	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 
-	*(--outPointer) = 0b00110010;
+	*(--outPointer) = 0b01010010;
 }
 
 void indexed_encode_speed1(
@@ -120,7 +120,7 @@ void indexed_encode_speed1(
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
-	*(--outPointer) = 0b00110110;
+	*(--outPointer) = 0b01010110;
 }
 
 void indexed_encode_speed2(
@@ -266,7 +266,7 @@ void indexed_encode_speed2(
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
-	*(--outPointer) = 0b00110110;
+	*(--outPointer) = 0b01010110;
 }
 
 void indexed_encode_speed3(
@@ -594,10 +594,10 @@ void indexed_encode_speed3(
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00110111;
+		*(--outPointer) = 0b01010111;
 	}
 	else{
-		*(--outPointer) = 0b00110110;
+		*(--outPointer) = 0b01010110;
 	}
 }
 
@@ -954,10 +954,10 @@ void indexed_encode_speed4(
 	if(LZ_used){
 		delete[] lz_data;
 		delete[] lz_symbols;
-		*(--outPointer) = 0b00110111;
+		*(--outPointer) = 0b01010111;
 	}
 	else{
-		*(--outPointer) = 0b00110110;
+		*(--outPointer) = 0b01010110;
 	}
 }
 
