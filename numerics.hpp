@@ -38,6 +38,7 @@ uint8_t sub_mod(uint8_t a, uint8_t b, uint32_t modulo){
 	}
 }
 
+/*
 uint16_t sub_mod(uint16_t a, uint16_t b, uint32_t modulo){
 	if (a >= b){
 		return a - b;
@@ -46,6 +47,7 @@ uint16_t sub_mod(uint16_t a, uint16_t b, uint32_t modulo){
 		return modulo - b + a;
 	}
 }
+*/
 
 static int compare (const void * a, const void * b){
 	if (*(double*)a > *(double*)b) return 1;

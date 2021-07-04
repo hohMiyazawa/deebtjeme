@@ -32,6 +32,10 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 		freqs.normalize_freqs(1 << 16);
 		for(size_t i=0;i<256;i++){
 			newFreqs.freqs[i] = freqs.freqs[i];
+			if(i >= range && freqs.freqs[i]){
+				newFreqs.freqs[i] = 0;
+				printf("Warning: statistics may be out of range\n");
+			}
 		}
 		if(newFreqs.freqs[0] == (1 << 16)){
 			sink.writeBits(0,4);//no blocking
@@ -112,6 +116,12 @@ SymbolStats encode_freqTable(SymbolStats freqs,BitWriter& sink, uint32_t range){
 			newFreqs.freqs[i] = (1 << magnitude) + mask & freqs.freqs[i];
 			uint16_t residual = freqs.freqs[i] - newFreqs.freqs[i];
 			newFreqs.freqs[i] += (residual << 1) & mask;
+			//newFreqs.freqs[i] = freqs.freqs[i];
+
+			if(i >= range && freqs.freqs[i]){
+				newFreqs.freqs[i] = 0;
+				printf("Warning: statistics may be out of range: (%d|%d|%d)\n",(int)range,(int)i,(int)freqs.freqs[i]);
+			}
 		}
 		sink.writeBits(0,4);//no blocking
 		sink.writeBits(14,4);//mode 14

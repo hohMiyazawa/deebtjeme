@@ -144,16 +144,14 @@ void colour_encode_combiner_slow(uint8_t* in_bytes,uint32_t range,uint32_t width
 		trailing[6],
 		5,false
 	);
-	printf("DEBUGSTART -------\n");
 	colour_optimiser_take3_lz(
 		in_bytes,
 		range,
 		width,
 		height,
 		trailing[7],
-		5,true
+		5,false
 	);
-	printf("DEBUGEND   -------\n");
 /*
 	colour_encode_entropy_quad(in_bytes,range,width,height,trailing[4]);*/
 	for(size_t i=0;i<alternates;i++){
@@ -519,7 +517,35 @@ void colour_optimiser_take1(
 	size_t speed,
 	bool debug
 ){
+	if(debug){
+		printf("pre-pre-range: %d\n",(int)range);
+		for(size_t i=0;i<width*height;i++){
+			if(in_bytes[i*3] >= range){
+				printf("OH NO!!!!!!!!!!!!\n");
+			}
+			if(in_bytes[i*3 + 1] >= range){
+				printf("1OH NO!!!!!!!!!!!!\n");
+			}
+			if(in_bytes[i*3 + 2] >= range){
+				printf("2OH NO!!!!!!!!!!!!\n");
+			}
+		}
+	}
 	uint8_t* filtered_bytes = colour_filter_all_ffv1_subGreen(in_bytes, range, width, height);
+	if(debug){
+		printf("pre-range: %d\n",(int)range);
+		for(size_t i=0;i<width*height;i++){
+			if(filtered_bytes[i*3] >= range){
+				printf("OH NO!!!!!!!!!!!!\n");
+			}
+			if(filtered_bytes[i*3 + 1] >= range){
+				printf("1OH NO!!!!!!!!!!!!\n");
+			}
+			if(filtered_bytes[i*3 + 2] >= range){
+				printf("2OH NO!!!!!!!!!!!!\n");
+			}
+		}
+	}
 
 	uint8_t* entropy_image;
 
@@ -645,7 +671,9 @@ void colour_optimiser_take1(
 		statistics
 	);
 ///encode data
-	//printf("table started\n");
+	if(debug){
+		printf("table started: %d\n",(int)contextNumber);
+	}
 	BitWriter tableEncode;
 	SymbolStats table[contextNumber];
 	for(size_t context = 0;context < contextNumber;context++){
@@ -661,8 +689,6 @@ void colour_optimiser_take1(
 			RansEncSymbolInit(&esyms[cont][i], table[cont].cum_freqs[i], table[cont].freqs[i], 16);
 		}
 	}
-
-	//printf("ransenc\n");
 
 	RansState rans;
 	RansEncInit(&rans);
@@ -681,7 +707,9 @@ void colour_optimiser_take1(
 	RansEncFlush(&rans, &outPointer);
 	delete[] filtered_bytes;
 
-	//printf("ransenc done\n");
+	if(debug){
+		printf("ransenc done\n");
+	}
 
 	uint8_t* trailing = outPointer;
 	if(contextNumber > 1){

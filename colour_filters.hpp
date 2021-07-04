@@ -222,14 +222,14 @@ uint8_t* colour_filter_all_ffv1_subGreen(uint8_t* in_bytes, uint32_t range, uint
 
 	for(size_t i=1;i<width;i++){
 		filtered[i*3] = sub_mod(in_bytes[i*3],in_bytes[(i - 1)*3],range);
-		filtered[i*3 + 1] = sub_mod(rsub[i],rsub[i-1],range);
-		filtered[i*3 + 2] = sub_mod(bsub[i],bsub[i-1],range);
+		filtered[i*3 + 1] = sub_mod(rsub[i] % range,rsub[i-1] % range,range);
+		filtered[i*3 + 2] = sub_mod(bsub[i] % range,bsub[i-1] % range,range);
 	}
 
 	for(size_t y=1;y<height;y++){
 		filtered[y*width*3] = sub_mod(in_bytes[y*width*3],in_bytes[(y - 1)*width*3],range);
-		filtered[y*width*3 + 1] = sub_mod(rsub[y*width],rsub[(y-1)*width],range);
-		filtered[y*width*3 + 2] = sub_mod(bsub[y*width],bsub[(y-1)*width],range);
+		filtered[y*width*3 + 1] = sub_mod(rsub[y*width] % range,rsub[(y-1)*width] % range,range);
+		filtered[y*width*3 + 2] = sub_mod(bsub[y*width] % range,bsub[(y-1)*width] % range,range);
 		for(size_t i=1;i<width;i++){
 			uint8_t gL  = in_bytes[(y * width + i - 1)*3];
 			uint8_t gT  = in_bytes[((y-1) * width + i)*3];
@@ -247,24 +247,32 @@ uint8_t* colour_filter_all_ffv1_subGreen(uint8_t* in_bytes, uint32_t range, uint
 			uint16_t T  = rsub[(y-1) * width + i];
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
-				rsub[(y * width) + i],
-				ffv1(
-					L,
-					T,
-					TL
-				),
+				rsub[(y * width) + i] % range,
+				i_clamp(
+					ffv1(
+						L,
+						T,
+						TL
+					),
+					0,
+					2*range
+				) % range,
 				range
 			);
 			L  = bsub[y * width + i - 1];
 			T  = bsub[(y-1) * width + i];
 			TL = bsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
-				bsub[(y * width) + i],
-				ffv1(
-					L,
-					T,
-					TL
-				),
+				bsub[(y * width) + i] % range,
+				i_clamp(
+					ffv1(
+						L,
+						T,
+						TL
+					),
+					0,
+					3*range
+				) % range,
 				range
 			);
 		}
@@ -291,14 +299,14 @@ uint8_t* colour_filter_all_ffv1_subColour(uint8_t* in_bytes, uint32_t range, uin
 
 	for(size_t i=1;i<width;i++){
 		filtered[i*3] = sub_mod(in_bytes[i*3],in_bytes[(i - 1)*3],range);
-		filtered[i*3 + 1] = sub_mod(rsub[i],rsub[i-1],range);
-		filtered[i*3 + 2] = sub_mod(bsub[i],bsub[i-1],range);
+		filtered[i*3 + 1] = sub_mod(rsub[i] % range,rsub[i-1] % range,range);
+		filtered[i*3 + 2] = sub_mod(bsub[i] % range,bsub[i-1] % range,range);
 	}
 
 	for(size_t y=1;y<height;y++){
 		filtered[y*width*3] = sub_mod(in_bytes[y*width*3],in_bytes[(y - 1)*width*3],range);
-		filtered[y*width*3 + 1] = sub_mod(rsub[y*width],rsub[(y-1)*width],range);
-		filtered[y*width*3 + 2] = sub_mod(bsub[y*width],bsub[(y-1)*width],range);
+		filtered[y*width*3 + 1] = sub_mod(rsub[y*width] % range,rsub[(y-1)*width] % range,range);
+		filtered[y*width*3 + 2] = sub_mod(bsub[y*width] % range,bsub[(y-1)*width] % range,range);
 		for(size_t i=1;i<width;i++){
 			uint8_t gL  = in_bytes[(y * width + i - 1)*3];
 			uint8_t gT  = in_bytes[((y-1) * width + i)*3];
@@ -316,24 +324,24 @@ uint8_t* colour_filter_all_ffv1_subColour(uint8_t* in_bytes, uint32_t range, uin
 			uint16_t T  = rsub[(y-1) * width + i];
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
-				rsub[(y * width) + i],
+				rsub[(y * width) + i] % range,
 				ffv1(
 					L,
 					T,
 					TL
-				),
+				) % range,
 				range
 			);
 			L  = bsub[y * width + i - 1];
 			T  = bsub[(y-1) * width + i];
 			TL = bsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
-				bsub[(y * width) + i],
+				bsub[(y * width) + i] % range,
 				ffv1(
 					L,
 					T,
 					TL
-				),
+				) % range,
 				range
 			);
 		}
@@ -371,14 +379,14 @@ uint8_t* colour_filter_all_subGreen(uint8_t* in_bytes, uint32_t range, uint32_t 
 
 	for(size_t i=1;i<width;i++){
 		filtered[i*3] = sub_mod(in_bytes[i*3],in_bytes[(i - 1)*3],range);
-		filtered[i*3 + 1] = sub_mod(rsub[i],rsub[i-1],range);
-		filtered[i*3 + 2] = sub_mod(bsub[i],bsub[i-1],range);
+		filtered[i*3 + 1] = sub_mod(rsub[i] % range,rsub[i-1] % range,range);
+		filtered[i*3 + 2] = sub_mod(bsub[i] % range,bsub[i-1] % range,range);
 	}
 
 	for(size_t y=1;y<height;y++){
 		filtered[y*width*3] = sub_mod(in_bytes[y*width*3],in_bytes[(y - 1)*width*3],range);
-		filtered[y*width*3 + 1] = sub_mod(rsub[y*width],rsub[(y-1)*width],range);
-		filtered[y*width*3 + 2] = sub_mod(bsub[y*width],bsub[(y-1)*width],range);
+		filtered[y*width*3 + 1] = sub_mod(rsub[y*width] % range,rsub[(y-1)*width] % range,range);
+		filtered[y*width*3 + 2] = sub_mod(bsub[y*width] % range,bsub[(y-1)*width] % range,range);
 		for(size_t i=1;i<width;i++){
 			uint8_t gL  = in_bytes[(y * width + i - 1)*3];
 			uint8_t gT  = in_bytes[((y-1) * width + i)*3];
@@ -399,14 +407,14 @@ uint8_t* colour_filter_all_subGreen(uint8_t* in_bytes, uint32_t range, uint32_t 
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			uint16_t TR = rsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
-				rsub[(y * width) + i],
+				rsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					2*range
-				),
+				) % range,
 				range
 			);
 			L  = bsub[y * width + i - 1];
@@ -414,14 +422,14 @@ uint8_t* colour_filter_all_subGreen(uint8_t* in_bytes, uint32_t range, uint32_t 
 			TL = bsub[(y-1) * width + i - 1];
 			TR = bsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
-				bsub[(y * width) + i],
+				bsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					3*range
-				),
+				) % range,
 				range
 			);
 		}
@@ -450,14 +458,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint16_t* rsub, uint16_t
 
 	for(size_t i=1;i<width;i++){
 		filtered[i*3] = sub_mod(in_bytes[i*3],in_bytes[(i - 1)*3],range);
-		filtered[i*3 + 1] = sub_mod(rsub[i],rsub[i-1],range);
-		filtered[i*3 + 2] = sub_mod(bsub[i],bsub[i-1],range);
+		filtered[i*3 + 1] = sub_mod(rsub[i] % range,rsub[i-1] % range,range);
+		filtered[i*3 + 2] = sub_mod(bsub[i] % range,bsub[i-1] % range,range);
 	}
 
 	for(size_t y=1;y<height;y++){
 		filtered[y*width*3] = sub_mod(in_bytes[y*width*3],in_bytes[(y - 1)*width*3],range);
-		filtered[y*width*3 + 1] = sub_mod(rsub[y*width],rsub[(y-1)*width],range);
-		filtered[y*width*3 + 2] = sub_mod(bsub[y*width],bsub[(y-1)*width],range);
+		filtered[y*width*3 + 1] = sub_mod(rsub[y*width] % range,rsub[(y-1)*width] % range,range);
+		filtered[y*width*3 + 2] = sub_mod(bsub[y*width] % range,bsub[(y-1)*width] % range,range);
 		for(size_t i=1;i<width;i++){
 			uint8_t gL  = in_bytes[(y * width + i - 1)*3];
 			uint8_t gT  = in_bytes[((y-1) * width + i)*3];
@@ -478,14 +486,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint16_t* rsub, uint16_t
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			uint16_t TR = rsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
-				rsub[(y * width) + i],
+				rsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					2*range
-				),
+				) % range,
 				range
 			);
 			L  = bsub[y * width + i - 1];
@@ -493,14 +501,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint16_t* rsub, uint16_t
 			TL = bsub[(y-1) * width + i - 1];
 			TR = bsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
-				bsub[(y * width) + i],
+				bsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					3*range
-				),
+				) % range,
 				range
 			);
 		}
@@ -535,14 +543,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint32_t range, uint32_t
 
 	for(size_t i=1;i<width;i++){
 		filtered[i*3] = sub_mod(in_bytes[i*3],in_bytes[(i - 1)*3],range);
-		filtered[i*3 + 1] = sub_mod(rsub[i],rsub[i-1],range);
-		filtered[i*3 + 2] = sub_mod(bsub[i],bsub[i-1],range);
+		filtered[i*3 + 1] = sub_mod(rsub[i] % range,rsub[i-1] % range,range);
+		filtered[i*3 + 2] = sub_mod(bsub[i] % range,bsub[i-1] % range,range);
 	}
 
 	for(size_t y=1;y<height;y++){
 		filtered[y*width*3] = sub_mod(in_bytes[y*width*3],in_bytes[(y - 1)*width*3],range);
-		filtered[y*width*3 + 1] = sub_mod(rsub[y*width],rsub[(y-1)*width],range);
-		filtered[y*width*3 + 2] = sub_mod(bsub[y*width],bsub[(y-1)*width],range);
+		filtered[y*width*3 + 1] = sub_mod(rsub[y*width] % range,rsub[(y-1)*width] % range,range);
+		filtered[y*width*3 + 2] = sub_mod(bsub[y*width] % range,bsub[(y-1)*width] % range,range);
 		for(size_t i=1;i<width;i++){
 			uint8_t gL  = in_bytes[(y * width + i - 1)*3];
 			uint8_t gT  = in_bytes[((y-1) * width + i)*3];
@@ -563,14 +571,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint32_t range, uint32_t
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			uint16_t TR = rsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
-				rsub[(y * width) + i],
+				rsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					2*range
-				),
+				) % range,
 				range
 			);
 			L  = bsub[y * width + i - 1];
@@ -578,14 +586,14 @@ uint8_t* colour_filter_all_subColour(uint8_t* in_bytes, uint32_t range, uint32_t
 			TL = bsub[(y-1) * width + i - 1];
 			TR = bsub[(y-1) * width + i + 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
-				bsub[(y * width) + i],
+				bsub[(y * width) + i] % range,
 				i_clamp(
 					(
 						a*L + b*T + c*TL + d*TR + halfsum
 					)/sum,
 					0,
 					3*range
-				),
+				) % range,
 				range
 			);
 		}

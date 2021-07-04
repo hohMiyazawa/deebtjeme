@@ -239,6 +239,11 @@ uint32_t colour_entropy_redistribution_pass(
 		entropy_stats[entropy_image[tileIndex*3 + 1]].freqs[in_bytes[i*3 + 1]]++;
 		entropy_stats[entropy_image[tileIndex*3 + 2]].freqs[in_bytes[i*3 + 2]]++;
 	}
+/*
+	for(size_t i=0;i<256;i++){
+		printf("aaa %d: %d\n",(int)i,entropy_stats[0].freqs[i]);
+	}
+*/
 //shrink symbol stats available
 	uint32_t index = 0;
 	uint8_t mapping[contexts];
