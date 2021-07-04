@@ -60,8 +60,7 @@ int main(int argc, char *argv[]){
 		if(colour_count == 1){
 			*(--outPointer) = palette[0];
 			*(--outPointer) = 0b00000000;
-			*(--outPointer) = 0;
-			*(--outPointer) = 0;
+			*(--outPointer) = 0;//index width - 1
 			*(--outPointer) = 0b00010000;
 		}
 		else if(colour_count == 2){
@@ -135,8 +134,7 @@ int main(int argc, char *argv[]){
 			*(--outPointer) = palette[1];
 			*(--outPointer) = palette[0];
 			*(--outPointer) = 0b00100000;
-			*(--outPointer) = 0;
-			*(--outPointer) = 0;
+			*(--outPointer) = 0;//index width - 1
 			*(--outPointer) = 0b00110000;
 		}
 		else if(colour_count && colour_count < 120){
@@ -144,31 +142,31 @@ int main(int argc, char *argv[]){
 		}
 		else{
 			if(speed == 0){
-				colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer);
+				colour_encode_entropy_channel(alpha_stripped, 256,width,height,outPointer, true);
 			}
 			else if(speed == 1){
 				colour_encode_ffv1_subGreen(alpha_stripped, 256,width,height,outPointer);
 			}
 			else if(speed == 2){
-				colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1);
+				colour_optimiser_take0(alpha_stripped, 256,width,height,outPointer, 1, true);
 			}
 			else if(speed == 3){
-				colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 1);
+				colour_optimiser_take1(alpha_stripped, 256,width,height,outPointer, 1, true);
 			}
 			else if(speed == 4){
-				colour_optimiser_take2(alpha_stripped, 256,width,height,outPointer, 5);
+				colour_optimiser_take2(alpha_stripped, 256,width,height,outPointer, 5, true);
 			}
 			else if(speed == 5){
-				colour_optimiser_take3_lz(alpha_stripped, 256,width,height,outPointer, 5);
+				colour_optimiser_take3_lz(alpha_stripped, 256,width,height,outPointer, 5, true);
 			}
 			else if(speed == 6){
-				colour_optimiser_take4_lz(alpha_stripped, 256,width,height,outPointer, 6);
+				colour_optimiser_take4_lz(alpha_stripped, 256,width,height,outPointer, 6, true);
 			}
 			else if(speed == 7){
-				colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, 7);
+				colour_optimiser_take5_lz(alpha_stripped, 256,width,height,outPointer, 7, true);
 			}
 			else{
-				colour_optimiser_take6_lz(alpha_stripped, 256,width,height,outPointer, speed);
+				colour_optimiser_take6_lz(alpha_stripped, 256,width,height,outPointer, speed, true);
 			}
 		}
 

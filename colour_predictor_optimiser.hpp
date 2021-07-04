@@ -49,7 +49,8 @@ uint32_t colourSub_add_predictor_maybe(
 	uint32_t predictor_count,
 	uint32_t predictor_width,
 	uint32_t predictor_height,
-	uint16_t predictor
+	uint16_t predictor,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -162,7 +163,9 @@ uint32_t colourSub_add_predictor_maybe(
 		//nonaligned block? how to deal with that?
 	}
 	if(blocks && saved > 80){
-		printf("maybe: %d %f\n",(int)blocks,saved);
+		if(debug){
+			printf("maybe: %d %f\n",(int)blocks,saved);
+		}
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height*3));
 		saved = 0;
 		blocks = 0;
@@ -322,7 +325,8 @@ uint32_t colourSub_add_predictor_maybe_fast(
 	uint32_t predictor_count,
 	uint32_t predictor_width,
 	uint32_t predictor_height,
-	uint16_t predictor
+	uint16_t predictor,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -508,7 +512,8 @@ uint32_t colourSub_add_predictor_maybe_fast(
 	uint32_t predictor_count,
 	uint32_t predictor_width,
 	uint32_t predictor_height,
-	uint16_t predictor
+	uint16_t predictor,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -693,7 +698,8 @@ uint32_t colourSub_add_predictor_maybe_prefiltered(
 	uint32_t predictor_width,
 	uint32_t predictor_height,
 	uint16_t predictor,
-	uint8_t**& filter_collection
+	uint8_t**& filter_collection,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -806,7 +812,9 @@ uint32_t colourSub_add_predictor_maybe_prefiltered(
 		//nonaligned block? how to deal with that?
 	}
 	if(blocks && saved > 80){
-		printf(" %f",saved);
+		if(debug){
+			printf(" %f",saved);
+		}
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height*3));
 		saved = 0;
 		blocks = 0;
@@ -970,7 +978,8 @@ uint32_t colourSub_add_predictor_maybe_prefiltered_subColour(
 	uint32_t predictor_width,
 	uint32_t predictor_height,
 	uint16_t predictor,
-	uint8_t**& filter_collection
+	uint8_t**& filter_collection,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -1083,7 +1092,9 @@ uint32_t colourSub_add_predictor_maybe_prefiltered_subColour(
 		//nonaligned block? how to deal with that?
 	}
 	if(blocks && saved > 80){
-		printf("maybe: %d %f\n",(int)blocks,saved);
+		if(debug){
+			printf("maybe: %d %f\n",(int)blocks,saved);
+		}
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height*3));
 		saved = 0;
 		blocks = 0;
@@ -1248,7 +1259,8 @@ uint32_t colourSubColour_add_predictor_maybe_prefiltered(
 	uint8_t**& filter_collection,
 	uint8_t rg,
 	uint8_t bg,
-	uint8_t br
+	uint8_t br,
+	bool debug
 ){
 	if(predictor_count >= 255){
 		printf("too many predictors, try trimming\n");
@@ -1361,7 +1373,9 @@ uint32_t colourSubColour_add_predictor_maybe_prefiltered(
 		//nonaligned block? how to deal with that?
 	}
 	if(blocks && saved > 80){
-		printf("maybe: %d %f\n",(int)blocks,saved);
+		if(debug){
+			printf("maybe: %d %f\n",(int)blocks,saved);
+		}
 		cost_per_occurence = -std::log2((double)blocks/(double)(predictor_width*predictor_height*3));
 		saved = 0;
 		blocks = 0;

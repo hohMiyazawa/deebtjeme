@@ -246,7 +246,6 @@ void encode_grey_binary(uint8_t* in_bytes, uint32_t range,uint32_t width,uint32_
 	*(--outPointer) = col1;
 	printf("cols %d,%d\n",(int)col1,(int)col2);
 	*(--outPointer) = 0b00000000;
-	*(--outPointer) = 0;//height
 	*(--outPointer) = 1;//width
 
 	*(--outPointer) = 0b00010110;

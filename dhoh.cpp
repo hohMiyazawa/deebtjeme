@@ -82,22 +82,13 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		LZ
 	);
 	uint8_t* indexImage;
-	uint8_t* indexIndexImage;
 	uint32_t indexWidth;
 	uint32_t indexHeight;
-	uint32_t indexIndexWidth = 1;
-	uint32_t indexIndexHeight = 1;
-	uint32_t indexIndexWidth_block = width;
-	uint32_t indexIndexHeight_block = height;
-	uint8_t* indexLengths;
 	if(INDEX_TRANSFORM){
 		uint8_t* trailing = fileIndex;
 		indexWidth = *(fileIndex++) + 1;
-		indexHeight = *(fileIndex++) + 1;
-		indexLengths = new uint8_t[height];
-		indexImage = readImage(fileIndex, 256, indexWidth, indexHeight);
-		if(indexWidth == 1 && indexHeight == 1){
-			delete[] indexLengths;
+		indexImage = readImage(fileIndex, 256, indexWidth, 1);
+		if(indexWidth == 1){
 			uint8_t* image = new uint8_t[width*height*3];
 			for(size_t i=0;i<width*height;i++){
 				image[i*3] = indexImage[0];
@@ -108,34 +99,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		}
 		//printf("index %d,%d,%d %d,%d,%d\n",(int)indexImage[0],(int)indexImage[1],(int)indexImage[2],(int)indexImage[3],(int)indexImage[4],(int)indexImage[5]);
 		range = indexWidth;
-		if(indexHeight > 1){
-			indexIndexWidth = readVarint(fileIndex) + 1;
-			indexIndexHeight = readVarint(fileIndex) + 1;
-			indexIndexWidth_block  = (width + indexIndexWidth - 1)/indexIndexWidth;
-			indexIndexHeight_block = (height + indexIndexHeight - 1)/indexIndexHeight;
-			indexIndexImage = readImage(fileIndex, indexHeight,indexIndexWidth,indexIndexHeight);
-			
-			for(size_t y=0;y<indexHeight;y++){
-				indexLengths[y] = indexWidth - 1;
-				for(size_t i=1;i<indexWidth;i++){
-					if(
-						indexImage[i*3] == indexImage[(i-1)*3]
-						&& indexImage[i*3+1] == indexImage[(i-1)*3+1]
-						&& indexImage[i*3+2] == indexImage[(i-1)*3+2]
-					){
-						indexLengths[y] = i - 1;
-						break;
-					}
-				}
-			}
-		}
-		else{
-			indexIndexImage = new uint8_t[3];
-			indexIndexImage[0] = 0;
-			indexIndexImage[1] = 0;
-			indexIndexImage[2] = 0;
-			indexLengths[0] = indexWidth - 1;
-		}
 		printf("---palette size: %d bytes\n",(int)(fileIndex - trailing));
 	}
 
@@ -151,7 +114,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		colourHeight = readVarint(fileIndex) + 1;
 		colourWidth_block  = (width + colourWidth - 1)/colourWidth;
 		colourHeight_block = (height + colourHeight - 1)/colourHeight;
-		printf("---\n");
+		printf("---start colour transform image\n");
 		printf("  colour transform image %d x %d\n",(int)colourWidth,(int)colourHeight);
 		colourImage = readImage(fileIndex, 256,colourWidth,colourHeight);
 		printf("---colour transform image size: %d bytes\n",(int)(fileIndex - trailing));
@@ -188,7 +151,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			predictorHeight = readVarint(fileIndex) + 1;
 			predictorWidth_block  = (width + predictorWidth - 1)/predictorWidth;
 			predictorHeight_block = (height + predictorHeight - 1)/predictorHeight;
-			printf("---\n");
+			printf("---start predictor image\n");
 			printf("  predictor image %d x %d\n",(int)predictorWidth,(int)predictorHeight);
 			uint8_t* predictorImage_data = readImage(fileIndex,predictorCount,predictorWidth,predictorHeight);
 			printf("---predictor image size: %d bytes\n",(int)(fileIndex - trailing));
@@ -236,7 +199,7 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		entropyHeight = readVarint(fileIndex) + 1;
 		entropyWidth_block  = (width + entropyWidth - 1)/entropyWidth;
 		entropyHeight_block = (height + entropyHeight - 1)/entropyHeight;
-		printf("---\n");
+		printf("---start entropy image\n");
 		printf("  entropy image %d x %d\n",(int)entropyWidth,(int)entropyHeight);
 		entropyImage = readImage(fileIndex,entropyContexts,entropyWidth,entropyHeight);
 		printf("---entropy image size: %d bytes\n",(int)(fileIndex - trailing));
@@ -386,19 +349,6 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 		}
 
 		size_t localRange = range;
-		size_t indexIndexIndex;
-		uint8_t index_to_use;
-		if(INDEX_TRANSFORM){
-			indexIndexIndex = tileIndexFromPixel(
-				i,
-				width,
-				indexIndexWidth,
-				indexIndexWidth_block,
-				indexIndexHeight_block
-			);
-			index_to_use = indexIndexImage[indexIndexIndex*3];
-			localRange = indexLengths[index_to_use] + 1;
-		}
 
 		size_t predictorIndex;
 		if(PREDICTION_MAP){
@@ -696,26 +646,16 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	}
 	if(INDEX_TRANSFORM){
 		for(size_t i=0;i<width*height;i++){
-			size_t indexIndexIndex = tileIndexFromPixel(
-				i,
-				width,
-				indexIndexWidth,
-				indexIndexWidth_block,
-				indexIndexHeight_block
-			);
-			uint8_t index_to_use = indexIndexImage[indexIndexIndex*3];
 			uint8_t location = image[i*3];
-			image[i*3]   = indexImage[(indexWidth*index_to_use + location)*3];
-			image[i*3+1] = indexImage[(indexWidth*index_to_use + location)*3+1];
-			image[i*3+2] = indexImage[(indexWidth*index_to_use + location)*3+2];
+			image[i*3]   = indexImage[location*3];
+			image[i*3+1] = indexImage[location*3+1];
+			image[i*3+2] = indexImage[location*3+2];
 		}
 	}
 	printf("pixels decoded\n");
 
 	if(INDEX_TRANSFORM){
 		delete[] indexImage;
-		delete[] indexIndexImage;
-		delete[] indexLengths;
 	}
 	if(COLOUR_TRANSFORM || SUBTRACT_GREEN){
 		delete[] colourImage;

@@ -227,7 +227,6 @@ void encode_grey_binary_entropy(uint8_t* in_bytes, uint32_t range,uint32_t width
 	*(--outPointer) = col1;
 	printf("cols %d,%d\n",(int)col1,(int)col2);
 	*(--outPointer) = 0b00000000;
-	*(--outPointer) = 0;//height
 	*(--outPointer) = 1;//width
 
 	*(--outPointer) = 0b00010110;
@@ -606,7 +605,6 @@ void encode_grey_binary_entropy_lz(uint8_t* in_bytes, uint32_t range,uint32_t wi
 	*(--outPointer) = col1;
 	printf("cols %d,%d\n",(int)col1,(int)col2);
 	*(--outPointer) = 0b00000000;
-	*(--outPointer) = 0;//height
 	*(--outPointer) = 1;//width
 
 	if(LZ_used){

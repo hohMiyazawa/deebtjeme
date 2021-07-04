@@ -25,7 +25,7 @@ size_t colour_encode_combiner_dry(uint8_t* in_bytes,uint32_t range,uint32_t widt
 		trailing[i] = trailing_end[i];
 	}
 	colour_encode_entropy(in_bytes,range,width,height,trailing[0]);
-	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1]);
+	colour_encode_entropy_channel(in_bytes,range,width,height,trailing[1],false);
 	colour_encode_left(in_bytes,range,width,height,trailing[2]);
 	colour_encode_ffv1(in_bytes,range,width,height,trailing[3]);
 	colour_optimiser_entropyOnly(in_bytes,range,width,height,trailing[4],2);

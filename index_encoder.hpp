@@ -52,7 +52,6 @@ void indexed_encode_speed0(
 	*(--outPointer) = 0;
 
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
-	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 
 	*(--outPointer) = 0b01010010;
@@ -116,7 +115,6 @@ void indexed_encode_speed1(
 
 	trailing = outPointer;
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
-	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
@@ -262,7 +260,6 @@ void indexed_encode_speed2(
 
 	trailing = outPointer;
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
-	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
@@ -587,7 +584,6 @@ void indexed_encode_speed3(
 
 	trailing = outPointer;
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
-	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 
@@ -947,7 +943,6 @@ void indexed_encode_speed4(
 
 	trailing = outPointer;
 	colour_encode_raw(palette, colour_count, colour_count, 1,  outPointer);
-	*(--outPointer) = 0;
 	*(--outPointer) = colour_count - 1;
 	printf("palette size: %d bytes\n",(int)(trailing - outPointer));
 

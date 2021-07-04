@@ -46,7 +46,7 @@ void colour_encode_entropy(uint8_t* in_bytes,size_t range,uint32_t width,uint32_
 }
 
 //works
-void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer){
+void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width,uint32_t height,uint8_t*& outPointer,bool debug){
 	SymbolStats stats_green;
 	SymbolStats stats_red;
 	SymbolStats stats_blue;
@@ -87,7 +87,6 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 	RansEncFlush(&rans, &outPointer);
 
 	uint8_t* trailing;
-	//printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 
 	trailing = outPointer;
 	uint8_t* entropy_image = new uint8_t[3];
@@ -106,8 +105,12 @@ void colour_encode_entropy_channel(uint8_t* in_bytes,size_t range,uint32_t width
 	writeVarint_reverse((uint32_t)(1 - 1),outPointer);
 	writeVarint_reverse((uint32_t)(1 - 1), outPointer);
 
+	trailing = outPointer;
 	for(size_t i=tableEncode.length;i--;){
 		*(--outPointer) = tableEncode.buffer[i];
+	}
+	if(debug){
+		printf("entropy table size: %d bytes\n",(int)(trailing - outPointer));
 	}
 
 	*(--outPointer) = 3 - 1;

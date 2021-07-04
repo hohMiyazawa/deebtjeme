@@ -729,8 +729,6 @@ lz_triple_c* lz_pruner(
 	}
 */
 
-	printf("starting pruner\n");
-
 	SymbolStats stats_backref;
 	SymbolStats stats_matchlen;
 	SymbolStats stats_future;
