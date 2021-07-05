@@ -705,6 +705,59 @@ lz_triple_c* lz_translator(
 	return reval;
 }
 
+void lz_initial_cost(
+	uint32_t width,
+	uint32_t height,
+	double*& backref_cost,
+	double*& matchlen_cost,
+	double*& future_cost
+){
+	SymbolStats stats_backref;
+	SymbolStats stats_matchlen;
+	SymbolStats stats_future;
+	for(size_t i=0;i<256;i++){
+		stats_backref.freqs[i] = 0;
+		stats_matchlen.freqs[i] = 0;
+		stats_future.freqs[i] = 0;
+	}
+	size_t max_code = inverse_prefix(width*height);
+	if(max_code > 40){
+		max_code = 40;
+	}
+	for(size_t i=0;i<max_code;i++){
+		stats_matchlen.freqs[i] = 1;
+		stats_future.freqs[i] = 1;
+		stats_backref.freqs[160 + i] = 1;
+	}
+	for(size_t i=0;i<120;i++){
+		stats_backref.freqs[i] = 1;
+	}
+	size_t height_max_code = inverse_prefix(height);
+	if(height_max_code > 20){
+		height_max_code = 20;
+	}
+	for(size_t i=0;i<height_max_code;i++){
+		stats_backref.freqs[120 + i] = 1;
+		stats_backref.freqs[140 + i] = 1;
+	}
+
+	backref_cost = entropyLookup(stats_backref);
+	matchlen_cost = entropyLookup(stats_matchlen);
+	future_cost = entropyLookup(stats_future);
+
+	for(size_t i=0;i<20;i++){
+		uint8_t extrabits = extrabits_from_prefix(i);
+		backref_cost[120 + i] += extrabits;
+		backref_cost[140 + i] += extrabits + 5;
+	}
+	for(size_t i=0;i<40;i++){
+		uint8_t extrabits = extrabits_from_prefix(i);
+		backref_cost[160 + i] += extrabits;
+		matchlen_cost[i] += extrabits;
+		future_cost[i] += extrabits;
+	}
+}
+
 void lz_cost(
 	lz_triple_c* lz_symbols,
 	size_t& lz_size,
@@ -811,10 +864,11 @@ lz_triple_c* lz_pruner(
 
 
 	for(size_t i=1;i<lz_size;i++){
-		double saved = 0;
+		double est = 0;
 		for(size_t j=0;j<=lz_data[i].val_matchlen;j++){
-			saved += estimate[index + j];
+			est += estimate[index + j];
 		}
+		double saved = est;
 		saved -= backref_cost[reval[i].backref];
 		saved -= matchlen_cost[reval[i].matchlen];
 		saved -= (
@@ -830,6 +884,7 @@ lz_triple_c* lz_pruner(
 			];
 		if(saved < 0){
 			total_minus += saved;
+			//printf("rem %f: %d,%d,%d |%f| %f,%f\n",saved,(int)reval[i].backref,(int)reval[i].matchlen,(int)reval[i].future,est,backref_cost[reval[i].backref],matchlen_cost[reval[i].matchlen]);
 			lz_data[newIndex - 1].val_future += lz_data[i].val_future + lz_data[i].val_matchlen + 1;
 			uint8_t future_prefix = inverse_prefix(lz_data[newIndex - 1].val_future);
 			reval[newIndex - 1].future = future_prefix;
@@ -1063,6 +1118,68 @@ lz_triple* lz_dist_modern(
 	
 
 	for(int i=0;i<width*height;){
+		//degenerate case
+		size_t future_iden = 0;
+		//double future_iden_value = 0;
+		for(size_t j=1;j + i < width*height;j++){
+			if(
+				in_bytes[i*3 + 0] == in_bytes[(i + j)*3 + 0]
+				&& in_bytes[i*3 + 1] == in_bytes[(i + j)*3 + 1]
+				&& in_bytes[i*3 + 2] == in_bytes[(i + j)*3 + 2]
+			){
+				future_iden++;
+				//future_iden_value += estimate[i + j];
+			}
+			else{
+				break;
+			}
+		}
+		if(future_iden > 100){
+			double val = 0;
+			for(size_t j=0;j < future_iden;j++){
+				val += estimate[i + j + 1];
+			}
+			val -= backref_cost[1];
+			val -= matchlen_cost[inverse_prefix(future_iden - 1)];
+			if(val > 0){
+				size_t match_length = future_iden - 1;
+				previous_match += 1;
+
+				lz_data[lz_size - 1].val_future = previous_match;
+				lz_data[lz_size].val_backref = 0;
+				lz_data[lz_size].val_matchlen = match_length;
+
+				lz_size++;
+				previous_match = 0;
+				i += match_length + 2;
+				continue;
+			}
+			else{
+				previous_match += future_iden + 1;
+				i += future_iden + 1;
+				continue;
+			}
+		}
+/*
+		if(future_iden_value > 15){
+			size_t match_length = future_iden - 1;
+			previous_match += 1;
+
+			lz_data[lz_size - 1].val_future = previous_match;
+			lz_data[lz_size].val_backref = 0;
+			lz_data[lz_size].val_matchlen = match_length;
+
+			lz_size++;
+			previous_match = 0;
+			i += match_length + 2;
+			continue;
+		}
+		else if(future_iden > 64){
+			previous_match += future_iden + 1;
+			i += future_iden + 1;
+			continue;
+		}
+*/
 		//short range
 		double best_insr = 0;
 		size_t best_backref = 0;
@@ -1086,7 +1203,7 @@ lz_triple* lz_dist_modern(
 					if(t > 0){
 						double val = 0;
 						for(size_t l=0;l<t;l++){
-							val += estimate[i + t];
+							val += estimate[i + l];
 						}
 						val -= backref_cost[lut_lookup];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
@@ -1119,7 +1236,7 @@ lz_triple* lz_dist_modern(
 					if(t > 0){
 						double val = 0;
 						for(size_t l=0;l<t;l++){
-							val += estimate[i + t];
+							val += estimate[i + l];
 						}
 						val -= backref_cost[140 + inverse_prefix(up - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
@@ -1151,7 +1268,7 @@ lz_triple* lz_dist_modern(
 					if(t > 0){
 						double val = 0;
 						for(size_t l=0;l<t;l++){
-							val += estimate[i + t];
+							val += estimate[i + l];
 						}
 						val -= backref_cost[160 + inverse_prefix(backref - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
@@ -1170,6 +1287,9 @@ lz_triple* lz_dist_modern(
 		if(backwards_limit > i){
 			backwards_limit = i;
 		}
+//
+		size_t search_matchlen = best_matchlen;
+//
 		for(size_t backref = 120;backref <= backwards_limit;backref++){
 			for(size_t t=0;i+t < width*height;t++){
 				if(
@@ -1177,10 +1297,11 @@ lz_triple* lz_dist_modern(
 					|| in_bytes[(i+t)*3 + 1] != in_bytes[(i+t-backref)*3 + 1]
 					|| in_bytes[(i+t)*3 + 2] != in_bytes[(i+t-backref)*3 + 2]
 				){
-					if(t > best_matchlen){
+					if(t > search_matchlen){
+						search_matchlen = t;
 						double val = 0;
 						for(size_t l=0;l<t;l++){
-							val += estimate[i + t];
+							val += estimate[i + l];
 						}
 						val -= backref_cost[160 + inverse_prefix(backref - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
@@ -1198,12 +1319,13 @@ lz_triple* lz_dist_modern(
 			best_insr > future_cost[0]
 		){
 			if(
+				//false &&
 				is_previous_vulnerable
 				&& (
 					previous_value
 					- future_cost[inverse_prefix(previous_match)]
-					- future_cost[inverse_prefix(lz_data[lz_size - 2].val_future)]
-					+ future_cost[inverse_prefix(previous_match + lz_data[lz_size - 2].val_future + 1 + lz_data[lz_size - 1].val_matchlen)] <= 0
+					- future_cost[inverse_prefix(lz_data[lz_size - 1].val_future)]
+					+ future_cost[inverse_prefix(previous_match + lz_data[lz_size - 1].val_future + 1 + lz_data[lz_size].val_matchlen)] <= 0
 				)
 			){
 				if(previous_match == 0){
@@ -1216,11 +1338,13 @@ lz_triple* lz_dist_modern(
 					i += best_matchlen;
 					previous_value = best_insr;
 					is_previous_vulnerable = true;
+					//is_previous_vulnerable = false;
 				}
 				else{
 					is_previous_vulnerable = false;
 					lz_size--;
 					i -= lz_data[lz_size].val_matchlen + previous_match;
+					previous_match = lz_data[lz_size - 1].val_future + 1;
 				}
 			}
 			else{
@@ -1233,6 +1357,7 @@ lz_triple* lz_dist_modern(
 				i += best_matchlen;
 				previous_value = best_insr;
 				is_previous_vulnerable = true;
+				//is_previous_vulnerable = false;
 			}
 		}
 		else{
@@ -1240,6 +1365,7 @@ lz_triple* lz_dist_modern(
 			i++;
 		}
 	}
+	lz_data[lz_size - 1].val_future = previous_match;
 	return lz_data;
 }
 
