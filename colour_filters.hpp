@@ -248,14 +248,10 @@ uint8_t* colour_filter_all_ffv1_subGreen(uint8_t* in_bytes, uint32_t range, uint
 			uint16_t TL = rsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 1] = sub_mod(
 				rsub[(y * width) + i] % range,
-				i_clamp(
-					ffv1(
-						L,
-						T,
-						TL
-					),
-					0,
-					2*range
+				ffv1(
+					L,
+					T,
+					TL
 				) % range,
 				range
 			);
@@ -264,14 +260,10 @@ uint8_t* colour_filter_all_ffv1_subGreen(uint8_t* in_bytes, uint32_t range, uint
 			TL = bsub[(y-1) * width + i - 1];
 			filtered[((y * width) + i)*3 + 2] = sub_mod(
 				bsub[(y * width) + i] % range,
-				i_clamp(
-					ffv1(
-						L,
-						T,
-						TL
-					),
-					0,
-					3*range
+				ffv1(
+					L,
+					T,
+					TL
 				) % range,
 				range
 			);
