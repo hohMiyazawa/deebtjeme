@@ -678,6 +678,20 @@ int main(int argc, char *argv[]){
 	size_t in_size;
 	uint8_t* in_bytes = read_file(argv[1], &in_size);
 	printf("read %d bytes\n",(int)in_size);
+	if(in_size >= 8){
+		if(
+			in_bytes[0] == 0x89
+			&& in_bytes[1] == 0x50
+			&& in_bytes[2] == 0x4E
+			&& in_bytes[3] == 0x47
+			&& in_bytes[4] == 0x0D
+			&& in_bytes[5] == 0x0A
+			&& in_bytes[6] == 0x1A
+			&& in_bytes[7] == 0x0A
+		){
+			panic("Input file is a PNG, not a hoh file!");
+		}
+	}
 
 	uint8_t* fileIndex = in_bytes;
 	uint32_t width =  readVarint(fileIndex) + 1;
