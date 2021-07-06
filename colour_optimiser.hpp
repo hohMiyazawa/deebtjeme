@@ -1364,9 +1364,9 @@ void colour_optimiser_take3_lz(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 40);
+		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -1839,9 +1839,9 @@ void colour_optimiser_take4_lz(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 40);
+		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -2309,9 +2309,9 @@ void colour_optimiser_take5_lz(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 40);
+		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -3133,6 +3133,18 @@ void colour_optimiser_take6_lz(
 	RansState rans;
 	RansEncInit(&rans);
 	if(LZ_used){
+		/*size_t counts[256];
+		for(size_t i=0;i<256;i++){
+			counts[i] = 0;
+		}
+		for(size_t i=1;i<lz_size;i++){
+			if(lz_data[i].val_matchlen < 256){
+				counts[lz_data[i].val_matchlen]++;
+			}
+		}
+		for(size_t i=0;i<256;i++){
+			printf("%d\n",(int)counts[i]);
+		}*/
 		SymbolStats stats_backref;
 		SymbolStats stats_matchlen;
 		SymbolStats stats_future;
@@ -3150,9 +3162,9 @@ void colour_optimiser_take6_lz(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 40);
+		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -3168,7 +3180,7 @@ void colour_optimiser_take6_lz(
 		double matchlen_cost = 0;
 		double future_cost = 0;
 
-		for(size_t i=0;i<40;i++){
+		for(size_t i=0;i<44;i++){
 			uint8_t extrabits = extrabits_from_prefix(i);
 			if(lz_table_matchlen.freqs[i]){
 				matchlen_cost += stats_matchlen.freqs[i] * (extrabits - std::log2((double)lz_table_matchlen.freqs[i]) + 16);
@@ -3176,8 +3188,8 @@ void colour_optimiser_take6_lz(
 			if(lz_table_future.freqs[i]){
 				future_cost += stats_future.freqs[i] * (extrabits - std::log2((double)lz_table_future.freqs[i]) + 16);
 			}
-			if(lz_table_backref.freqs[160+i]){
-				backref_cost += stats_backref.freqs[160+i] * (extrabits - std::log2((double)lz_table_backref.freqs[160+i]) + 16);
+			if(lz_table_backref.freqs[168+i]){
+				backref_cost += stats_backref.freqs[168+i] * (extrabits - std::log2((double)lz_table_backref.freqs[168+i]) + 16);
 			}
 		}
 		for(size_t i=0;i<120;i++){
@@ -3185,13 +3197,13 @@ void colour_optimiser_take6_lz(
 				backref_cost += stats_backref.freqs[i] * (-std::log2((double)lz_table_backref.freqs[i]) + 16);
 			}
 		}
-		for(size_t i=0;i<20;i++){
+		for(size_t i=0;i<24;i++){
 			uint8_t extrabits = extrabits_from_prefix(i);
 			if(lz_table_backref.freqs[120+i]){
 				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[120+i]) + 16 + 5);
 			}
-			if(lz_table_backref.freqs[140+i]){
-				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[140+i]) + 16);
+			if(lz_table_backref.freqs[144+i]){
+				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[144+i]) + 16);
 			}
 		}
 		printf("LZ: backref %f bytes, matchlen: %f bytes, offset: %f bytes\n",backref_cost/8,matchlen_cost/8,future_cost/8);
@@ -3889,9 +3901,9 @@ void colour_optimiser_take6_lz_old(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 40);
+		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -3907,7 +3919,7 @@ void colour_optimiser_take6_lz_old(
 		double matchlen_cost = 0;
 		double future_cost = 0;
 
-		for(size_t i=0;i<40;i++){
+		for(size_t i=0;i<44;i++){
 			uint8_t extrabits = extrabits_from_prefix(i);
 			if(lz_table_matchlen.freqs[i]){
 				matchlen_cost += stats_matchlen.freqs[i] * (extrabits - std::log2((double)lz_table_matchlen.freqs[i]) + 16);
@@ -3915,8 +3927,8 @@ void colour_optimiser_take6_lz_old(
 			if(lz_table_future.freqs[i]){
 				future_cost += stats_future.freqs[i] * (extrabits - std::log2((double)lz_table_future.freqs[i]) + 16);
 			}
-			if(lz_table_backref.freqs[160+i]){
-				backref_cost += stats_backref.freqs[160+i] * (extrabits - std::log2((double)lz_table_backref.freqs[160+i]) + 16);
+			if(lz_table_backref.freqs[168+i]){
+				backref_cost += stats_backref.freqs[168+i] * (extrabits - std::log2((double)lz_table_backref.freqs[168+i]) + 16);
 			}
 		}
 		for(size_t i=0;i<120;i++){
@@ -3924,13 +3936,13 @@ void colour_optimiser_take6_lz_old(
 				backref_cost += stats_backref.freqs[i] * (-std::log2((double)lz_table_backref.freqs[i]) + 16);
 			}
 		}
-		for(size_t i=0;i<20;i++){
+		for(size_t i=0;i<24;i++){
 			uint8_t extrabits = extrabits_from_prefix(i);
 			if(lz_table_backref.freqs[120+i]){
 				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[120+i]) + 16 + 5);
 			}
-			if(lz_table_backref.freqs[140+i]){
-				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[140+i]) + 16);
+			if(lz_table_backref.freqs[144+i]){
+				backref_cost += stats_backref.freqs[i] * (extrabits - std::log2((double)lz_table_backref.freqs[144+i]) + 16);
 			}
 		}
 		printf("LZ: backref %f bytes, matchlen: %f bytes, offset: %f bytes\n",backref_cost/8,matchlen_cost/8,future_cost/8);

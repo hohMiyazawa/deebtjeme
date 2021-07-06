@@ -656,7 +656,7 @@ lz_triple_c* lz_translator(
 		else if(width - back_x == 1 && back_y < 1024){
 			uint8_t vertical_prefix = inverse_prefix(back_y);
 			//printf("back_y %d\n",(int)vertical_prefix);
-			reval[i].backref = 140 + vertical_prefix;
+			reval[i].backref = 144 + vertical_prefix;
 
 			uint8_t extrabits = extrabits_from_prefix(vertical_prefix);
 			reval[i].backref_bits = prefix_extrabits(back_y) + (extrabits << 24);
@@ -679,7 +679,7 @@ lz_triple_c* lz_translator(
 		}
 		else{
 			uint8_t scanline_prefix = inverse_prefix(lz_data[i].val_backref);
-			reval[i].backref = 160 + scanline_prefix;
+			reval[i].backref = 168 + scanline_prefix;
 
 			uint8_t extrabits = extrabits_from_prefix(scanline_prefix);
 			reval[i].backref_bits = prefix_extrabits(lz_data[i].val_backref) + (extrabits << 24);
@@ -727,7 +727,7 @@ void lz_initial_cost(
 	for(size_t i=0;i<max_code;i++){
 		stats_matchlen.freqs[i] = 1;
 		stats_future.freqs[i] = 1;
-		stats_backref.freqs[160 + i] = 1;
+		stats_backref.freqs[168 + i] = 1;
 	}
 	for(size_t i=0;i<120;i++){
 		stats_backref.freqs[i] = 1;
@@ -738,7 +738,7 @@ void lz_initial_cost(
 	}
 	for(size_t i=0;i<height_max_code;i++){
 		stats_backref.freqs[120 + i] = 1;
-		stats_backref.freqs[140 + i] = 1;
+		stats_backref.freqs[144 + i] = 1;
 	}
 
 	backref_cost = entropyLookup(stats_backref);
@@ -748,11 +748,11 @@ void lz_initial_cost(
 	for(size_t i=0;i<20;i++){
 		uint8_t extrabits = extrabits_from_prefix(i);
 		backref_cost[120 + i] += extrabits;
-		backref_cost[140 + i] += extrabits + 5;
+		backref_cost[144 + i] += extrabits + 5;
 	}
 	for(size_t i=0;i<40;i++){
 		uint8_t extrabits = extrabits_from_prefix(i);
-		backref_cost[160 + i] += extrabits;
+		backref_cost[168 + i] += extrabits;
 		matchlen_cost[i] += extrabits;
 		future_cost[i] += extrabits;
 	}
@@ -787,11 +787,11 @@ void lz_cost(
 	for(size_t i=0;i<20;i++){
 		uint8_t extrabits = extrabits_from_prefix(i);
 		backref_cost[120 + i] += extrabits;
-		backref_cost[140 + i] += extrabits + 5;
+		backref_cost[144 + i] += extrabits + 5;
 	}
 	for(size_t i=0;i<40;i++){
 		uint8_t extrabits = extrabits_from_prefix(i);
-		backref_cost[160 + i] += extrabits;
+		backref_cost[168 + i] += extrabits;
 		matchlen_cost[i] += extrabits;
 		future_cost[i] += extrabits;
 	}
@@ -1015,7 +1015,7 @@ lz_triple* lz_dist_selfAware(
 				value -= backref_cost[120 + vertical_prefix];
 			}
 			else{
-				value -= backref_cost[160 + inverse_prefix(step_back - 1)];
+				value -= backref_cost[168 + inverse_prefix(step_back - 1)];
 			}
 
 			//value -= backref_cost[160 + inverse_prefix(step_back - 1)];
@@ -1054,7 +1054,7 @@ lz_triple* lz_dist_selfAware(
 				size_t back_y = (yy*width - 1) / width;
 
 				uint8_t vertical_prefix = inverse_prefix(back_y);
-				value -= backref_cost[140 + vertical_prefix];
+				value -= backref_cost[144 + vertical_prefix];
 
 				//value -= backref_cost[160 + inverse_prefix(yy*width - 1)];
 				value -= matchlen_cost[inverse_prefix(len - 1)];
@@ -1238,7 +1238,7 @@ lz_triple* lz_dist_modern(
 						for(size_t l=0;l<t;l++){
 							val += estimate[i + l];
 						}
-						val -= backref_cost[140 + inverse_prefix(up - 1)];
+						val -= backref_cost[144 + inverse_prefix(up - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
 						if(val > best_insr){
 							best_insr = val;
@@ -1270,7 +1270,7 @@ lz_triple* lz_dist_modern(
 						for(size_t l=0;l<t;l++){
 							val += estimate[i + l];
 						}
-						val -= backref_cost[160 + inverse_prefix(backref - 1)];
+						val -= backref_cost[168 + inverse_prefix(backref - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
 						if(val > best_insr){
 							best_insr = val;
@@ -1303,7 +1303,7 @@ lz_triple* lz_dist_modern(
 						for(size_t l=0;l<t;l++){
 							val += estimate[i + l];
 						}
-						val -= backref_cost[160 + inverse_prefix(backref - 1)];
+						val -= backref_cost[168 + inverse_prefix(backref - 1)];
 						val -= matchlen_cost[inverse_prefix(t - 1)];
 						if(val > best_insr){
 							best_insr = val;

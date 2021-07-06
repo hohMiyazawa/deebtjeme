@@ -128,7 +128,7 @@ uint8_t read_prefixcode(RansState& rans, RansDecSymbol* sym, SymbolStats stats, 
 	RansDecAdvanceSymbol(&rans, &fileIndex, &sym[s], 16);
 	return s;
 }
-
+/*
 uint8_t inverse_prefix(size_t value){
 	if(value < 5){
 		return (uint8_t)value;
@@ -194,6 +194,123 @@ uint32_t prefix_to_val(
 	}
 	return value;
 }
+*/
+
+uint8_t native_inverse_prefix(size_t value){
+	if(value < 5){
+		return (uint8_t)value;
+	}
+	uint8_t magnitude  = log2_plus(value);
+	uint8_t magnitude2 = log2_plus(value - (1 << (magnitude - 1)));
+	uint8_t halfcode = magnitude*2;
+	if(magnitude2 + 1 == magnitude){
+		return halfcode - 1;
+	}
+	else{
+		return halfcode - 2;
+	}
+}
+
+uint8_t native_extrabits_from_prefix(uint8_t prefix){
+	if(prefix < 4){
+		return 0;
+	}
+	else{
+		return prefix/2 - 1;
+	}
+}
+
+uint32_t native_prefix_extrabits(size_t value){
+	if(value < 4){
+		return 0;
+	}
+	uint8_t magnitude  = log2_plus(value);
+	uint8_t magnitude2 = log2_plus(value - (1 << (magnitude - 1)));
+	if(magnitude2 + 1 == magnitude){
+		return value - (1 << (magnitude - 1)) - (1 << (magnitude2 - 1));
+	}
+	else{
+		return value - (1 << (magnitude - 1));
+	}
+}
+
+uint32_t native_prefix_to_val(
+	uint8_t prefix,
+	RansState& rans,
+	uint8_t*& fileIndex,
+	RansDecSymbol decode_binary_zero,
+	RansDecSymbol decode_binary_one
+){
+	if(prefix < 4){
+		return (uint32_t)prefix;
+	}
+	uint32_t value = (1 << (prefix/2));
+	if(prefix % 2){
+		value += (value >> 1);
+	}
+	uint8_t extrabits = native_extrabits_from_prefix(prefix);
+	for(size_t shift = 0;shift < extrabits;shift++){
+		uint32_t cumFreq = RansDecGet(&rans, 16);
+		if(cumFreq < (1 << 15)){
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_zero, 16);
+		}
+		else{
+			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_one, 16);
+			value += (1 << (extrabits - shift - 1));
+		}
+	}
+	return value;
+}
+
+size_t extra_offset = 4;
+
+uint8_t inverse_prefix(size_t value){
+	if(value < extra_offset){
+		return (uint8_t)value;
+	}
+	else{
+		return extra_offset + native_inverse_prefix(value - extra_offset);
+	}
+}
+
+uint8_t extrabits_from_prefix(uint8_t prefix){
+	if(prefix < extra_offset){
+		return 0;
+	}
+	else{
+		return native_extrabits_from_prefix(prefix - extra_offset);
+	}
+}
+
+uint32_t prefix_extrabits(size_t value){
+	if(value < extra_offset){
+		return 0;
+	}
+	else{
+		return native_prefix_extrabits(value - extra_offset);
+	}
+}
+
+uint32_t prefix_to_val(
+	uint8_t prefix,
+	RansState& rans,
+	uint8_t*& fileIndex,
+	RansDecSymbol decode_binary_zero,
+	RansDecSymbol decode_binary_one
+){
+	if(prefix < extra_offset){
+		return (uint32_t)prefix;
+	}
+	else{
+		return extra_offset + native_prefix_to_val(
+			prefix - extra_offset,
+			rans,
+			fileIndex,
+			decode_binary_zero,
+			decode_binary_one
+		);
+	}
+}
 
 uint8_t read32(
 	RansState& rans,
@@ -211,19 +328,6 @@ uint8_t read32(
 			RansDecAdvanceSymbol(&rans, &fileIndex, &decode_binary_one, 16);
 			value += (1 << (4 - shift));
 		}
-	}
-	return value;
-}
-
-uint32_t prefix_to_val_noExtra(
-	uint8_t prefix
-){
-	if(prefix < 4){
-		return (uint32_t)prefix;
-	}
-	uint32_t value = (1 << (prefix/2));
-	if(prefix % 2){
-		value += (value >> 1);
 	}
 	return value;
 }

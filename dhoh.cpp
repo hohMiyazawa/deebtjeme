@@ -222,9 +222,9 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 	RansDecSymbol dml[256];
 	RansDecSymbol dfr[256];
 
-	uint8_t max_ba_table_prefix = 200;
-	uint8_t max_ml_table_prefix = 40;
-	uint8_t max_fr_table_prefix = 40;
+	uint8_t max_ba_table_prefix = 212;
+	uint8_t max_ml_table_prefix = 44;
+	uint8_t max_fr_table_prefix = 44;
 
 	if(LZ){
 		BitReader reader(&fileIndex);
@@ -273,18 +273,18 @@ uint8_t* readImage(uint8_t*& fileIndex, size_t range,uint32_t width,uint32_t hei
 			if(backref_prefix < 120){
 				backref = lut_y[backref_prefix]*width + lut_x[backref_prefix];
 			}
-			else if(backref_prefix < 140){
+			else if(backref_prefix < 144){
 				size_t vertical = prefix_to_val(backref_prefix - 120, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				uint8_t xoffset = read32(rans, fileIndex, decode_binary_zero, decode_binary_one);
 				backref = (vertical + 1) * width - xoffset + 16;
 				//printf("xoff: %d %d %d\n",(int)backref,(int)xoffset,(int)(vertical + 1));
 			}
-			else if(backref_prefix < 160){
-				size_t vertical = prefix_to_val(backref_prefix - 140, rans, fileIndex, decode_binary_zero, decode_binary_one);
+			else if(backref_prefix < 168){
+				size_t vertical = prefix_to_val(backref_prefix - 144, rans, fileIndex, decode_binary_zero, decode_binary_one);
 				backref = (vertical + 1) * width;
 			}
 			else{
-				backref = prefix_to_val(backref_prefix - 160, rans, fileIndex, decode_binary_zero, decode_binary_one) + 1;
+				backref = prefix_to_val(backref_prefix - 168, rans, fileIndex, decode_binary_zero, decode_binary_one) + 1;
 			}
 
 			uint8_t matchlen_prefix = read_prefixcode(rans, dml, matchlen_table, fileIndex);

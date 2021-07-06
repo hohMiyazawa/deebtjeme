@@ -460,9 +460,9 @@ void encode_grey_binary_entropy_lz(uint8_t* in_bytes, uint32_t range,uint32_t wi
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 40);
+		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -2729,9 +2729,9 @@ void optimiser_take5_lz(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 40);
+		SymbolStats lz_table_backref  = encode_freqTable(stats_backref,  lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future   = encode_freqTable(stats_future,   lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 		/*printf(
 			"inv pref %d %d %d %d\n",
