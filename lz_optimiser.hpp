@@ -1398,6 +1398,10 @@ lz_triple* lz_dist_modern_grey(
 
 	bool is_previous_vulnerable = false;
 	double previous_value = 0;
+
+	if(lz_limit > (1 << 20)){
+		lz_limit = (1 << 20);
+	}
 	
 
 	for(int i=0;i<width*height;){

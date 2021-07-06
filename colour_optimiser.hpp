@@ -10,9 +10,9 @@
 #include "bitwriter.hpp"
 #include "colour_simple_encoders.hpp"
 #include "colour_predictor_optimiser.hpp"
+#include "prefix_coding.hpp"
 #include "lz_optimiser.hpp"
 #include "crossColour_optimiser.hpp"
-#include "prefix_coding.hpp"
 
 void colour_optimiser_entropyOnly(
 	uint8_t* in_bytes,

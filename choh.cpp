@@ -18,6 +18,7 @@
 #include "optimiser.hpp"
 #include "colour_optimiser.hpp"
 #include "index_encoder.hpp"
+#include "binary_optimiser.hpp"
 #include "prefix_coding.hpp"
 
 void print_usage(){
@@ -68,8 +69,11 @@ int main(int argc, char *argv[]){
 			if(speed < 4){
 				encode_grey_binary_entropy(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
 			}
-			else{
+			else if(speed < 5){
 				encode_grey_binary_entropy_lz(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
+			}
+			else{
+				encode_grey_binary_entropy_lz2(grey, 256, width, height, outPointer, palette[0], palette[1], speed);
 			}
 		}
 		else{
