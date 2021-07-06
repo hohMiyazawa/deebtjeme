@@ -1135,6 +1135,10 @@ lz_triple* lz_dist_modern(
 			}
 		}
 		if(future_iden > 100){
+			if(future_iden > (1 << 20)){
+				future_iden = (1 << 20);
+				printf("oh no!\n");
+			}
 			double val = 0;
 			for(size_t j=0;j < future_iden;j++){
 				val += estimate[i + j + 1];
@@ -1328,6 +1332,9 @@ lz_triple* lz_dist_modern(
 					+ future_cost[inverse_prefix(previous_match + lz_data[lz_size - 1].val_future + 1 + lz_data[lz_size].val_matchlen)] <= 0
 				)
 			){
+				if(best_matchlen > (1 << 20)){
+					panic("oh no!\n");
+				}
 				if(previous_match == 0){
 					lz_size--;
 					lz_data[lz_size - 1].val_future += lz_data[lz_size].val_matchlen + 1;
@@ -1348,6 +1355,9 @@ lz_triple* lz_dist_modern(
 				}
 			}
 			else{
+				if(best_matchlen > (1 << 20)){
+					best_matchlen = (1 << 20);
+				}
 				lz_data[lz_size - 1].val_future = previous_match;
 				lz_data[lz_size].val_backref = best_backref - 1;
 				lz_data[lz_size].val_matchlen = best_matchlen - 1;
