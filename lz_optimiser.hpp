@@ -1369,4 +1369,267 @@ lz_triple* lz_dist_modern(
 	return lz_data;
 }
 
+lz_triple* lz_dist_modern_grey(
+	uint8_t* in_bytes,
+	float* estimate,
+	uint32_t width,
+	uint32_t height,
+	double* backref_cost,
+	double* matchlen_cost,
+	double* future_cost,
+	size_t& lz_size,
+	size_t lz_limit
+){
+	lz_triple* lz_data = new lz_triple[10 + width*height/2];
+
+	size_t previous_match = 0;
+	lz_data[0].val_future = 0;
+	lz_size = 1;
+
+	bool is_previous_vulnerable = false;
+	double previous_value = 0;
+	
+
+	for(int i=0;i<width*height;){
+		//degenerate case
+		size_t future_iden = 0;
+		//double future_iden_value = 0;
+		for(size_t j=1;j + i < width*height;j++){
+			if(
+				in_bytes[i] == in_bytes[i + j]
+			){
+				future_iden++;
+				//future_iden_value += estimate[i + j];
+			}
+			else{
+				break;
+			}
+		}
+		if(future_iden > 100){
+			double val = 0;
+			for(size_t j=0;j < future_iden;j++){
+				val += estimate[i + j + 1];
+			}
+			val -= backref_cost[1];
+			val -= matchlen_cost[inverse_prefix(future_iden - 1)];
+			if(val > 0){
+				size_t match_length = future_iden - 1;
+				previous_match += 1;
+
+				lz_data[lz_size - 1].val_future = previous_match;
+				lz_data[lz_size].val_backref = 0;
+				lz_data[lz_size].val_matchlen = match_length;
+
+				lz_size++;
+				previous_match = 0;
+				i += match_length + 2;
+				continue;
+			}
+			else{
+				previous_match += future_iden + 1;
+				i += future_iden + 1;
+				continue;
+			}
+		}
+/*
+		if(future_iden_value > 15){
+			size_t match_length = future_iden - 1;
+			previous_match += 1;
+
+			lz_data[lz_size - 1].val_future = previous_match;
+			lz_data[lz_size].val_backref = 0;
+			lz_data[lz_size].val_matchlen = match_length;
+
+			lz_size++;
+			previous_match = 0;
+			i += match_length + 2;
+			continue;
+		}
+		else if(future_iden > 64){
+			previous_match += future_iden + 1;
+			i += future_iden + 1;
+			continue;
+		}
+*/
+		//short range
+		double best_insr = 0;
+		size_t best_backref = 0;
+		size_t best_matchlen = 0;
+
+		size_t backwards_limit = lz_limit;
+		if(backwards_limit > 120){
+			backwards_limit = 120;
+		}
+		for(size_t lut_lookup = 0;lut_lookup < backwards_limit;lut_lookup++){
+			size_t backref = lut_y[lut_lookup]*width + lut_x[lut_lookup];
+			if(backref > i){
+				continue;
+			}
+			for(size_t t=0;i+t < width*height;t++){
+				if(
+					   in_bytes[i+t] != in_bytes[i+t-backref]
+				){
+					if(t > 0){
+						double val = 0;
+						for(size_t l=0;l<t;l++){
+							val += estimate[i + l];
+						}
+						val -= backref_cost[lut_lookup];
+						val -= matchlen_cost[inverse_prefix(t - 1)];
+						if(val > best_insr){
+							best_insr = val;
+							best_backref = backref;
+							best_matchlen = t;
+						}
+					}
+					break;
+				}
+			}
+		}
+		//up
+		backwards_limit = lz_limit;
+		if(backwards_limit > 120){
+			backwards_limit = 120;
+		}
+		if(backwards_limit > i/width){
+			backwards_limit = i/width;
+		}
+		for(size_t up = 1;up <= backwards_limit;up++){
+			size_t backref = up*width;
+			for(size_t t=0;i+t < width*height;t++){
+				if(
+					   in_bytes[i+t] != in_bytes[i+t-backref]
+				){
+					if(t > 0){
+						double val = 0;
+						for(size_t l=0;l<t;l++){
+							val += estimate[i + l];
+						}
+						val -= backref_cost[144 + inverse_prefix(up - 1)];
+						val -= matchlen_cost[inverse_prefix(t - 1)];
+						if(val > best_insr){
+							best_insr = val;
+							best_backref = backref;
+							best_matchlen = t;
+						}
+					}
+					break;
+				}
+			}
+		}
+		//left
+		backwards_limit = lz_limit;
+		if(backwards_limit > 120){
+			backwards_limit = 120;
+		}
+		if(backwards_limit > i){
+			backwards_limit = i;
+		}
+		for(size_t backref = 1;backref <= backwards_limit;backref++){
+			for(size_t t=0;i+t < width*height;t++){
+				if(
+					   in_bytes[i+t] != in_bytes[i+t-backref]
+				){
+					if(t > 0){
+						double val = 0;
+						for(size_t l=0;l<t;l++){
+							val += estimate[i + l];
+						}
+						val -= backref_cost[168 + inverse_prefix(backref - 1)];
+						val -= matchlen_cost[inverse_prefix(t - 1)];
+						if(val > best_insr){
+							best_insr = val;
+							best_backref = backref;
+							best_matchlen = t;
+						}
+					}
+					break;
+				}
+			}
+		}
+		//long range
+		backwards_limit = lz_limit;
+		if(backwards_limit > i){
+			backwards_limit = i;
+		}
+//
+		size_t search_matchlen = best_matchlen;
+//
+		for(size_t backref = 120;backref <= backwards_limit;backref++){
+			for(size_t t=0;i+t < width*height;t++){
+				if(
+					   in_bytes[i+t] != in_bytes[i+t-backref]
+				){
+					if(t > search_matchlen){
+						search_matchlen = t;
+						double val = 0;
+						for(size_t l=0;l<t;l++){
+							val += estimate[i + l];
+						}
+						val -= backref_cost[168 + inverse_prefix(backref - 1)];
+						val -= matchlen_cost[inverse_prefix(t - 1)];
+						if(val > best_insr){
+							best_insr = val;
+							best_backref = backref;
+							best_matchlen = t;
+						}
+					}
+					break;
+				}
+			}
+		}
+		if(
+			best_insr > future_cost[0]
+		){
+			if(
+				//false &&
+				is_previous_vulnerable
+				&& (
+					previous_value
+					- future_cost[inverse_prefix(previous_match)]
+					- future_cost[inverse_prefix(lz_data[lz_size - 1].val_future)]
+					+ future_cost[inverse_prefix(previous_match + lz_data[lz_size - 1].val_future + 1 + lz_data[lz_size].val_matchlen)] <= 0
+				)
+			){
+				if(previous_match == 0){
+					lz_size--;
+					lz_data[lz_size - 1].val_future += lz_data[lz_size].val_matchlen + 1;
+					lz_data[lz_size].val_backref = best_backref - 1;
+					lz_data[lz_size].val_matchlen = best_matchlen - 1;
+
+					lz_size++;
+					i += best_matchlen;
+					previous_value = best_insr;
+					is_previous_vulnerable = true;
+					//is_previous_vulnerable = false;
+				}
+				else{
+					is_previous_vulnerable = false;
+					lz_size--;
+					i -= lz_data[lz_size].val_matchlen + previous_match;
+					previous_match = lz_data[lz_size - 1].val_future + 1;
+				}
+			}
+			else{
+				lz_data[lz_size - 1].val_future = previous_match;
+				lz_data[lz_size].val_backref = best_backref - 1;
+				lz_data[lz_size].val_matchlen = best_matchlen - 1;
+
+				lz_size++;
+				previous_match = 0;
+				i += best_matchlen;
+				previous_value = best_insr;
+				is_previous_vulnerable = true;
+				//is_previous_vulnerable = false;
+			}
+		}
+		else{
+			previous_match++;
+			i++;
+		}
+	}
+	lz_data[lz_size - 1].val_future = previous_match;
+	return lz_data;
+}
+
 #endif //LZ_OPTIMISER

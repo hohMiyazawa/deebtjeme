@@ -441,9 +441,9 @@ void indexed_encode_speed3(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
-		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 40);
+		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
+		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 44);
 		lz_tableEncode.conclude();
 
 		RansEncSymbol esyms_backref[256];
@@ -800,8 +800,8 @@ void indexed_encode_speed4(
 		stats_future.freqs[lz_symbols[0].future]++;
 
 		BitWriter lz_tableEncode;
-		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 200);
-		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 40);
+		SymbolStats lz_table_backref = encode_freqTable(stats_backref, lz_tableEncode, 212);
+		SymbolStats lz_table_matchlen = encode_freqTable(stats_matchlen, lz_tableEncode, 44);
 		SymbolStats lz_table_future = encode_freqTable(stats_future, lz_tableEncode, 40);
 		lz_tableEncode.conclude();
 
